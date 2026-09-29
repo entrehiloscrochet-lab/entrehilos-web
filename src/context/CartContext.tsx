@@ -215,7 +215,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     message += `━━━━━━━━━━━━━━━━━━\n\n`;
     message += `¡Hola! Me gustaría confirmar este pedido por favor. `;
     
-    return encodeURIComponent(message);
+    return message;
   };
 
   return (

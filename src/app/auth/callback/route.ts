@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
           .select('rol')
           .eq('id', user.id)
           .maybeSingle()
-        if (profile?.rol === 'admin') {
+        if (profile?.rol === 'admin' || profile?.rol === 'super_admin') {
           response.headers.set('Location', `${origin}/admin`)
         }
         if (!profile) {

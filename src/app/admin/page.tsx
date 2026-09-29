@@ -9,7 +9,7 @@ import {
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
 } from "lucide-react";
 
-type MainTab = "dashboard" | "pedidos" | "catalogo" | "diseno" | "eventos" | "resenas" | "atencion" | "clientes";
+type MainTab = "dashboard" | "pedidos" | "catalogo" | "diseno" | "eventos" | "atencion" | "clientes";
 
 type SubTab = "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores";
 
@@ -30,12 +30,10 @@ const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; d
   eventos: [
     { id: "eventos", label: "Eventos Especiales", icon: Sparkles, desc: "Campañas y fechas especiales activas" },
   ],
-  resenas: [
-    { id: "resenas", label: "Reseñas y Calificaciones", icon: Star, desc: "Calificaciones de clientes y testimonios" },
-  ],
   atencion: [
     { id: "mensajes", label: "Mensajes de Contacto", icon: MessageSquare, desc: "Consultas enviadas desde el formulario" },
     { id: "reclamaciones", label: "Libro de Reclamaciones", icon: ClipboardList, desc: "Reclamos y quejas formales de clientes" },
+    { id: "resenas", label: "Reseñas y Calificaciones", icon: Star, desc: "Calificaciones de clientes y testimonios" },
   ],
   clientes: [
     { id: "usuarios", label: "Usuarios Registrados", icon: UserCheck, desc: "Cuentas de clientes con perfil registrado" },
@@ -49,8 +47,7 @@ const menuGroups: { id: MainTab; label: string; icon: any; desc: string; default
   { id: "catalogo", label: "Catálogo", icon: Package, desc: "Productos activos y precios por tamaño", defaultSubTab: "productos" },
   { id: "diseno", label: "Banners y Diseño", icon: ImageIcon, desc: "Banners hero y secciones de inicio", defaultSubTab: "heroes" },
   { id: "eventos", label: "Eventos", icon: Sparkles, desc: "Campañas y fechas especiales", defaultSubTab: "eventos" },
-  { id: "resenas", label: "Reseñas", icon: Star, desc: "Calificaciones y testimonios", defaultSubTab: "resenas" },
-  { id: "atencion", label: "Atención al Cliente", icon: MessageSquare, desc: "Mensajes de contacto y reclamaciones", defaultSubTab: "mensajes" },
+  { id: "atencion", label: "Atención al Cliente", icon: MessageSquare, desc: "Mensajes, reclamaciones y reseñas", defaultSubTab: "mensajes" },
   { id: "clientes", label: "Clientes y Usuarios", icon: Users, desc: "Usuarios registrados y suscriptores", defaultSubTab: "usuarios" },
 ];
 
@@ -647,7 +644,7 @@ export default function AdminPage() {
         .select("rol")
         .eq("id", user.id)
         .maybeSingle();
-      if (profile?.rol !== "admin") { router.push("/"); return; }
+      if (profile?.rol !== "admin" && profile?.rol !== "super_admin") { router.push("/"); return; }
       setAuthorized(true);
     })();
   }, [router]);

@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, CheckCircle2, MapPin, Phone, User, Mail, Truck, Lock, ShieldCheck, ChevronDown } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, CheckCircle2, MapPin, Phone, User, Mail, Truck, Lock, ShieldCheck, ChevronDown, Check } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/components/Toast";
 import { getUsuarioId } from "@/lib/anon-id";
@@ -21,6 +21,16 @@ export default function CartPage() {
   const [direccionCalle, setDireccionCalle] = useState("");
   const [referencia, setReferencia] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [perfilSugerido, setPerfilSugerido] = useState<{
+    nombre?: string;
+    telefono?: string;
+    departamento?: string;
+    provincia?: string;
+    distrito?: string;
+    direccion?: string;
+    referencia?: string;
+  } | null>(null);
+  const [sugerenciaAplicada, setSugerenciaAplicada] = useState(false);
 
   const departamentos = useMemo(() => getDepartamentos(), []);
   const provincias = useMemo(() => getProvincias(departamento), [departamento]);
@@ -42,24 +52,45 @@ export default function CartPage() {
     if (!user) return;
     (async () => {
       try {
-        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-        const supabase = getSupabaseBrowserClient();
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("nombre, telefono, direccion")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (profile) {
-          if (profile.nombre) setClienteNombre(profile.nombre);
-          if (profile.telefono) setClienteTelefono(profile.telefono);
-          if (profile.direccion) setDireccionCalle(profile.direccion);
+        let pData: any = null;
+        const localKey = `entrehilos_perfil_envio_${user.id}`;
+        const localData = localStorage.getItem(localKey);
+        if (localData) {
+          try { pData = JSON.parse(localData); } catch {}
         }
-        if (user.email) setClienteEmail(user.email);
+
+        const res = await fetch(`/api/perfil?userId=${user.id}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.profile) {
+            pData = { ...pData, ...json.profile };
+          }
+        }
+
+        if (pData) {
+          setPerfilSugerido(pData);
+          if (pData.nombre && !clienteNombre) setClienteNombre(pData.nombre);
+          if (pData.telefono && !clienteTelefono) setClienteTelefono(pData.telefono);
+        }
+        if (user.email && !clienteEmail) setClienteEmail(user.email);
       } catch (e) {
         console.error("Error fetching profile:", e);
       }
     })();
   }, [user]);
+
+  const aplicarDatosPerfil = () => {
+    if (!perfilSugerido) return;
+    if (perfilSugerido.nombre) setClienteNombre(perfilSugerido.nombre);
+    if (perfilSugerido.telefono) setClienteTelefono(perfilSugerido.telefono);
+    if (perfilSugerido.departamento) setDepartamento(perfilSugerido.departamento);
+    if (perfilSugerido.provincia) setProvincia(perfilSugerido.provincia);
+    if (perfilSugerido.distrito) setDistrito(perfilSugerido.distrito);
+    if (perfilSugerido.direccion) setDireccionCalle(perfilSugerido.direccion);
+    if (perfilSugerido.referencia) setReferencia(perfilSugerido.referencia);
+    setSugerenciaAplicada(true);
+    showToast("¡Datos de entrega aplicados desde tu perfil!", "success");
+  };
 
   const handleConfirmCheckout = async () => {
     if (!clienteNombre.trim() || !clienteTelefono.trim()) {
@@ -73,6 +104,9 @@ export default function CartPage() {
 
     setEnviando(true);
 
+    const emailFinal = (clienteEmail || user?.email || "").trim();
+    const usuarioIdFinal = user?.id || getUsuarioId();
+
     // Guardamos el pedido en Supabase. Si falla, avisamos pero igual
     // dejamos continuar a WhatsApp para no bloquear la venta.
     try {
@@ -82,10 +116,10 @@ export default function CartPage() {
         body: JSON.stringify({
           type: "pedido",
           data: {
-            usuario_id: getUsuarioId(),
+            usuario_id: usuarioIdFinal,
             cliente_nombre: clienteNombre.trim(),
             cliente_telefono: clienteTelefono.trim(),
-            cliente_email: clienteEmail.trim() || undefined,
+            cliente_email: emailFinal || null,
             direccion_envio: direccionEnvio.trim(),
             items: items.map(function (i) {
               return { id: i.id, nombre: i.nombre, precio: i.precio, cantidad: i.quantity, extras: i.extras };
@@ -96,6 +130,8 @@ export default function CartPage() {
         }),
       });
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Error al guardar pedido en Supabase:", errorData);
         showToast("No pudimos guardar tu pedido en el sistema, pero puedes continuar por WhatsApp", "warning");
       }
     } catch (e) {
@@ -106,30 +142,39 @@ export default function CartPage() {
     // Si el usuario está logueado, guardamos sus datos de envío en su perfil
     if (user) {
       try {
-        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-        const supabase = getSupabaseBrowserClient();
-        await supabase.from("profiles").upsert({
+        const perfilPayload = {
           id: user.id,
           nombre: clienteNombre.trim(),
           telefono: clienteTelefono.trim(),
-          email: clienteEmail.trim() || user.email,
-          direccion: direccionEnvio.trim(),
-          updated_at: new Date().toISOString(),
-        });
+          email: emailFinal || user.email,
+          departamento,
+          provincia,
+          distrito,
+          direccion: direccionCalle.trim(),
+          referencia: referencia.trim(),
+          localidad: [distrito, provincia, departamento].filter(Boolean).join(", "),
+        };
+        try {
+          localStorage.setItem(`entrehilos_perfil_envio_${user.id}`, JSON.stringify(perfilPayload));
+        } catch {}
+        fetch("/api/perfil", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(perfilPayload),
+        }).catch(() => {});
       } catch (e) {
         console.error("Error updating profile:", e);
       }
     }
 
-    // El mensaje base y los datos de entrega se codifican juntos para que
-    // tildes, ñ, saltos de línea y emojis lleguen correctos a WhatsApp.
+    // El mensaje base y los datos de entrega se codifican limpiamente una sola vez
     const mensajeBase = getWhatsAppMessage();
-    const datosEntrega = `\n\n*Datos de entrega:*\nNombre: ${clienteNombre}\nTeléfono: ${clienteTelefono}\nDirección: ${direccionEnvio}`;
-    const whatsappUrl = `https://wa.me/51902578295?text=${encodeURIComponent(mensajeBase + datosEntrega)}`;
+    const textoBase = mensajeBase.includes("%") ? decodeURIComponent(mensajeBase) : mensajeBase;
+    const datosEntrega = `\n\n*Datos de entrega:*\nNombre: ${clienteNombre.trim()}\nTeléfono: ${clienteTelefono.trim()}\n${emailFinal ? `Email: ${emailFinal}\n` : ""}Dirección: ${direccionEnvio.trim()}`;
+    const whatsappUrl = `https://wa.me/51902578295?text=${encodeURIComponent(textoBase + datosEntrega)}`;
     window.open(whatsappUrl, "_blank");
 
     // El pedido ya se envió (a Supabase y/o WhatsApp): limpiamos el carrito
-    // para que el cliente no vuelva a encontrarlo lleno y reenvíe el mismo pedido.
     clearCart();
     setEnviando(false);
   };
@@ -308,6 +353,48 @@ export default function CartPage() {
                   </Link>{" "}
                   para agilizar tu pedido.
                 </p>
+              )}
+
+              {isLoggedIn && perfilSugerido && (perfilSugerido.direccion || perfilSugerido.departamento || perfilSugerido.distrito) && (
+                <div className="ml-0 sm:ml-8 mb-4 bg-gradient-to-r from-[#FDF4F7] to-pink-50/60 border border-[#EE6B8D]/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#EE6B8D]/15 text-[#EE6B8D] flex items-center justify-center shrink-0 mt-0.5">
+                      <MapPin size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-fredoka text-sm font-bold text-[#C04267]">
+                          ¿Usar dirección habitual de tu perfil?
+                        </p>
+                        <span className="text-[10px] font-semibold bg-[#EE6B8D]/10 text-[#C04267] px-2 py-0.5 rounded-full">
+                          Sugerencia
+                        </span>
+                      </div>
+                      <p className="font-quicksand text-xs text-gray-600 mt-1">
+                        {[perfilSugerido.direccion, perfilSugerido.distrito, perfilSugerido.provincia, perfilSugerido.departamento].filter(Boolean).join(", ")}
+                        {perfilSugerido.telefono ? ` · Tel: ${perfilSugerido.telefono}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={aplicarDatosPerfil}
+                    className={`self-start sm:self-auto shrink-0 px-4 py-2 rounded-full font-quicksand text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      sugerenciaAplicada
+                        ? "bg-green-600 text-white shadow-xs"
+                        : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
+                    }`}
+                  >
+                    {sugerenciaAplicada ? (
+                      <>
+                        <Check size={14} />
+                        Datos aplicados
+                      </>
+                    ) : (
+                      "Usar esta dirección"
+                    )}
+                  </button>
+                </div>
               )}
 
               <div className="ml-0 sm:ml-8 bg-white border border-gray-200 rounded-xl p-5 sm:p-6 space-y-4">

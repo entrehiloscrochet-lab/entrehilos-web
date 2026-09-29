@@ -28,7 +28,7 @@ export default function LoginPage() {
       .select("rol")
       .eq("id", user.id)
       .maybeSingle();
-    if (profile?.rol === "admin") {
+    if (profile?.rol === "admin" || profile?.rol === "super_admin") {
       router.push("/admin");
     } else {
       router.push("/");

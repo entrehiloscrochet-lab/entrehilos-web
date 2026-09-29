@@ -120,11 +120,46 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (action === "cambiar-estado") {
+    const { data: pedidoData } = await supabaseAdmin
+      .from("pedidos")
+      .select("id, usuario_id, cliente_email, cliente_nombre")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await supabaseAdmin
       .from("pedidos")
       .update({ estado: updates.estado })
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (pedidoData) {
+      try {
+        const notifTitulo = updates.estado === "entregado" ? `Tu Pedido #${id} ha sido entregado`
+          : updates.estado === "enviado" ? `Tu Pedido #${id} va en camino`
+          : updates.estado === "confirmado" ? `Tu Pedido #${id} fue confirmado`
+          : updates.estado === "cancelado" ? `Tu Pedido #${id} fue cancelado`
+          : `Actualización de Pedido #${id}`;
+
+        const notifMensaje = updates.estado === "entregado" ? "Tu detalle tejido a mano fue entregado con éxito. Gracias por confiar en Entre Hilos."
+          : updates.estado === "enviado" ? "Tu pedido ha sido despachado y se encuentra en camino a tu dirección de entrega."
+          : updates.estado === "confirmado" ? "Confirmamos tu pedido y estamos preparándolo en nuestro taller."
+          : updates.estado === "cancelado" ? "Tu pedido ha sido cancelado. Si tienes alguna duda, escríbenos a soporte."
+          : `El estado de tu pedido cambió a ${updates.estado}.`;
+
+        await supabaseAdmin.from("notificaciones").insert([{
+          usuario_id: pedidoData.usuario_id || null,
+          email: pedidoData.cliente_email || null,
+          pedido_id: id,
+          tipo: updates.estado,
+          titulo: notifTitulo,
+          mensaje: notifMensaje,
+          leido: false,
+        }]);
+      } catch (err) {
+        // Ignorar si la tabla notificaciones no existe aún
+      }
+    }
+
     return NextResponse.json({ success: true });
   }
 
@@ -138,11 +173,43 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (action === "personalizado-estado") {
+    const { data: persData } = await supabaseAdmin
+      .from("pedidos_personalizados")
+      .select("id, email, nombre_cliente, producto_nombre")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await supabaseAdmin
       .from("pedidos_personalizados")
       .update({ estado: updates.estado })
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (persData) {
+      try {
+        const notifTitulo = updates.estado === "entregado" ? `Tu pedido personalizado ha sido entregado`
+          : updates.estado === "listo" ? `Tu pedido personalizado está listo`
+          : updates.estado === "en_produccion" ? `Tu pedido personalizado está en producción`
+          : `Actualización de pedido personalizado`;
+
+        const notifMensaje = updates.estado === "entregado" ? "Tu pedido personalizado fue entregado con éxito."
+          : updates.estado === "listo" ? "Tu detalle personalizado está listo para coordinar la entrega."
+          : updates.estado === "en_produccion" ? "Comenzamos a confeccionar tu pedido personalizado con dedicación."
+          : `El estado de tu pedido personalizado cambió a ${updates.estado}.`;
+
+        await supabaseAdmin.from("notificaciones").insert([{
+          email: persData.email || null,
+          pedido_id: id,
+          tipo: updates.estado,
+          titulo: notifTitulo,
+          mensaje: notifMensaje,
+          leido: false,
+        }]);
+      } catch (err) {
+        // Ignorar si la tabla no existe aún
+      }
+    }
+
     return NextResponse.json({ success: true });
   }
 
