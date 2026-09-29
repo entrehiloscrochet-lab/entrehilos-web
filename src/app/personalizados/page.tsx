@@ -19,9 +19,15 @@ async function getHomeSections() {
 
 export default async function PersonalizadosPage() {
   const allProducts = await getVentifyProducts();
-  const productosPersonalizados = allProducts.filter(
-    (p) => p.sku.startsWith("Amigu-") || p.sku.startsWith("Carr-")
-  );
+  const { isProductInSlug } = await import("@/lib/catalogos");
+  const productosPersonalizados = allProducts.filter((p) => {
+    // Usar catalogos pre-calculados si existen (incluye overrides manuales del admin)
+    if (Array.isArray(p.catalogos) && p.catalogos.length > 0) {
+      return p.catalogos.includes("personalizados");
+    }
+    // Fallback a reglas base por SKU
+    return isProductInSlug(p, "personalizados");
+  });
 
   const sections = await getHomeSections();
   const heroConfig = sections.find((s: any) => s.section_key === "personalizados_hero");

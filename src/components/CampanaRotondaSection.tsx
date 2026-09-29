@@ -74,16 +74,27 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
     itemsFromSection = section.items.filter((i: any) => Boolean(i.imagen));
   }
 
-  // 3. Combinar con defaults para tener al menos 4 tarjetas
-  const baseItems = itemsFromEvento.length > 0
-    ? itemsFromEvento
-    : itemsFromSection.length > 0
-    ? itemsFromSection
-    : DEFAULT_FALLBACK_ITEMS;
+  // 3. Determinar fotos a mostrar:
+  // Si se pasa eventoActual (por ejemplo en la página de un evento específico o inicio con evento elegido):
+  // solo mostramos fotos reales de dicho evento. Si no tiene fotos, no renderizamos la sección para ese evento.
+  let baseItems: RotondaItem[] = [];
+  if (itemsFromEvento.length > 0) {
+    baseItems = itemsFromEvento;
+  } else if (!eventoActual && itemsFromSection.length > 0) {
+    baseItems = itemsFromSection;
+  } else if (!eventoActual) {
+    baseItems = DEFAULT_FALLBACK_ITEMS;
+  }
 
-  const items: RotondaItem[] = baseItems.length >= 4
-    ? baseItems
-    : [...baseItems, ...DEFAULT_FALLBACK_ITEMS].slice(0, 4);
+  if (baseItems.length === 0) return null;
+
+  // Si hay menos de 4 fotos, duplicar cíclicamente las del mismo evento para conservar la rotación 3D
+  let items: RotondaItem[] = [...baseItems];
+  if (items.length < 4) {
+    while (items.length < 4) {
+      items = [...items, ...baseItems];
+    }
+  }
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);

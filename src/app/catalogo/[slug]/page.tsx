@@ -89,54 +89,37 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
     fetchData();
   }, [params]);
 
-  const getProductsByTab = (tab: TabType) => {
-    switch (tab) {
-      case 'Ramos':
-        return allProducts.filter(p => p.sku.startsWith('Ramos-') && p.stock > 0)
-          .sort((a, b) => b.stock - a.stock);
-      case 'Amigurumis':
-        return allProducts.filter(p => p.sku.startsWith('Amigu-'));
-      case 'Cajas':
-        return allProducts.filter(p =>
-          ['Caja-001', 'Caja-002', 'Caja-003', 'Caja-004', 'Caja-005'].includes(p.sku)
-        );
-      case 'HotWheels':
-        return allProducts.filter(p =>
-          p.sku.startsWith('Cua-') || p.sku.startsWith('Carr-') ||
-          ['Caja-004', 'Caja-005'].includes(p.sku)
-        );
-      case 'Ver Todo':
-        return allProducts.filter(p => p.stock > 0 || p.sku.startsWith('Amigu-') || p.sku.startsWith('Caja-'));
+  const filterByCatalogSlug = (slug: string) => {
+    const target = slug.toLowerCase();
+    const matches = allProducts.filter((p: any) => {
+      if (Array.isArray(p.catalogos) && p.catalogos.length > 0) {
+        return p.catalogos.includes(target);
+      }
+      // Fallback a reglas base
+      const { isProductInSlug } = require('@/lib/catalogos');
+      return isProductInSlug(p, target);
+    });
+    if (['san-valentin', 'dia-de-la-novia', 'ramos'].includes(target)) {
+      return matches.sort((a: any, b: any) => b.stock - a.stock);
     }
+    return matches;
   };
 
-  const getEventProducts = (slug: string) => {
-    switch (slug) {
-      case 'dia-de-la-mujer':
-        return allProducts.filter(p =>
-          p.sku.startsWith('Mujer-') || p.nombre?.toLowerCase().includes('mujer') || p.sku.startsWith('Ramos-')
-        );
-      case 'san-valentin':
-        return allProducts.filter(p =>
-          (p.sku.startsWith('Ramos-') || ['Caja-001', 'Caja-002', 'Caja-003'].includes(p.sku)) && p.stock > 0
-        ).sort((a, b) => b.stock - a.stock);
-      case 'dia-de-la-novia':
-        return allProducts.filter(p =>
-          p.sku.startsWith('Ramos-') || ['Caja-001', 'Caja-002', 'Caja-003'].includes(p.sku)
-        ).sort((a, b) => b.stock - a.stock);
-      case 'dia-de-la-madre':
-        return allProducts.filter(p => p.sku.startsWith('Madre-') || p.sku.startsWith('Ramos-'));
-      case 'flores-amarillas':
-        return allProducts.filter(p =>
-          p.categoriaOriginal?.toLowerCase().includes('flores amarillas') ||
-          p.nombre?.toLowerCase().includes('flores amarillas') || p.sku.startsWith('Flores-')
-        );
-      case 'personalizados':
-        return allProducts.filter(p => p.sku.startsWith('Amigu-'));
-      default:
-        return [];
+  const getProductsByTab = (tab: TabType) => {
+    const tabSlugMap: Record<TabType, string> = {
+      'Ramos': 'ramos',
+      'Amigurumis': 'amigurumis',
+      'Cajas': 'cajas',
+      'HotWheels': 'hotwheels',
+      'Ver Todo': '',
+    };
+    if (tab === 'Ver Todo') {
+      return allProducts.filter((p: any) => p.stock > 0 || p.sku.startsWith('Amigu-') || p.sku.startsWith('Caja-'));
     }
+    return filterByCatalogSlug(tabSlugMap[tab]);
   };
+
+  const getEventProducts = (slug: string) => filterByCatalogSlug(slug);
 
   const displayProducts = isEvent ? getEventProducts(currentSlug) : getProductsByTab(activeTab);
 

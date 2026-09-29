@@ -2,6 +2,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+import { ProductoCatalogoAssignment, getProductActiveSlugs } from './catalogos';
+
 // ==================== INTERFACES ====================
 
 /**
@@ -32,6 +34,7 @@ export interface Product {
   categoriaOriginal?: string | null; // Categoría original de Ventify
   stock: number;
   descripcion?: string;
+  catalogos?: string[]; // Slugs de catálogos y eventos donde este producto debe mostrarse
 }
 
 interface VentifyConfig {
@@ -104,11 +107,11 @@ function adaptVentifyProduct(ventifyProduct: VentifyProduct): Product {
 
 // ==================== FUNCIONES PRINCIPALES ====================
 
-let clientFetchPromise: Promise<{ all: Product[]; active: Product[]; inactiveIds: string[] }> | null = null;
+let clientFetchPromise: Promise<{ all: Product[]; active: Product[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> | null = null;
 let clientFetchTime = 0;
 const CLIENT_CACHE_TTL = 30_000;
 
-async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[]; inactiveIds: string[] }> {
+async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> {
   const now = Date.now();
   if (clientFetchPromise && now - clientFetchTime < CLIENT_CACHE_TTL) {
     return clientFetchPromise;
@@ -119,17 +122,32 @@ async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[];
       const res = await fetch('/api/ventify/products');
       if (!res.ok) {
         console.error('Error HTTP al obtener productos:', res.status);
-        return { all: [], active: [], inactiveIds: [] };
+        return { all: [], active: [], inactiveIds: [], assignments: [] };
       }
       const data = await res.json();
+      const rawAll: Product[] = Array.isArray(data.all) ? data.all : [];
+      const assignments: ProductoCatalogoAssignment[] = Array.isArray(data.assignments) ? data.assignments : [];
+      
+      // Enriquecer cada producto con sus catálogos y eventos activos
+      rawAll.forEach((p) => {
+        if (!p.catalogos || p.catalogos.length === 0) {
+          p.catalogos = getProductActiveSlugs(p, assignments);
+        }
+      });
+
+      const inactiveIds: string[] = Array.isArray(data.inactiveIds) ? data.inactiveIds : [];
+      const inactiveSet = new Set(inactiveIds);
+      const active = rawAll.filter((p) => !inactiveSet.has(p.id));
+
       return {
-        all: Array.isArray(data.all) ? data.all : [],
-        active: Array.isArray(data.active) ? data.active : [],
-        inactiveIds: Array.isArray(data.inactiveIds) ? data.inactiveIds : [],
+        all: rawAll,
+        active,
+        inactiveIds,
+        assignments,
       };
     } catch (err) {
       console.error('Error al conectar con /api/ventify/products:', err);
-      return { all: [], active: [], inactiveIds: [] };
+      return { all: [], active: [], inactiveIds: [], assignments: [] };
     }
   })();
   return clientFetchPromise;
@@ -166,6 +184,44 @@ export async function getInactiveProductIds(): Promise<string[]> {
     return inactiveIdsCache;
   } catch (e) {
     console.error('Error cargando productos inactivos:', e);
+    return [];
+  }
+}
+
+let assignmentsCache: ProductoCatalogoAssignment[] | null = null;
+let assignmentsFetchedAt = 0;
+const ASSIGNMENTS_CACHE_TTL = 30_000;
+
+/**
+ * Obtiene las asignaciones de productos a catálogos y eventos desde Supabase.
+ */
+export async function getProductCatalogAssignments(): Promise<ProductoCatalogoAssignment[]> {
+  if (typeof window !== 'undefined') {
+    const data = await fetchFromApiProxy();
+    return data.assignments || [];
+  }
+
+  const now = Date.now();
+  if (assignmentsCache && now - assignmentsFetchedAt < ASSIGNMENTS_CACHE_TTL) {
+    return assignmentsCache;
+  }
+
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    if (!url || !anon) return [];
+    const supabase = createClient(url, anon, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const { data, error } = await supabase.from('producto_catalogos').select('*');
+    if (error) {
+      return [];
+    }
+    assignmentsCache = data || [];
+    assignmentsFetchedAt = Date.now();
+    return assignmentsCache;
+  } catch (e) {
+    console.error('Error cargando asignaciones de producto_catalogos:', e);
     return [];
   }
 }
@@ -226,6 +282,15 @@ export async function getAllVentifyProducts(): Promise<Product[]> {
 
     // Adaptar todos los productos al formato del frontend
     const products = ventifyProducts.map(adaptVentifyProduct);
+    
+    try {
+      const assignments = await getProductCatalogAssignments();
+      products.forEach((p) => {
+        p.catalogos = getProductActiveSlugs(p, assignments);
+      });
+    } catch (e) {
+      console.error('Error calculando catalogos para productos:', e);
+    }
     
     console.log(' Productos cargados:', products.length);
     

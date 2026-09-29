@@ -11,9 +11,11 @@ const TABLES: Record<string, string> = {
   usuarios: "profiles",
   inicio: "home_sections",
   eventos: "eventos",
+  catalogos: "eventos",
   resenas: "resenas",
   productos: "productos_inactivos",
   precios: "precios_tamanos",
+  producto_catalogos: "producto_catalogos",
 };
 
 const ORDER_COLUMN: Record<string, string> = {
@@ -46,12 +48,12 @@ export async function GET(request: NextRequest) {
   if (error) {
     if (error.message?.includes("does not exist")) {
       console.warn(`Tabla '${table}' no existe aún.`);
-      return NextResponse.json(tab === "eventos" ? DEFAULT_EVENTOS : []);
+      return NextResponse.json((tab === "eventos" || tab === "catalogos") ? DEFAULT_EVENTOS : []);
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (tab === "eventos") {
+  if (tab === "eventos" || tab === "catalogos") {
     const dbEvents = data || [];
     const dbSlugs = new Set(dbEvents.map((e: any) => e.slug));
     const missingDefaults = DEFAULT_EVENTOS.filter((d) => !dbSlugs.has(d.slug));
@@ -230,6 +232,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (action === "actualizar-evento") {
+    if (updates.destacado_rotonda === true) {
+      await supabaseAdmin.from("eventos").update({ destacado_rotonda: false }).eq("destacado_rotonda", true);
+    }
     if (typeof id === "number" && id < 0) {
       const { error } = await supabaseAdmin
         .from("eventos")
@@ -240,6 +245,16 @@ export async function PATCH(request: NextRequest) {
     const { error } = await supabaseAdmin
       .from("eventos")
       .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (action === "destacar-rotonda-evento") {
+    await supabaseAdmin.from("eventos").update({ destacado_rotonda: false }).eq("destacado_rotonda", true);
+    const { error } = await supabaseAdmin
+      .from("eventos")
+      .update({ destacado_rotonda: true, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
@@ -331,6 +346,98 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  if (action === "guardar-producto-catalogos") {
+    const { producto_id, sku, slugs_incluidos, slugs_excluidos } = updates;
+    if (!producto_id) return NextResponse.json({ error: "producto_id requerido" }, { status: 400 });
+
+    // 1. Eliminar asignaciones manuales previas de este producto
+    await supabaseAdmin
+      .from("producto_catalogos")
+      .delete()
+      .eq("producto_id", producto_id);
+
+    const rowsToInsert: any[] = [];
+    if (Array.isArray(slugs_incluidos)) {
+      for (const slug of slugs_incluidos) {
+        if (slug && typeof slug === "string") {
+          rowsToInsert.push({
+            producto_id,
+            sku: sku || null,
+            categoria_slug: slug.toLowerCase().trim(),
+            incluir: true,
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(slugs_excluidos)) {
+      for (const slug of slugs_excluidos) {
+        if (slug && typeof slug === "string") {
+          rowsToInsert.push({
+            producto_id,
+            sku: sku || null,
+            categoria_slug: slug.toLowerCase().trim(),
+            incluir: false,
+          });
+        }
+      }
+    }
+
+    if (rowsToInsert.length > 0) {
+      const { error } = await supabaseAdmin
+        .from("producto_catalogos")
+        .insert(rowsToInsert);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  }
+
+  if (action === "bulk-asignar-catalogos") {
+    const { items, slug, operacion } = updates;
+    if (!Array.isArray(items) || items.length === 0 || !slug) {
+      return NextResponse.json({ error: "items y slug requeridos" }, { status: 400 });
+    }
+
+    const normalizedSlug = slug.toLowerCase().trim();
+
+    if (operacion === "quitar") {
+      for (const item of items) {
+        await supabaseAdmin
+          .from("producto_catalogos")
+          .delete()
+          .eq("producto_id", item.producto_id)
+          .eq("categoria_slug", normalizedSlug);
+
+        await supabaseAdmin
+          .from("producto_catalogos")
+          .upsert(
+            {
+              producto_id: item.producto_id,
+              sku: item.sku || null,
+              categoria_slug: normalizedSlug,
+              incluir: false,
+            },
+            { onConflict: "producto_id,categoria_slug" }
+          );
+      }
+    } else {
+      const rows = items.map((item: any) => ({
+        producto_id: item.producto_id,
+        sku: item.sku || null,
+        categoria_slug: normalizedSlug,
+        incluir: true,
+      }));
+
+      const { error } = await supabaseAdmin
+        .from("producto_catalogos")
+        .upsert(rows, { onConflict: "producto_id,categoria_slug" });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  }
+
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 }
 
@@ -389,10 +496,15 @@ export async function POST(request: NextRequest) {
       mostrar_en_hero,
       activo,
       featured,
+      destacado_rotonda,
+      catalogo_url,
     } = body;
 
     if (featured) {
       await supabaseAdmin.from("eventos").update({ featured: false }).eq("featured", true);
+    }
+    if (destacado_rotonda) {
+      await supabaseAdmin.from("eventos").update({ destacado_rotonda: false }).eq("destacado_rotonda", true);
     }
 
     const { data, error } = await supabaseAdmin
@@ -408,6 +520,8 @@ export async function POST(request: NextRequest) {
         mostrar_en_hero: mostrar_en_hero !== false,
         activo: activo !== false,
         featured: Boolean(featured),
+        destacado_rotonda: Boolean(destacado_rotonda),
+        catalogo_url: catalogo_url || null,
         fotos_campana: body.fotos_campana || [],
       })
       .select()

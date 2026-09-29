@@ -7,11 +7,22 @@ import {
   Image as ImageIcon, Users, LogOut, Home, Loader2, Eye, ExternalLink,
   UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Sparkles, Camera,
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
+  FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil,
 } from "lucide-react";
+
+import {
+  CATALOGOS_TIENDA,
+  EVENTOS_BASE,
+  getProductActiveSlugs,
+  isProductInSlug,
+  getSlugBadgeInfo,
+  ProductoCatalogoAssignment,
+  getDefaultProductSlugs,
+} from "@/lib/catalogos";
 
 type MainTab = "dashboard" | "pedidos" | "catalogo" | "diseno" | "eventos" | "atencion" | "clientes";
 
-type SubTab = "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores";
+type SubTab = "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores" | "catalogos";
 
 const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; desc: string }[]> = {
   dashboard: [],
@@ -22,6 +33,7 @@ const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; d
   catalogo: [
     { id: "productos", label: "Visibilidad de Productos", icon: Package, desc: "Activar o desactivar productos en la web" },
     { id: "precios", label: "Precios por Tamaño", icon: Tag, desc: "Precios pequeño, mediano y grande para amigurumis" },
+    { id: "catalogos", label: "Catálogos de Campañas (PDF)", icon: FileDown, desc: "Subir o adjuntar catálogos de eventos para descarga" },
   ],
   diseno: [
     { id: "heroes", label: "Banners (Heroes)", icon: ImageIcon, desc: "Carrusel principal y banners de colecciones" },
@@ -29,6 +41,7 @@ const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; d
   ],
   eventos: [
     { id: "eventos", label: "Eventos Especiales", icon: Sparkles, desc: "Campañas y fechas especiales activas" },
+    { id: "catalogos", label: "Catálogos de Campañas (PDF)", icon: FileDown, desc: "Subir o adjuntar catálogos de eventos para descarga" },
   ],
   atencion: [
     { id: "mensajes", label: "Mensajes de Contacto", icon: MessageSquare, desc: "Consultas enviadas desde el formulario" },
@@ -107,82 +120,55 @@ const CATALOGO_FILTERS: { key: string; label: string }[] = [
 ];
 
 const EVENTO_FILTERS: { key: string; label: string }[] = [
-  { key: "evento-dia-de-la-novia", label: "Día de la Novia" },
-  { key: "evento-dia-de-la-mujer", label: "Día de la Mujer" },
+  { key: "evento-flores-amarillas", label: "Flores Amarillas" },
   { key: "evento-san-valentin", label: "San Valentín" },
   { key: "evento-dia-de-la-madre", label: "Día de la Madre" },
-  { key: "evento-flores-amarillas", label: "Flores Amarillas" },
+  { key: "evento-dia-de-la-mujer", label: "Día de la Mujer" },
+  { key: "evento-dia-de-la-novia", label: "Día de la Novia" },
+  { key: "evento-hotwheels", label: "HotWheels (Evento)" },
   { key: "evento-personalizados", label: "Personalizados" },
 ];
 
-function filterByEventSlug(products: any[], slug: string): any[] {
-  switch (slug) {
-    case "dia-de-la-mujer":
-      return products.filter((p) =>
-        p.sku?.startsWith("Mujer-") || p.nombre?.toLowerCase().includes("mujer") || p.sku?.startsWith("Ramos-")
-      );
-    case "san-valentin":
-      return products.filter((p) =>
-        (p.sku?.startsWith("Ramos-") || ["Caja-001", "Caja-002", "Caja-003"].includes(p.sku)) && p.stock > 0
-      ).sort((a, b) => b.stock - a.stock);
-    case "dia-de-la-novia":
-      return products.filter((p) =>
-        p.sku?.startsWith("Ramos-") || ["Caja-001", "Caja-002", "Caja-003"].includes(p.sku)
-      ).sort((a, b) => b.stock - a.stock);
-    case "dia-de-la-madre":
-      return products.filter((p) => p.sku?.startsWith("Madre-") || p.sku?.startsWith("Ramos-"));
-    case "flores-amarillas":
-      return products.filter((p) =>
-        p.categoriaOriginal?.toLowerCase().includes("flores amarillas") ||
-        p.nombre?.toLowerCase().includes("flores amarillas") || p.sku?.startsWith("Flores-")
-      );
-    case "personalizados":
-      return products.filter((p) => p.sku?.startsWith("Amigu-"));
-    case "hotwheels":
-      return products.filter((p) =>
-        p.sku?.startsWith("Cua-") || p.sku?.startsWith("Carr-") || ["Caja-004", "Caja-005"].includes(p.sku)
-      );
-    default:
-      return [...products];
-  }
+function filterByEventSlug(products: any[], slug: string, assignments: ProductoCatalogoAssignment[] = []): any[] {
+  return products.filter((p) => isProductInSlug(p, slug, assignments));
 }
 
-async function fetchVentifyData(): Promise<{ all: any[]; active: any[]; inactiveIds: string[] }> {
+async function fetchVentifyData(): Promise<{ all: any[]; active: any[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> {
   try {
     const res = await fetch("/api/ventify/products", { cache: "no-store" });
-    if (!res.ok) return { all: [], active: [], inactiveIds: [] };
+    if (!res.ok) return { all: [], active: [], inactiveIds: [], assignments: [] };
     return await res.json();
   } catch {
-    return { all: [], active: [], inactiveIds: [] };
+    return { all: [], active: [], inactiveIds: [], assignments: [] };
   }
 }
 
-function filterProductos(products: any[], filter: string): any[] {
+function filterProductos(products: any[], filter: string, assignments: ProductoCatalogoAssignment[] = []): any[] {
   switch (filter) {
     case "cat-ramos":
-      return products.filter((p) => p.sku?.startsWith("Ramos-") && p.stock > 0).sort((a, b) => b.stock - a.stock);
+      return products.filter((p) => isProductInSlug(p, "ramos", assignments) && p.stock > 0).sort((a, b) => b.stock - a.stock);
     case "cat-amigurumis":
-      return products.filter((p) => p.sku?.startsWith("Amigu-"));
+      return products.filter((p) => isProductInSlug(p, "amigurumis", assignments));
     case "cat-cajas":
-      return products.filter((p) => ["Caja-001", "Caja-002", "Caja-003", "Caja-004", "Caja-005"].includes(p.sku));
+      return products.filter((p) => isProductInSlug(p, "cajas", assignments));
     case "cat-hotwheels":
-      return products.filter((p) =>
-        p.sku?.startsWith("Cua-") || p.sku?.startsWith("Carr-") || ["Caja-004", "Caja-005"].includes(p.sku)
-      );
+      return products.filter((p) => isProductInSlug(p, "hotwheels", assignments));
     case "evento-dia-de-la-mujer":
-      return filterByEventSlug(products, "dia-de-la-mujer");
+      return filterByEventSlug(products, "dia-de-la-mujer", assignments);
     case "evento-san-valentin":
-      return filterByEventSlug(products, "san-valentin");
+      return filterByEventSlug(products, "san-valentin", assignments);
     case "evento-dia-de-la-novia":
-      return filterByEventSlug(products, "dia-de-la-novia");
+      return filterByEventSlug(products, "dia-de-la-novia", assignments);
     case "evento-dia-de-la-madre":
-      return filterByEventSlug(products, "dia-de-la-madre");
+      return filterByEventSlug(products, "dia-de-la-madre", assignments);
     case "evento-flores-amarillas":
-      return filterByEventSlug(products, "flores-amarillas");
+      return filterByEventSlug(products, "flores-amarillas", assignments);
+    case "evento-hotwheels":
+      return filterByEventSlug(products, "hotwheels", assignments);
     case "evento-personalizados":
-      return filterByEventSlug(products, "personalizados");
+      return filterByEventSlug(products, "personalizados", assignments);
     case "page-personalizados":
-      return products.filter((p) => p.sku?.startsWith("Amigu-") || p.sku?.startsWith("Carr-"));
+      return products.filter((p) => isProductInSlug(p, "personalizados", assignments));
     default:
       return [...products];
   }
@@ -219,6 +205,14 @@ export default function AdminPage() {
   const [productosSearch, setProductosSearch] = useState("");
   const [productosFilter, setProductosFilter] = useState("ver-todo");
   const [eventos, setEventos] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<ProductoCatalogoAssignment[]>([]);
+  const [editingProductoCatalogos, setEditingProductoCatalogos] = useState<any | null>(null);
+  const [selectedSlugsForProducto, setSelectedSlugsForProducto] = useState<string[]>([]);
+  const [savingCatalogos, setSavingCatalogos] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkTargetSlug, setBulkTargetSlug] = useState("ramos");
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [amiguProducts, setAmiguProducts] = useState<any[]>([]);
   const [preciosRows, setPreciosRows] = useState<Record<string, any>>({});
   const [preciosDraft, setPreciosDraft] = useState<Record<string, { pequeno: string; mediano: string; grande: string }>>({});
@@ -250,6 +244,9 @@ export default function AdminPage() {
   const [editEventoFotosCampana, setEditEventoFotosCampana] = useState<any[]>([]);
   const [uploadingCampanaIdx, setUploadingCampanaIdx] = useState<number | null>(null);
   const [uploadingCollageEventoId, setUploadingCollageEventoId] = useState<string | number | null>(null);
+  const [editEventoCatalogoUrl, setEditEventoCatalogoUrl] = useState("");
+  const [editEventoDestacadoRotonda, setEditEventoDestacadoRotonda] = useState(false);
+  const [uploadingCatalogo, setUploadingCatalogo] = useState(false);
 
   const [showResenaForm, setShowResenaForm] = useState(false);
   const [resenaSearch, setResenaSearch] = useState("");
@@ -465,6 +462,90 @@ export default function AdminPage() {
     }
   }
 
+  const [uploadingCatalogoEventoId, setUploadingCatalogoEventoId] = useState<string | number | null>(null);
+  const [editingCatalogoEventoId, setEditingCatalogoEventoId] = useState<string | number | null>(null);
+  const [tempCatalogoUrl, setTempCatalogoUrl] = useState("");
+
+  function getCatalogFormatBadge(url?: string | null): { label: string; color: string } {
+    if (!url) return { label: "Sin catálogo", color: "bg-gray-100 text-gray-500 border-gray-200" };
+    const clean = url.split("?")[0].toLowerCase();
+    if (clean.endsWith(".pdf")) return { label: "PDF", color: "bg-red-50 text-red-700 border-red-200" };
+    if (clean.endsWith(".ppt") || clean.endsWith(".pptx")) return { label: "PPT", color: "bg-amber-50 text-amber-800 border-amber-200" };
+    if (clean.endsWith(".png") || clean.endsWith(".jpg") || clean.endsWith(".jpeg") || clean.endsWith(".webp") || clean.endsWith(".avif")) {
+      return { label: "Imagen", color: "bg-blue-50 text-blue-700 border-blue-200" };
+    }
+    return { label: "Enlace", color: "bg-purple-50 text-purple-700 border-purple-200" };
+  }
+
+  async function subirCatalogoDirecto(eventoId: string | number, file: File) {
+    if (!file) return;
+    setUploadingCatalogoEventoId(eventoId);
+    try {
+      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+      const supabase = getSupabaseBrowserClient();
+      const ext = file.name.split(".").pop() || "pdf";
+      const nombre = `catalogo-${eventoId}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("heroes").upload(nombre, file, {
+        upsert: true,
+        contentType: file.type || undefined,
+      });
+      if (error) {
+        alert("Error al subir el catálogo: " + error.message);
+        return;
+      }
+      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+      const ok = await apiPatch({
+        action: "actualizar-evento",
+        id: eventoId,
+        catalogo_url: pub.publicUrl,
+      });
+      if (ok) {
+        await fetchData();
+      }
+    } catch (err) {
+      console.error("Error al subir catálogo:", err);
+      alert("Hubo un error al subir el catálogo");
+    } finally {
+      setUploadingCatalogoEventoId(null);
+    }
+  }
+
+  async function guardarCatalogoManualDirecto(eventoId: string | number, url: string) {
+    const ok = await apiPatch({
+      action: "actualizar-evento",
+      id: eventoId,
+      catalogo_url: url.trim() || null,
+    });
+    if (ok) {
+      await fetchData();
+      setEditingCatalogoEventoId(null);
+      setTempCatalogoUrl("");
+    }
+  }
+
+  async function eliminarCatalogoDirecto(eventoId: string | number) {
+    if (!confirm("¿Quitar el archivo de catálogo de este evento?")) return;
+    const ok = await apiPatch({
+      action: "actualizar-evento",
+      id: eventoId,
+      catalogo_url: null,
+    });
+    if (ok) {
+      await fetchData();
+    }
+  }
+
+  async function toggleBotonCatalogo(eventoId: string | number, visible: boolean) {
+    const ok = await apiPatch({
+      action: "actualizar-evento",
+      id: eventoId,
+      catalogo_boton_visible: visible,
+    });
+    if (ok) {
+      await fetchData();
+    }
+  }
+
   function openEditEvento(evento: any) {
     setIsNewEvento(false);
     setEditEventoNombre(evento.nombre || "");
@@ -522,6 +603,8 @@ export default function AdminPage() {
     setEditEventoMostrarEnHero(evento.mostrar_en_hero !== false);
     setEditEventoActivo(evento.activo !== false);
     setEditEventoFeatured(evento.featured || false);
+    setEditEventoCatalogoUrl(evento.catalogo_url || "");
+    setEditEventoDestacadoRotonda(evento.destacado_rotonda || false);
     const fotos = Array.isArray(evento.fotos_campana)
       ? evento.fotos_campana.map((f: any) => typeof f === "string" ? { url: f } : f)
       : [];
@@ -674,17 +757,18 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (subTab === "productos") {
-      if (rawProducts.length === 0 || inactiveIds.size === 0) {
+      if (rawProducts.length === 0 || inactiveIds.size === 0 || assignments.length === 0) {
         fetchVentifyData().then((d) => {
           if (rawProducts.length === 0) setRawProducts(d.all);
           if (inactiveIds.size === 0) setInactiveIds(new Set(d.inactiveIds));
+          if (d.assignments) setAssignments(d.assignments);
         }).catch(() => {});
       }
       if (eventos.length === 0) {
         fetch("/api/eventos").then((r) => r.json()).then(setEventos).catch(() => {});
       }
     }
-  }, [subTab, rawProducts.length, inactiveIds.size, eventos.length]);
+  }, [subTab, rawProducts.length, inactiveIds.size, assignments.length, eventos.length]);
 
   useEffect(() => {
     if (subTab === "precios") {
@@ -863,6 +947,142 @@ export default function AdminPage() {
         else next.add(producto.id);
         return next;
       });
+    }
+  };
+
+  const handleOpenAssignModal = (producto: any) => {
+    setEditingProductoCatalogos(producto);
+    const active = getProductActiveSlugs(producto, assignments);
+    setSelectedSlugsForProducto(active);
+  };
+
+  const handleToggleSlugSelection = (slug: string) => {
+    const normalized = slug.toLowerCase().trim();
+    setSelectedSlugsForProducto((prev) =>
+      prev.includes(normalized) ? prev.filter((s) => s !== normalized) : [...prev, normalized]
+    );
+  };
+
+  const handleSaveProductoCatalogos = async () => {
+    if (!editingProductoCatalogos) return;
+    setSavingCatalogos(true);
+    try {
+      const defaultSlugs = getDefaultProductSlugs(editingProductoCatalogos);
+      const slugs_incluidos = selectedSlugsForProducto;
+      const slugs_excluidos = defaultSlugs.filter((s) => !selectedSlugsForProducto.includes(s));
+
+      const res = await fetch("/api/admin", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "guardar-producto-catalogos",
+          updates: {
+            producto_id: editingProductoCatalogos.id,
+            sku: editingProductoCatalogos.sku || null,
+            slugs_incluidos,
+            slugs_excluidos,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Error al guardar catálogos: " + (err.error || "Error"));
+        return;
+      }
+
+      setAssignments((prev) => {
+        const filtered = prev.filter(
+          (a) => a.producto_id !== editingProductoCatalogos.id && (!editingProductoCatalogos.sku || a.sku !== editingProductoCatalogos.sku)
+        );
+        const newRows: ProductoCatalogoAssignment[] = [];
+        slugs_incluidos.forEach((s) => {
+          newRows.push({
+            producto_id: editingProductoCatalogos.id,
+            sku: editingProductoCatalogos.sku || null,
+            categoria_slug: s,
+            incluir: true,
+          });
+        });
+        slugs_excluidos.forEach((s) => {
+          newRows.push({
+            producto_id: editingProductoCatalogos.id,
+            sku: editingProductoCatalogos.sku || null,
+            categoria_slug: s,
+            incluir: false,
+          });
+        });
+        return [...filtered, ...newRows];
+      });
+
+      setEditingProductoCatalogos(null);
+    } catch (err: any) {
+      alert("Error al guardar: " + err.message);
+    } finally {
+      setSavingCatalogos(false);
+    }
+  };
+
+  const toggleSelectProduct = (productId: string) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = (visibleProducts: any[]) => {
+    setSelectedProductIds((prev) => {
+      const allSelected = visibleProducts.length > 0 && visibleProducts.every((p) => prev.has(p.id));
+      if (allSelected) {
+        return new Set();
+      } else {
+        const next = new Set(prev);
+        visibleProducts.forEach((p) => next.add(p.id));
+        return next;
+      }
+    });
+  };
+
+  const handleBulkAssign = async (operacion: "agregar" | "quitar") => {
+    if (selectedProductIds.size === 0 || !bulkTargetSlug) return;
+    setBulkSaving(true);
+    try {
+      const selectedItems = rawProducts
+        .filter((p) => selectedProductIds.has(p.id))
+        .map((p) => ({ producto_id: p.id, sku: p.sku || null }));
+
+      const res = await fetch("/api/admin", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "bulk-asignar-catalogos",
+          updates: {
+            items: selectedItems,
+            slug: bulkTargetSlug,
+            operacion,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Error en acción en lote: " + (err.error || "Error"));
+        return;
+      }
+
+      const fresh = await fetchVentifyData();
+      if (fresh.assignments) {
+        setAssignments(fresh.assignments);
+      }
+
+      setSelectedProductIds(new Set());
+      setBulkModalOpen(false);
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -1086,7 +1306,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab !== "dashboard" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && !loading && data.length === 0 && (
+        {mainTab !== "dashboard" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && !loading && data.length === 0 && (
           <div className="text-center py-20 bg-white rounded-2xl border border-[#FDE8EF]">
             <p className="font-quicksand text-gray-400">No hay datos en esta sección</p>
           </div>
@@ -1223,6 +1443,8 @@ export default function AdminPage() {
                 setEditEventoMostrarEnHero(true);
                 setEditEventoActivo(true);
                 setEditEventoFeatured(false);
+                setEditEventoCatalogoUrl("");
+                setEditEventoDestacadoRotonda(false);
                 setEditEventoFotosCampana([]);
                 setEditingEvento({ id: null, nombre: "", slug: "", descripcion: "", imagen_url: "", imagen_url_mobile: "" });
               }}
@@ -1276,7 +1498,19 @@ export default function AdminPage() {
                             {enHero && (
                               <span className="font-quicksand text-[10px] font-bold text-white bg-gradient-to-r from-[#EE6B8D] to-[#C04267] px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
                                 <Sparkles size={10} />
-                                En Hero Principal
+                                Hero
+                              </span>
+                            )}
+                            {evento.destacado_rotonda && (
+                              <span className="font-quicksand text-[10px] font-bold text-white bg-gradient-to-r from-[#C97B4A] to-[#EE6B8D] px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                                <Sparkles size={10} />
+                                Rotonda Portada
+                              </span>
+                            )}
+                            {evento.catalogo_url && (
+                              <span className="font-quicksand text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <FileText size={10} />
+                                Catálogo PDF
                               </span>
                             )}
                             {evento.featured && (
@@ -1413,6 +1647,166 @@ export default function AdminPage() {
                                 </>
                               )}
                             </label>
+                          )}
+                        </div>
+
+                        {/* SECCIÓN DIRECTA: CATÁLOGO OFICIAL (PDF O ENLACE) */}
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-quicksand font-bold text-[11px] text-[#C04267] flex items-center gap-1.5">
+                              <FileDown size={13} className="text-[#EE6B8D]" />
+                              Catálogo Oficial (PDF / Enlace)
+                            </span>
+                            {evento.catalogo_url ? (() => {
+                              const b = getCatalogFormatBadge(evento.catalogo_url);
+                              return (
+                                <span className={`font-quicksand text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${b.color}`}>
+                                  <Check size={10} /> {b.label}
+                                </span>
+                              );
+                            })() : (
+                              <span className="font-quicksand text-[10px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                                Sin catálogo
+                              </span>
+                            )}
+                          </div>
+
+                          {evento.catalogo_url ? (
+                            <div className="bg-[#FAF7F5] border border-pink-100/80 rounded-xl p-2.5 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-quicksand text-[11px] text-gray-600 truncate flex-1 font-mono" title={evento.catalogo_url}>
+                                  {evento.catalogo_url.split("/").pop()}
+                                </span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <a
+                                    href={evento.catalogo_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 text-gray-500 hover:text-[#C04267] hover:bg-white rounded-md transition-colors border border-transparent hover:border-pink-200"
+                                    title="Ver o descargar catálogo"
+                                  >
+                                    <ExternalLink size={12} />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingCatalogoEventoId(evento.id);
+                                      setTempCatalogoUrl(evento.catalogo_url || "");
+                                    }}
+                                    className="px-1.5 py-0.5 text-gray-600 hover:text-[#C04267] hover:bg-white rounded-md transition-colors border border-transparent hover:border-pink-200 text-[10px] font-quicksand font-bold"
+                                    title="Editar enlace manual"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => eliminarCatalogoDirecto(evento.id)}
+                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-white rounded-md transition-colors"
+                                    title="Quitar catálogo"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Reemplazar con nuevo archivo */}
+                              <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100">
+                                <label className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-pink-50 hover:bg-pink-100 text-[#C04267] font-quicksand font-bold text-[10px] cursor-pointer transition-colors border border-pink-200">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,application/pdf,image/*,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                    className="hidden"
+                                    disabled={uploadingCatalogoEventoId === evento.id}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) subirCatalogoDirecto(evento.id, file);
+                                    }}
+                                  />
+                                  {uploadingCatalogoEventoId === evento.id ? (
+                                    <Loader2 size={11} className="animate-spin text-[#EE6B8D]" />
+                                  ) : (
+                                    <Upload size={11} />
+                                  )}
+                                  <span>{uploadingCatalogoEventoId === evento.id ? "Subiendo..." : "Reemplazar (PDF, PPT o Imagen)"}</span>
+                                </label>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {/* Subir archivo directo */}
+                              <label className="w-full flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-dashed border-[#EE6B8D]/50 bg-[#FDF4F7]/60 hover:bg-[#FDF4F7] text-[#C04267] font-quicksand font-bold text-xs cursor-pointer transition-all">
+                                <input
+                                  type="file"
+                                  accept=".pdf,application/pdf,image/*,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                  className="hidden"
+                                  disabled={uploadingCatalogoEventoId === evento.id}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) subirCatalogoDirecto(evento.id, file);
+                                  }}
+                                />
+                                {uploadingCatalogoEventoId === evento.id ? (
+                                  <div className="flex items-center gap-1.5 text-xs py-0.5">
+                                    <Loader2 size={13} className="animate-spin text-[#EE6B8D]" />
+                                    <span>Subiendo archivo...</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Upload size={13} className="text-[#EE6B8D]" />
+                                    <span>Subir Catálogo (PDF, PPT o Imagen)</span>
+                                  </>
+                                )}
+                              </label>
+
+                              {/* O pegar enlace */}
+                              {editingCatalogoEventoId !== evento.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCatalogoEventoId(evento.id);
+                                    setTempCatalogoUrl("");
+                                  }}
+                                  className="w-full py-1 text-center font-quicksand text-[10px] text-gray-500 hover:text-[#C04267] transition-colors"
+                                >
+                                  o pegar enlace manual (Drive, Canva, etc.)
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Formulario en línea para pegar enlace manual */}
+                          {editingCatalogoEventoId === evento.id && (
+                            <div className="mt-2 p-2 bg-white rounded-xl border border-[#EE6B8D]/40 shadow-xs space-y-1.5 animate-in fade-in duration-150">
+                              <label className="block font-quicksand text-[10px] font-bold text-gray-700">
+                                Enlace público o URL del catálogo:
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="https://..."
+                                value={tempCatalogoUrl}
+                                onChange={(e) => setTempCatalogoUrl(e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 focus:outline-none focus:border-[#EE6B8D]"
+                              />
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCatalogoEventoId(null);
+                                    setTempCatalogoUrl("");
+                                  }}
+                                  className="px-2.5 py-1 text-[11px] font-quicksand font-semibold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => guardarCatalogoManualDirecto(evento.id, tempCatalogoUrl)}
+                                  className="px-3 py-1 text-[11px] font-quicksand font-bold text-white bg-[#EE6B8D] hover:bg-[#C04267] rounded-lg transition-colors shadow-xs"
+                                >
+                                  Guardar enlace
+                                </button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -2794,8 +3188,124 @@ export default function AdminPage() {
                 )}
               </div>
 
+              {/* Catálogo Oficial del Evento (PDF o Enlace) */}
+              <div className="border-t border-gray-100 pt-5 pb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-[#EE6B8D]" />
+                    <label className="font-quicksand text-xs font-bold text-gray-700 uppercase tracking-wider block">
+                      Catálogo Oficial del Evento (PDF o Enlace)
+                    </label>
+                  </div>
+                  {editEventoCatalogoUrl && (
+                    <span className="font-quicksand text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <Check size={11} /> Catálogo listo
+                    </span>
+                  )}
+                </div>
+                <p className="font-quicksand text-[11px] text-gray-500 mb-3 leading-relaxed">
+                  Los clientes podrán descargar este catálogo desde el botón flotante en el inicio y en la página de este evento.
+                </p>
+
+                <div className="space-y-3">
+                  {/* Botón para subir archivo directo a Supabase Storage */}
+                  <label className="w-full flex items-center justify-between p-3 rounded-xl border border-dashed border-[#EE6B8D]/50 bg-[#FDF4F7]/60 hover:bg-[#FDF4F7] cursor-pointer transition-all">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#FDE8EF] text-[#C04267] flex items-center justify-center shrink-0">
+                        {uploadingCatalogo ? <Loader2 size={16} className="animate-spin text-[#EE6B8D]" /> : <Upload size={16} />}
+                      </div>
+                      <div>
+                        <p className="font-quicksand font-bold text-xs text-[#C04267]">
+                          {uploadingCatalogo ? "Subiendo archivo del catálogo..." : "Subir archivo (PDF, PPT o Imagen) desde tu equipo"}
+                        </p>
+                        <p className="font-quicksand text-[11px] text-gray-500">
+                          Formatos aceptados: PDF, PowerPoint (PPT, PPTX) e imágenes (JPG, PNG, WebP)
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf,image/*,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                      disabled={uploadingCatalogo}
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploadingCatalogo(true);
+                        try {
+                          const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+                          const supabase = getSupabaseBrowserClient();
+                          const ext = file.name.split(".").pop() || "pdf";
+                          const nombre = `catalogo-${editEventoSlug || "evento"}-${Date.now()}.${ext}`;
+                          const { error } = await supabase.storage.from("heroes").upload(nombre, file, {
+                            upsert: true,
+                            contentType: file.type || undefined,
+                          });
+                          if (error) {
+                            alert("Error al subir el catálogo: " + error.message);
+                            return;
+                          }
+                          const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+                          setEditEventoCatalogoUrl(pub.publicUrl);
+                        } catch (err: any) {
+                          alert("Error inesperado al subir catálogo");
+                        } finally {
+                          setUploadingCatalogo(false);
+                        }
+                      }}
+                    />
+                  </label>
+
+                  {/* Input manual para pegar enlace externo (Canva, Google Drive, etc.) */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="O pega aquí un enlace directo (ej. Google Drive, Canva, link público)"
+                      value={editEventoCatalogoUrl}
+                      onChange={(e) => setEditEventoCatalogoUrl(e.target.value)}
+                      className="flex-1 px-3.5 py-2 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#EE6B8D]"
+                    />
+                    {editEventoCatalogoUrl && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={editEventoCatalogoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-quicksand flex items-center gap-1 transition-colors"
+                          title="Abrir enlace"
+                        >
+                          <ExternalLink size={12} />
+                          Ver
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setEditEventoCatalogoUrl("")}
+                          className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Quitar catálogo"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Opciones adicionales */}
               <div className="space-y-2.5 border-t border-gray-100 pt-4 mb-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="evento-destacado-rotonda"
+                    checked={editEventoDestacadoRotonda}
+                    onChange={(e) => setEditEventoDestacadoRotonda(e.target.checked)}
+                    className="w-4 h-4 accent-[#EE6B8D] rounded"
+                  />
+                  <label htmlFor="evento-destacado-rotonda" className="font-quicksand text-xs font-semibold text-gray-700 cursor-pointer">
+                    Mostrar en carrusel de inicio &quot;Así se vivió...&quot; (Evento elegido para la rotonda de la portada)
+                  </label>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -2899,6 +3409,8 @@ export default function AdminPage() {
                         mostrar_en_hero: editEventoMostrarEnHero,
                         activo: editEventoActivo,
                         featured: editEventoFeatured,
+                        destacado_rotonda: editEventoDestacadoRotonda,
+                        catalogo_url: editEventoCatalogoUrl || null,
                         fotos_campana: fotosLimpias,
                       }),
                     });
@@ -2914,6 +3426,8 @@ export default function AdminPage() {
                       fecha_fin: finIso,
                       mostrar_en_hero: editEventoMostrarEnHero,
                       activo: editEventoActivo,
+                      destacado_rotonda: editEventoDestacadoRotonda,
+                      catalogo_url: editEventoCatalogoUrl || null,
                       fotos_campana: fotosLimpias,
                     };
                     if (editEventoFeatured) {
@@ -2934,12 +3448,259 @@ export default function AdminPage() {
           </div>
         )}
 
+        {subTab === "catalogos" && !loading && (
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="font-fredoka text-xl font-bold text-[#C04267] flex items-center gap-2">
+                  <FileDown size={22} className="text-[#EE6B8D]" />
+                  Catálogos de Campañas y Eventos (PDF y Enlaces)
+                </h2>
+                <p className="font-quicksand text-xs text-gray-500 mt-1 max-w-2xl">
+                  Sube archivos PDF directamente desde tu equipo o adjunta enlaces manuales (Google Drive, Canva, etc.). Tus clientes podrán descargar el catálogo desde la tienda y el botón flotante.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-quicksand text-xs font-semibold text-gray-600 bg-white border border-[#FDE8EF] px-3.5 py-1.5 rounded-full shadow-xs">
+                  {data.filter((e: any) => Boolean(e.catalogo_url)).length} de {data.length} con catálogo
+                </span>
+              </div>
+            </div>
+
+            {/* Listado en cuadrícula de eventos con tarjetas especializadas para catálogo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {data.map((evento: any) => {
+                const statusInfo = getEventoStatus(evento);
+                const hasCatalog = Boolean(evento.catalogo_url);
+
+                return (
+                  <div
+                    key={evento.id}
+                    className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Cabecera de la tarjeta con imagen o banner */}
+                      <div className="relative aspect-[21/9] bg-gray-50 border-b border-gray-100 overflow-hidden">
+                        {evento.imagen_url || evento.imagen_url_mobile ? (
+                          <img
+                            src={evento.imagen_url || evento.imagen_url_mobile}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
+                            <ImageIcon size={24} />
+                            <span className="font-quicksand text-[11px] text-gray-400 mt-1">Sin banner</span>
+                          </div>
+                        )}
+
+                        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
+                          <span className={`font-quicksand text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-sm ${statusInfo.color}`}>
+                            {statusInfo.label}
+                          </span>
+                          {hasCatalog ? (() => {
+                            const b = getCatalogFormatBadge(evento.catalogo_url);
+                            return (
+                              <span className={`font-quicksand text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-xs flex items-center gap-1 ${b.color}`}>
+                                <Check size={11} /> {b.label} listo
+                              </span>
+                            );
+                          })() : (
+                            <span className="font-quicksand text-[10px] font-semibold text-gray-700 bg-white/95 backdrop-blur-sm border border-gray-200 px-2.5 py-0.5 rounded-full shadow-xs">
+                              Sin catálogo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="font-quicksand text-sm font-bold text-gray-800 line-clamp-1">
+                            {evento.nombre}
+                          </h3>
+                        </div>
+                        <p className="font-quicksand text-[11px] text-gray-400 font-mono mb-3">/evento/{evento.slug}</p>
+
+                        {/* Toggle: visibilidad del botón flotante */}
+                        <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50/70">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Eye size={13} className={evento.catalogo_boton_visible !== false ? "text-[#C04267]" : "text-gray-400"} />
+                            <span className="font-quicksand text-[11px] font-semibold text-gray-700">
+                              Botón flotante en tienda
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleBotonCatalogo(evento.id, !(evento.catalogo_boton_visible !== false))}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                              evento.catalogo_boton_visible !== false
+                                ? "bg-[#C04267]"
+                                : "bg-gray-300"
+                            }`}
+                            aria-label={evento.catalogo_boton_visible !== false ? "Ocultar botón" : "Mostrar botón"}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                                evento.catalogo_boton_visible !== false ? "translate-x-4" : "translate-x-0"
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {/* Estado del catálogo */}
+                        {hasCatalog ? (
+
+                          <div className="bg-[#FAF7F5] border border-pink-100 rounded-xl p-3 space-y-2 mb-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <FileText size={14} className="text-[#C04267] shrink-0" />
+                                <span className="font-quicksand text-xs text-gray-700 font-medium truncate font-mono" title={evento.catalogo_url}>
+                                  {evento.catalogo_url.split("/").pop()}
+                                </span>
+                              </div>
+                              <a
+                                href={evento.catalogo_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 px-2 py-1 bg-white hover:bg-pink-50 text-[#C04267] text-[11px] font-quicksand font-bold rounded-lg border border-pink-200 flex items-center gap-1 transition-colors"
+                              >
+                                <ExternalLink size={11} /> Abrir
+                              </a>
+                            </div>
+                            <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCatalogoEventoId(evento.id);
+                                  setTempCatalogoUrl(evento.catalogo_url || "");
+                                }}
+                                className="text-gray-500 hover:text-[#C04267] font-quicksand text-[11px] font-semibold transition-colors"
+                              >
+                                Modificar enlace
+                              </button>
+                              <span className="text-gray-300">•</span>
+                              <button
+                                type="button"
+                                onClick={() => eliminarCatalogoDirecto(evento.id)}
+                                className="text-red-500 hover:text-red-700 font-quicksand text-[11px] font-semibold transition-colors"
+                              >
+                                Quitar catálogo
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 mb-3">
+                            <p className="font-quicksand text-xs text-amber-800 font-semibold mb-0.5">
+                              No hay catálogo adjunto
+                            </p>
+                            <p className="font-quicksand text-[11px] text-amber-700/80 leading-relaxed">
+                              El botón flotante de la tienda ofrecerá solicitar el catálogo por WhatsApp a tus clientes hasta que subas un archivo.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Opciones directas para subir o adjuntar */}
+                        <div className="space-y-2">
+                          <label className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-[#EE6B8D]/50 bg-[#FDF4F7]/60 hover:bg-[#FDF4F7] text-[#C04267] font-quicksand font-bold text-xs cursor-pointer transition-all">
+                            <input
+                              type="file"
+                              accept=".pdf,application/pdf,image/*,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                              className="hidden"
+                              disabled={uploadingCatalogoEventoId === evento.id}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) subirCatalogoDirecto(evento.id, file);
+                              }}
+                            />
+                            {uploadingCatalogoEventoId === evento.id ? (
+                              <div className="flex items-center gap-1.5 py-0.5">
+                                <Loader2 size={14} className="animate-spin text-[#EE6B8D]" />
+                                <span>Subiendo archivo...</span>
+                              </div>
+                            ) : (
+                              <>
+                                <Upload size={14} className="text-[#EE6B8D]" />
+                                <span>{hasCatalog ? "Reemplazar archivo (PDF / PPT / Imagen)" : "Subir archivo (PDF, PPT o Imagen)"}</span>
+                              </>
+                            )}
+                          </label>
+
+                          {editingCatalogoEventoId !== evento.id ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCatalogoEventoId(evento.id);
+                                setTempCatalogoUrl(evento.catalogo_url || "");
+                              }}
+                              className="w-full py-1.5 text-center font-quicksand text-xs text-gray-500 hover:text-[#C04267] transition-colors font-medium border border-gray-100 hover:border-pink-200 rounded-xl"
+                            >
+                              o pegar enlace manual (Canva, Drive...)
+                            </button>
+                          ) : (
+                            <div className="p-2.5 bg-[#FDF4F7]/80 rounded-xl border border-[#EE6B8D]/40 space-y-2 animate-in fade-in duration-150">
+                              <label className="block font-quicksand text-[11px] font-bold text-gray-700">
+                                Enlace público o URL del catálogo:
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="https://..."
+                                value={tempCatalogoUrl}
+                                onChange={(e) => setTempCatalogoUrl(e.target.value)}
+                                className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+                              />
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCatalogoEventoId(null);
+                                    setTempCatalogoUrl("");
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-quicksand font-semibold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => guardarCatalogoManualDirecto(evento.id, tempCatalogoUrl)}
+                                  className="px-3.5 py-1 text-xs font-quicksand font-bold text-white bg-[#EE6B8D] hover:bg-[#C04267] rounded-lg transition-colors shadow-xs"
+                                >
+                                  Guardar enlace
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Banner explicativo al pie */}
+            <div className="mt-8 bg-white border border-[#FDE8EF] rounded-2xl p-5 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-pink-50 text-[#C04267] flex items-center justify-center shrink-0">
+                <FileDown size={20} />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-quicksand font-bold text-sm text-gray-800">
+                  ¿Cómo funciona el botón de descarga para tus clientes?
+                </h4>
+                <p className="font-quicksand text-xs text-gray-600 leading-relaxed">
+                  En la portada principal y en la página de cada evento aparece automáticamente un botón flotante circular con el icono de descarga y la etiqueta <strong>PDF</strong> colocado arriba de WhatsApp. Si el evento tiene su catálogo configurado aquí, el cliente lo descargará o abrirá al instante.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {subTab === "productos" && (() => {
           const featuredEvent = eventos.find((e: any) => e.featured);
           const featuredEventSlug = featuredEvent?.slug;
           const productosFiltrados = productosFilter === "evento-destacado"
-            ? (featuredEventSlug ? filterByEventSlug(rawProducts, featuredEventSlug) : [])
-            : filterProductos(rawProducts, productosFilter);
+            ? (featuredEventSlug ? filterByEventSlug(rawProducts, featuredEventSlug, assignments) : [])
+            : filterProductos(rawProducts, productosFilter, assignments);
           const productosVisibles = productosFiltrados.filter((p: any) =>
             !productosSearch ||
             p.nombre?.toLowerCase().includes(productosSearch.toLowerCase()) ||
@@ -2952,6 +3713,22 @@ export default function AdminPage() {
                 ? "todo el catálogo"
                 : [...CATALOGO_FILTERS, ...EVENTO_FILTERS, { key: "page-personalizados", label: "Personalizados" }]
                     .find((f) => f.key === productosFilter)?.label || "todo el catálogo";
+
+          const allVisibleSelected =
+            productosVisibles.length > 0 &&
+            productosVisibles.every((p: any) => selectedProductIds.has(p.id));
+
+          // Lista de eventos combinada (base + dinámicos de Supabase)
+          const allAvailableEvents = (() => {
+            const map = new Map<string, string>();
+            EVENTOS_BASE.forEach((e) => map.set(e.slug, e.label));
+            eventos.forEach((e: any) => {
+              if (e.slug && !map.has(e.slug)) {
+                map.set(e.slug, e.nombre || e.slug);
+              }
+            });
+            return Array.from(map.entries()).map(([slug, label]) => ({ slug, label }));
+          })();
 
           return (
           <div>
@@ -3028,6 +3805,37 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Barra flotante de acciones masivas cuando hay productos seleccionados */}
+            {selectedProductIds.size > 0 && (
+              <div className="bg-[#FDF4F7] border border-[#EE6B8D]/50 rounded-2xl p-3.5 mb-5 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="bg-[#EE6B8D] text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
+                    {selectedProductIds.size}
+                  </span>
+                  <span className="font-quicksand text-xs font-bold text-gray-700">
+                    producto{selectedProductIds.size !== 1 ? "s" : ""} seleccionado{selectedProductIds.size !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand text-xs font-bold transition-colors shadow-xs"
+                  >
+                    <Layers size={14} />
+                    <span>Asignar a catálogo o evento...</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProductIds(new Set())}
+                    className="px-3 py-1.5 text-gray-500 hover:text-gray-700 font-quicksand text-xs font-medium transition-colors"
+                  >
+                    Deseleccionar todos
+                  </button>
+                </div>
+              </div>
+            )}
+
             {rawProducts.length === 0 ? (
               <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-[#FDE8EF]">
                 <div className="flex flex-col items-center gap-2">
@@ -3040,33 +3848,83 @@ export default function AdminPage() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
+                      <th className="px-3 py-3 w-8">
+                        <button
+                          type="button"
+                          onClick={() => toggleSelectAllVisible(productosVisibles)}
+                          className="text-gray-400 hover:text-[#EE6B8D] transition-colors"
+                          title={allVisibleSelected ? "Deseleccionar visibles" : "Seleccionar visibles"}
+                        >
+                          {allVisibleSelected ? (
+                            <CheckSquare size={16} className="text-[#EE6B8D]" />
+                          ) : (
+                            <Square size={16} />
+                          )}
+                        </button>
+                      </th>
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Categoría</th>
+                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Catálogos y Eventos</th>
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Precio</th>
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Stock</th>
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
+                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-center">Asignar</th>
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Visible en web</th>
                     </tr>
                   </thead>
                   <tbody>
                     {productosVisibles.map((p: any) => {
                       const isActive = !inactiveIds.has(p.id);
+                      const isSelected = selectedProductIds.has(p.id);
+                      const activeSlugs = getProductActiveSlugs(p, assignments);
+
                       return (
                         <tr
                           key={p.id}
                           className={`border-b border-gray-50 transition-colors ${
-                            isActive ? "hover:bg-[#FDF4F7]/50" : "bg-gray-50/50 hover:bg-gray-100/60"
+                            isSelected
+                              ? "bg-pink-50/60"
+                              : isActive
+                              ? "hover:bg-[#FDF4F7]/50"
+                              : "bg-gray-50/50 hover:bg-gray-100/60"
                           }`}
                         >
                           <td className="px-3 py-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectProduct(p.id)}
+                              className="rounded border-gray-300 text-[#EE6B8D] focus:ring-[#EE6B8D] cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-3 py-3">
                             <div className="flex items-center gap-3">
                               {p.imagen && <img src={p.imagen} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 flex-shrink-0" />}
-                              <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[220px] truncate" title={p.nombre}>{p.nombre}</p>
+                              <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[200px] truncate" title={p.nombre}>{p.nombre}</p>
                             </div>
                           </td>
                           <td className="px-3 py-3 font-quicksand text-[11px] text-gray-500">{p.sku}</td>
                           <td className="px-3 py-3 font-quicksand text-xs text-gray-500">{p.categoria}</td>
+                          <td className="px-3 py-3">
+                            {activeSlugs.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                {activeSlugs.map((slug) => {
+                                  const badgeInfo = getSlugBadgeInfo(slug, eventos);
+                                  return (
+                                    <span
+                                      key={slug}
+                                      className={`inline-block font-quicksand text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeInfo.colorClass}`}
+                                    >
+                                      {badgeInfo.label}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span className="font-quicksand text-[11px] text-gray-400 italic">Sin asignar</span>
+                            )}
+                          </td>
                           <td className="px-3 py-3 font-quicksand text-xs text-gray-700 whitespace-nowrap">S/ {p.precio?.toFixed(2)}</td>
                           <td className="px-3 py-3">
                             <span className={`font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
@@ -3082,6 +3940,17 @@ export default function AdminPage() {
                               {isActive ? "Activo" : "Oculto"}
                             </span>
                           </td>
+                          {/* Columna de acción: botón Editar abre el modal de asignación */}
+                          <td className="px-3 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAssignModal(p)}
+                              title="Editar asignaciones de catálogos y eventos"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-[#FDF4F7] hover:border-[#EE6B8D] text-gray-400 hover:text-[#C04267] transition-all shadow-xs"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                          </td>
                           <td className="px-3 py-3 text-right">
                             <button
                               onClick={() => handleToggleProducto(p, !isActive)}
@@ -3096,7 +3965,7 @@ export default function AdminPage() {
                     })}
                     {productosVisibles.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-3 py-10 text-center font-quicksand text-xs text-gray-400">
+                        <td colSpan={9} className="px-3 py-10 text-center font-quicksand text-xs text-gray-400">
                           {productosSearch
                             ? `No se encontraron productos con "${productosSearch}"`
                             : productosFiltrados.length === 0
@@ -3107,6 +3976,266 @@ export default function AdminPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Modal de asignación de catálogos y eventos */}
+            {editingProductoCatalogos && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                onClick={(e) => { if (e.target === e.currentTarget) setEditingProductoCatalogos(null); }}
+              >
+                <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 max-h-[88vh] flex flex-col">
+
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {editingProductoCatalogos.imagen && (
+                        <img
+                          src={editingProductoCatalogos.imagen}
+                          alt=""
+                          className="w-11 h-11 rounded-xl object-cover border border-gray-100 bg-gray-50 shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="font-quicksand text-sm font-bold text-gray-900 truncate">
+                          {editingProductoCatalogos.nombre}
+                        </h3>
+                        <p className="font-quicksand text-[11px] text-gray-400 font-mono">{editingProductoCatalogos.sku}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProductoCatalogos(null)}
+                      className="ml-3 shrink-0 p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {/* Body scrollable */}
+                  <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+                    {/* Asignaciones actuales */}
+                    <div>
+                      <p className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">
+                        Actualmente en
+                      </p>
+                      {selectedSlugsForProducto.length === 0 ? (
+                        <p className="font-quicksand text-xs text-gray-400 italic py-2">
+                          Este producto no está asignado a ningún catálogo o evento.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedSlugsForProducto.map((slug) => {
+                            const badgeInfo = getSlugBadgeInfo(slug, eventos);
+                            return (
+                              <span
+                                key={slug}
+                                className={`inline-flex items-center gap-1.5 font-quicksand text-xs font-bold px-3 py-1 rounded-full border ${badgeInfo.colorClass}`}
+                              >
+                                {badgeInfo.label}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSlugSelection(slug)}
+                                  className="ml-0.5 hover:opacity-70 transition-opacity"
+                                  title={`Quitar de ${badgeInfo.label}`}
+                                >
+                                  <X size={11} />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-gray-100" />
+
+                    {/* Catálogos disponibles */}
+                    <div>
+                      <p className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">
+                        Catálogos de tienda
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {CATALOGOS_TIENDA.map((cat) => {
+                          const isChecked = selectedSlugsForProducto.includes(cat.slug);
+                          return (
+                            <button
+                              key={cat.slug}
+                              type="button"
+                              onClick={() => handleToggleSlugSelection(cat.slug)}
+                              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                                isChecked
+                                  ? "bg-[#FDF4F7] border-[#EE6B8D] text-gray-900"
+                                  : "border-gray-200 hover:border-gray-300 text-gray-600 bg-white"
+                              }`}
+                            >
+                              <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                isChecked ? "bg-[#EE6B8D] border-[#EE6B8D]" : "border-gray-300"
+                              }`}>
+                                {isChecked && <Check size={10} className="text-white" strokeWidth={3} />}
+                              </span>
+                              <span className="font-quicksand text-xs font-bold truncate">{cat.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Eventos disponibles */}
+                    <div>
+                      <p className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">
+                        Eventos y campañas
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {allAvailableEvents.map((ev) => {
+                          const isChecked = selectedSlugsForProducto.includes(ev.slug);
+                          return (
+                            <button
+                              key={ev.slug}
+                              type="button"
+                              onClick={() => handleToggleSlugSelection(ev.slug)}
+                              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                                isChecked
+                                  ? "bg-[#FDF4F7] border-[#EE6B8D] text-gray-900"
+                                  : "border-gray-200 hover:border-gray-300 text-gray-600 bg-white"
+                              }`}
+                            >
+                              <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                isChecked ? "bg-[#EE6B8D] border-[#EE6B8D]" : "border-gray-300"
+                              }`}>
+                                {isChecked && <Check size={10} className="text-white" strokeWidth={3} />}
+                              </span>
+                              <span className="font-quicksand text-xs font-bold truncate">{ev.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Footer con acciones */}
+                  <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50/50 rounded-b-2xl">
+                    <p className="font-quicksand text-[11px] text-gray-400">
+                      {selectedSlugsForProducto.length} seleccionado{selectedSlugsForProducto.length !== 1 ? "s" : ""}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingProductoCatalogos(null)}
+                        className="px-4 py-2 text-xs font-quicksand font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingCatalogos}
+                        onClick={handleSaveProductoCatalogos}
+                        className="px-5 py-2 text-xs font-quicksand font-bold text-white bg-[#C04267] hover:bg-[#982B4D] rounded-xl transition-colors shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {savingCatalogos ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>Guardando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save size={13} />
+                            <span>Guardar cambios</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+            {/* Modal de asignación masiva en lote */}
+            {bulkModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+                <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#FDE8EF]">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-pink-50 text-[#C04267] flex items-center justify-center">
+                        <Layers size={18} />
+                      </div>
+                      <h3 className="font-fredoka text-lg font-bold text-gray-900">
+                        Asignación en Lote
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBulkModalOpen(false)}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <p className="font-quicksand text-xs text-gray-600 mb-4">
+                    Has seleccionado <strong>{selectedProductIds.size}</strong> productos. Elige el catálogo o evento al que deseas agregarlos o quitarlos:
+                  </p>
+
+                  <div className="mb-5">
+                    <label className="block font-quicksand text-xs font-bold text-gray-700 mb-1.5">
+                      Catálogo o Evento Destino:
+                    </label>
+                    <select
+                      value={bulkTargetSlug}
+                      onChange={(e) => setBulkTargetSlug(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl font-quicksand text-xs text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+                    >
+                      <optgroup label="Catálogos Principales">
+                        {CATALOGOS_TIENDA.map((c) => (
+                          <option key={c.slug} value={c.slug}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Eventos Especiales">
+                        {allAvailableEvents.map((ev) => (
+                          <option key={ev.slug} value={ev.slug}>
+                            {ev.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={bulkSaving}
+                      onClick={() => handleBulkAssign("agregar")}
+                      className="w-full py-2.5 px-4 bg-[#EE6B8D] hover:bg-[#C04267] text-white font-quicksand text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {bulkSaving ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <span>Agregar a los {selectedProductIds.size} productos</span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={bulkSaving}
+                      onClick={() => handleBulkAssign("quitar")}
+                      className="w-full py-2 px-4 border border-red-200 text-red-600 hover:bg-red-50 font-quicksand text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      Quitar de los {selectedProductIds.size} productos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkModalOpen(false)}
+                      className="w-full py-1.5 text-gray-400 hover:text-gray-600 font-quicksand text-xs font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -3434,7 +4563,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab !== "dashboard" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && !loading && data.length > 0 && (
+        {mainTab !== "dashboard" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && !loading && data.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">

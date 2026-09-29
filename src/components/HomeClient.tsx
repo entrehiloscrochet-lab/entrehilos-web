@@ -528,13 +528,25 @@ function getRotondaEvento(eventosData: any[] = []): any | null {
     return true;
   };
 
-  // 1. Campaña de temporada actualmente activa por fechas que tenga fotos subidas
+  // 1. Evento elegido específicamente para la rotonda de inicio con fotos subidas
+  const customRotondaWithPhotos = available.find(
+    (e) => e.destacado_rotonda === true && Array.isArray(e.fotos_campana) && e.fotos_campana.length > 0
+  );
+  if (customRotondaWithPhotos) return customRotondaWithPhotos;
+
+  // 2. Evento destacado principal (featured) que tenga fotos subidas
+  const featuredWithPhotos = available.find(
+    (e) => (e.featured === true || e.destacado === true) && Array.isArray(e.fotos_campana) && e.fotos_campana.length > 0
+  );
+  if (featuredWithPhotos) return featuredWithPhotos;
+
+  // 3. Campaña de temporada actualmente activa por fechas que tenga fotos subidas
   const activeDatedWithPhotos = available.find(
     (e) => (e.fecha_inicio || e.fecha_fin) && isCurrent(e) && Array.isArray(e.fotos_campana) && e.fotos_campana.length > 0
   );
   if (activeDatedWithPhotos) return activeDatedWithPhotos;
 
-  // 2. Campaña recientemente finalizada con fotos subidas (ej. Flores Amarillas que acaba de pasar)
+  // 4. Campaña recientemente finalizada con fotos subidas
   const pastWithPhotos = available
     .filter((e) => {
       const hasPhotos = Array.isArray(e.fotos_campana) && e.fotos_campana.length > 0;
@@ -545,19 +557,23 @@ function getRotondaEvento(eventosData: any[] = []): any | null {
     .sort((a, b) => new Date(b.fecha_fin).getTime() - new Date(a.fecha_fin).getTime());
   if (pastWithPhotos.length > 0) return pastWithPhotos[0];
 
-  // 3. Cualquier evento activo con fotos subidas
+  // 5. Cualquier evento activo con fotos subidas
   const anyActiveWithPhotos = available.find(
     (e) => isCurrent(e) && Array.isArray(e.fotos_campana) && e.fotos_campana.length > 0
   );
   if (anyActiveWithPhotos) return anyActiveWithPhotos;
 
-  // 4. Cualquier evento que tenga fotos cargadas
+  // 6. Cualquier evento que tenga fotos cargadas
   const anyWithPhotos = available.find(
     (e) => Array.isArray(e.fotos_campana) && e.fotos_campana.length > 0
   );
   if (anyWithPhotos) return anyWithPhotos;
 
-  // 5. Evento de temporada actualmente activo por fechas (aunque aún no tenga fotos)
+  // 7. Evento destacado para la rotonda o featured (aunque aún no tenga fotos)
+  const chosenOrFeatured = available.find((e) => e.destacado_rotonda === true || e.featured === true);
+  if (chosenOrFeatured) return chosenOrFeatured;
+
+  // 8. Evento de temporada actualmente activo por fechas
   const activeDated = available.find(
     (e) => (e.fecha_inicio || e.fecha_fin) && isCurrent(e)
   );

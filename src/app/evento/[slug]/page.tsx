@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { loadExtras } from "@/lib/extras-cache";
 import ProductCard from "@/components/ProductCard";
 import QuickViewDrawer from "@/components/QuickViewDrawer";
+import CampanaRotondaSection from "@/components/CampanaRotondaSection";
 
 const eventSlugs = ['dia-de-la-novia', 'dia-de-la-mujer', 'san-valentin', 'dia-de-la-madre', 'flores-amarillas', 'personalizados', 'hotwheels'];
 
@@ -110,51 +111,31 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
       }
 
       const allProducts = await getVentifyProducts();
-      let filtered: any[];
-      switch (slug) {
-        case 'dia-de-la-mujer':
-          filtered = allProducts.filter(p =>
-            p.sku.startsWith('Mujer-') || p.nombre?.toLowerCase().includes('mujer') || p.sku.startsWith('Ramos-')
-          );
-          break;
-        case 'san-valentin':
-          filtered = allProducts.filter(p =>
-            (p.sku.startsWith('Ramos-') || ['Caja-001', 'Caja-002', 'Caja-003'].includes(p.sku)) && p.stock > 0
-          ).sort((a, b) => b.stock - a.stock);
-          break;
-        case 'dia-de-la-novia':
-          filtered = allProducts.filter(p =>
-            p.sku.startsWith('Ramos-') || ['Caja-001', 'Caja-002', 'Caja-003'].includes(p.sku)
-          ).sort((a, b) => b.stock - a.stock);
-          break;
-        case 'dia-de-la-madre':
-          filtered = allProducts.filter(p => p.sku.startsWith('Madre-') || p.sku.startsWith('Ramos-'));
-          break;
-        case 'flores-amarillas':
-          filtered = allProducts.filter(p =>
-            p.categoriaOriginal?.toLowerCase().includes('flores amarillas') ||
-            p.nombre?.toLowerCase().includes('flores amarillas') || p.sku.startsWith('Flores-')
-          );
-          break;
-        case 'personalizados':
-          filtered = allProducts.filter(p => p.sku.startsWith('Amigu-'));
-          break;
-        case 'hotwheels':
-          filtered = allProducts.filter(p =>
-            p.categoriaOriginal?.toLowerCase().includes('hotwheels') ||
-            p.nombre?.toLowerCase().includes('hotwheels') ||
-            p.sku.startsWith('HW-')
-          );
-          break;
-        default: {
-          const searchKeywords = (dbEvento?.nombre || slug).toLowerCase().split(/[\s-]+/).filter((w: string) => w.length > 2);
-          filtered = allProducts.filter(p => {
-            const str = `${p.nombre || ''} ${p.categoriaOriginal || ''} ${p.sku || ''}`.toLowerCase();
-            return searchKeywords.some((kw: string) => str.includes(kw));
-          });
-          if (filtered.length === 0) filtered = allProducts;
+      // Filtrar usando el array de catálogos ya calculado en cada producto.
+      // Si el producto tiene asignación manual que lo incluya/excluya, ya viene en p.catalogos.
+      let filtered = allProducts.filter((p: any) => {
+        if (Array.isArray(p.catalogos) && p.catalogos.length > 0) {
+          return p.catalogos.includes(slug.toLowerCase());
         }
+        // Fallback a reglas base por SKU/nombre/categoría (sin assignments BD)
+        const { isProductInSlug } = require('@/lib/catalogos');
+        return isProductInSlug(p, slug);
+      });
+
+      // Para eventos de alta demanda, ordenar por stock descendente
+      if (['san-valentin', 'dia-de-la-novia'].includes(slug)) {
+        filtered = filtered.sort((a: any, b: any) => b.stock - a.stock);
       }
+
+      // Si no hay resultados y es un evento de BD, buscar por palabras clave del nombre del evento
+      if (filtered.length === 0 && dbEvento) {
+        const searchKeywords = (dbEvento.nombre || slug).toLowerCase().split(/[\s-]+/).filter((w: string) => w.length > 2);
+        filtered = allProducts.filter((p: any) => {
+          const str = `${p.nombre || ''} ${p.categoriaOriginal || ''} ${p.sku || ''}`.toLowerCase();
+          return searchKeywords.some((kw: string) => str.includes(kw));
+        });
+      }
+
       setProducts(filtered);
       setLoading(false);
     };
@@ -254,6 +235,11 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
           </>
         )}
       </section>
+
+      {/* Galería Rotonda 3D: "Así se vivió [Evento]" con fotos reales de entregas de clientes */}
+      {evento?.fotos_campana && Array.isArray(evento.fotos_campana) && evento.fotos_campana.length > 0 && (
+        <CampanaRotondaSection eventoActual={evento} />
+      )}
 
       {selectedProduct && (
         <QuickViewDrawer product={selectedProduct} onClose={() => setSelectedProduct(null)} />
