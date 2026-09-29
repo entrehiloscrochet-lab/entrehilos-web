@@ -110,7 +110,11 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
-  const { action, id, ...updates } = body;
+  const { action, id, updates: nestedUpdates, ...flatUpdates } = body;
+  const updates =
+    nestedUpdates && typeof nestedUpdates === "object" && !Array.isArray(nestedUpdates)
+      ? nestedUpdates
+      : flatUpdates;
 
   if (action === "marcar-leido") {
     const { error } = await supabaseAdmin

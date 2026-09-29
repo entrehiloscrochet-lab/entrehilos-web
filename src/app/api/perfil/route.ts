@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
+// Columnas de datos de entrega que pueden faltar en la BD si la migracion
+// 020_profile_shipping_fields.sql todavia no se aplico. El guardado nunca debe
+// fallar por culpa de ellas: se omiten y se avisa, pero id/telefono/nombre/email
+// (que son parte del esquema base) siempre se guardan.
+const CAMPOS_ENVIO_OPCIONALES = [
+  "direccion",
+  "departamento",
+  "provincia",
+  "distrito",
+  "referencia",
+  "localidad",
+];
+
+type PostgrestError = { code?: string; message?: string } | null;
+
+// PostgREST responde PGRST204 ("no encuentra la columna en el schema cache")
+// o Postgres 42703 ("column does not exist") cuando el payload trae una
+// columna inexistente.
+function columnaInexistente(error: PostgrestError): string | null {
+  if (!error) return null;
+  const message = error.message || "";
+  const esColumnaInvalida =
+    error.code === "PGRST204" ||
+    error.code === "42703" ||
+    /could not find the '.*' column|column .* does not exist/i.test(message);
+  if (!esColumnaInvalida) return null;
+
+  const conComillas = message.match(/'([^']+)'/);
+  if (conComillas) return conComillas[1];
+  const sinComillas = message.match(/column\s+\S*\.?(\w+)\s+does not exist/i);
+  return sinComillas ? sinComillas[1] : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -51,37 +84,39 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // Intentar upsert con todos los campos
-    const { error: fullError } = await supabaseAdmin
-      .from("profiles")
-      .upsert(updatesFull, { onConflict: "id" });
+    // Intentar upsert con todos los campos. Si alguna columna de envio no existe
+    // todavia en la BD, se omite y se reintenta en vez de perder todo el guardado.
+    const payload: Record<string, any> = { ...updatesFull };
+    const omitidos: string[] = [];
 
-    if (!fullError) {
-      return NextResponse.json({ success: true, profile: updatesFull });
+    for (let intento = 0; intento <= CAMPOS_ENVIO_OPCIONALES.length; intento++) {
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" });
+
+      if (!error) {
+        return NextResponse.json({
+          success: true,
+          profile: payload,
+          partial: omitidos.length > 0,
+          campos_no_guardados: omitidos,
+        });
+      }
+
+      const columna = columnaInexistente(error);
+      if (!columna || !CAMPOS_ENVIO_OPCIONALES.includes(columna)) {
+        console.error("Error guardando perfil en /api/perfil:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      delete payload[columna];
+      omitidos.push(columna);
+      console.warn(
+        `Columna '${columna}' no existe en profiles: se omite y se reintenta el guardado.`
+      );
     }
 
-    console.warn("Full profile upsert failed, retrying with core columns:", fullError.message);
-
-    // Si falló por columnas que aún no existen en la BD, hacemos fallback con las columnas básicas
-    const updatesCore: Record<string, any> = {
-      id,
-      nombre: updatesFull.nombre,
-      telefono: updatesFull.telefono,
-      email: updatesFull.email,
-      direccion: updatesFull.direccion,
-      updated_at: updatesFull.updated_at,
-    };
-
-    const { error: coreError } = await supabaseAdmin
-      .from("profiles")
-      .upsert(updatesCore, { onConflict: "id" });
-
-    if (coreError) {
-      console.error("Core profile upsert error:", coreError);
-      return NextResponse.json({ error: coreError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, profile: updatesFull, partial: true });
+    return NextResponse.json({ error: "No se pudo guardar el perfil" }, { status: 500 });
   } catch (err: any) {
     console.error("Error in POST /api/perfil:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

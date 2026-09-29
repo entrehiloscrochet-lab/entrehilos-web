@@ -976,12 +976,10 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "guardar-producto-catalogos",
-          updates: {
-            producto_id: editingProductoCatalogos.id,
-            sku: editingProductoCatalogos.sku || null,
-            slugs_incluidos,
-            slugs_excluidos,
-          },
+          producto_id: editingProductoCatalogos.id,
+          sku: editingProductoCatalogos.sku || null,
+          slugs_incluidos,
+          slugs_excluidos,
         }),
       });
 
@@ -1058,11 +1056,9 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "bulk-asignar-catalogos",
-          updates: {
-            items: selectedItems,
-            slug: bulkTargetSlug,
-            operacion,
-          },
+          items: selectedItems,
+          slug: bulkTargetSlug,
+          operacion,
         }),
       });
 
@@ -1278,7 +1274,7 @@ export default function AdminPage() {
 
         {/* Subpestañas superiores para secciones con múltiples vistas */}
         {mainTab !== "dashboard" && SUBTABS_BY_MAIN[mainTab]?.length > 1 && (
-          <div className="flex flex-wrap items-center gap-2 mb-6 bg-white p-1.5 rounded-2xl border border-[#FDE8EF] w-fit shadow-xs">
+          <div className="flex flex-wrap items-center gap-2 mb-6 bg-white p-1.5 rounded-2xl border border-[#FDE8EF] w-full sm:w-fit shadow-xs">
             {SUBTABS_BY_MAIN[mainTab].map((st) => {
               const StIcon = st.icon;
               const isSubActive = subTab === st.id;
@@ -1314,10 +1310,10 @@ export default function AdminPage() {
 
         {subTab === "heroes" && !loading && (
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Heroes</h2>
               <button onClick={() => setEditingHero(ALL_HERO_KEYS[0])}
-                className="flex items-center gap-2 text-xs text-white bg-[#EE6B8D] hover:bg-[#C04267] px-4 py-2.5 rounded-lg font-quicksand font-semibold transition-colors shadow-sm"
+                className="flex items-center gap-2 text-xs text-white bg-[#EE6B8D] hover:bg-[#C04267] px-4 py-2.5 rounded-lg font-quicksand font-semibold transition-colors shadow-sm self-start sm:self-auto"
               >
                 <Upload size={14} />
                 Agregar / Editar
@@ -1368,7 +1364,7 @@ export default function AdminPage() {
 
         {subTab === "inicio" && !loading && (
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Inicio - Secciones</h2>
             </div>
 
@@ -3845,7 +3841,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm min-w-[850px]">
                   <thead>
                     <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                       <th className="px-3 py-3 w-8">
@@ -3988,13 +3984,13 @@ export default function AdminPage() {
                 <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 max-h-[88vh] flex flex-col">
 
                   {/* Header */}
-                  <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
+                  <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-gray-100 shrink-0">
                     <div className="flex items-center gap-3 min-w-0">
                       {editingProductoCatalogos.imagen && (
                         <img
                           src={editingProductoCatalogos.imagen}
                           alt=""
-                          className="w-11 h-11 rounded-xl object-cover border border-gray-100 bg-gray-50 shrink-0"
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-gray-100 bg-gray-50 shrink-0"
                         />
                       )}
                       <div className="min-w-0">
@@ -4014,7 +4010,7 @@ export default function AdminPage() {
                   </div>
 
                   {/* Body scrollable */}
-                  <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+                  <div className="overflow-y-auto flex-1 px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
 
                     {/* Asignaciones actuales */}
                     <div>
@@ -4057,7 +4053,7 @@ export default function AdminPage() {
                       <p className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">
                         Catálogos de tienda
                       </p>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {CATALOGOS_TIENDA.map((cat) => {
                           const isChecked = selectedSlugsForProducto.includes(cat.slug);
                           return (
@@ -4088,7 +4084,7 @@ export default function AdminPage() {
                       <p className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">
                         Eventos y campañas
                       </p>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {allAvailableEvents.map((ev) => {
                           const isChecked = selectedSlugsForProducto.includes(ev.slug);
                           return (
@@ -4117,7 +4113,7 @@ export default function AdminPage() {
                   </div>
 
                   {/* Footer con acciones */}
-                  <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50/50 rounded-b-2xl">
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 shrink-0 bg-gray-50/50 rounded-b-2xl">
                     <p className="font-quicksand text-[11px] text-gray-400">
                       {selectedSlugsForProducto.length} seleccionado{selectedSlugsForProducto.length !== 1 ? "s" : ""}
                     </p>
@@ -4125,7 +4121,7 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => setEditingProductoCatalogos(null)}
-                        className="px-4 py-2 text-xs font-quicksand font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
+                        className="px-3.5 sm:px-4 py-2 text-xs font-quicksand font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200"
                       >
                         Cancelar
                       </button>
@@ -4266,7 +4262,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm min-w-[720px]">
                   <thead>
                     <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
@@ -4356,13 +4352,13 @@ export default function AdminPage() {
 
         {subTab === "resenas" && !loading && (
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Reseñas</h2>
               <button onClick={() => {
                 setShowResenaForm(!showResenaForm);
                 if (!allProducts.length) fetchVentifyData().then((d) => setAllProducts(d.active)).catch(() => {});
               }}
-                className="flex items-center gap-2 text-xs text-white bg-[#EE6B8D] hover:bg-[#C04267] px-4 py-2.5 rounded-lg font-quicksand font-semibold transition-colors shadow-sm"
+                className="flex items-center gap-2 text-xs text-white bg-[#EE6B8D] hover:bg-[#C04267] px-4 py-2.5 rounded-lg font-quicksand font-semibold transition-colors shadow-sm self-start sm:self-auto"
               >
                 <Plus size={14} />
                 Agregar reseña manual
@@ -4485,7 +4481,7 @@ export default function AdminPage() {
 
             {data.length > 0 && (
               <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm min-w-[720px]">
                   <thead>
                     <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                       <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
@@ -4565,16 +4561,16 @@ export default function AdminPage() {
 
         {mainTab !== "dashboard" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && !loading && data.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
                 {SUBTABS_BY_MAIN[mainTab]?.find(m => m.id === subTab)?.label || subTab}
               </h2>
-              <span className="font-quicksand text-xs font-semibold text-gray-500 bg-white border border-[#FDE8EF] px-3 py-1 rounded-full shadow-xs">
+              <span className="font-quicksand text-xs font-semibold text-gray-500 bg-white border border-[#FDE8EF] px-3 py-1 rounded-full shadow-xs self-start sm:self-auto">
                 {data.length} {data.length === 1 ? "registro" : "registros"}
               </span>
             </div>
             <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-left text-sm min-w-[800px]">
                 <thead>
                   <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                     {getColumns(data).map((key) => (

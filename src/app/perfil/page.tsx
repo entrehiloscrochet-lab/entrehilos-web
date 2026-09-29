@@ -394,16 +394,26 @@ export default function PerfilPage() {
         body: JSON.stringify({ id: user.id, ...payload }),
       });
 
-      if (res.ok) {
-        setProfile(payload);
-        setPerfilGuardadoExito(true);
-        showToast("Tus datos de entrega fueron guardados con éxito", "success");
-        setTimeout(() => setPerfilGuardadoExito(false), 3500);
+      if (!res.ok) {
+        showToast("No pudimos guardar en el servidor. Tus datos quedaron solo en este dispositivo.", "error");
+        return;
+      }
+
+      const json = await res.json().catch(() => null);
+      setProfile({ ...payload, ...(json?.profile || {}) });
+      setPerfilGuardadoExito(true);
+      setTimeout(() => setPerfilGuardadoExito(false), 3500);
+
+      if (json?.partial && Array.isArray(json.campos_no_guardados) && json.campos_no_guardados.length > 0) {
+        showToast(
+          `Tu nombre y teléfono se guardaron, pero la dirección no: falta aplicar la migración de envío (${json.campos_no_guardados.join(", ")}).`,
+          "warning"
+        );
       } else {
-        showToast("Tus datos se guardaron localmente para tus envíos", "info");
+        showToast("Tus datos de entrega fueron guardados con éxito", "success");
       }
     } catch (err) {
-      showToast("Tus datos se guardaron localmente para tus envíos", "info");
+      showToast("No pudimos guardar en el servidor. Tus datos quedaron solo en este dispositivo.", "error");
     } finally {
       setGuardandoPerfil(false);
     }
