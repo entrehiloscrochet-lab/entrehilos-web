@@ -7,7 +7,8 @@ import {
   Image as ImageIcon, Users, LogOut, Home, Loader2, Eye, ExternalLink,
   UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Sparkles, Camera,
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
-  FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil,
+  FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil, Menu,
+  PanelLeft, PanelLeftClose,
 } from "lucide-react";
 
 import {
@@ -176,6 +177,8 @@ export default function AdminPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [tempUploading, setTempUploading] = useState(false);
   const [tempUploadingMobile, setTempUploadingMobile] = useState(false);
   const [heroDragOver, setHeroDragOver] = useState<number | null>(null);
@@ -729,6 +732,38 @@ export default function AdminPage() {
     })();
   }, [router]);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("admin_sidebar_collapsed");
+      if (saved !== null) {
+        setSidebarCollapsed(saved === "true");
+      } else if (typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth < 1024) {
+        setSidebarCollapsed(true);
+      }
+    } catch {
+      // ignore
+    }
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("admin_sidebar_collapsed", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   const fetchData = useCallback(async () => {
     if (mainTab === "dashboard") { setLoading(false); return; }
     setLoading(true);
@@ -753,7 +788,7 @@ export default function AdminPage() {
   }, [subTab, allProducts.length]);
 
   useEffect(() => {
-    if (subTab === "productos") {
+    if (subTab === "productos" || subTab === "pedidos") {
       if (rawProducts.length === 0 || inactiveIds.size === 0 || assignments.length === 0) {
         fetchVentifyData().then((d) => {
           if (rawProducts.length === 0) setRawProducts(d.all);
@@ -1157,26 +1192,106 @@ export default function AdminPage() {
     );
   }
 
-  const sidebarContent = (
-    <div className="flex flex-col h-full">
-      <div className="p-5 border-b border-[#FDE8EF] flex items-start justify-between">
-        <div>
-          <h1 className="font-fredoka text-lg font-bold text-[#C04267]">Admin</h1>
-          <p className="font-quicksand text-xs text-gray-400">Entre Hilos</p>
-        </div>
-        <button
-          onClick={() => setSidebarOpen(false)}
-          className="lg:hidden w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center -mr-1"
-          aria-label="Cerrar menú"
-        >
-          <X size={18} className="text-gray-500" />
-        </button>
-      </div>
+  const effectiveCollapsed = sidebarCollapsed && !isMobile;
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+  const sidebarContent = (
+    <div className="flex flex-col h-full select-none">
+      {/* Cabecera del sidebar */}
+      {effectiveCollapsed ? (
+        <div className="py-4 px-2 flex flex-col items-center gap-3 border-b border-[#FDE8EF]">
+          {/* Logo / Avatar circular */}
+          <div
+            className="w-10 h-10 rounded-full bg-linear-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center font-fredoka font-bold text-xs shadow-xs ring-2 ring-pink-100 cursor-pointer"
+            title="Entre Hilos Admin"
+            onClick={toggleSidebar}
+          >
+            EH
+          </div>
+
+          {/* Botón toggle para expandir (tipo imagen de referencia) */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="w-10 h-10 rounded-xl border border-[#EE6B8D]/40 bg-[#FDF4F7] text-[#EE6B8D] hover:bg-pink-100 hover:text-[#C04267] flex items-center justify-center transition-all shadow-2xs group relative"
+            title="Expandir menú lateral"
+            aria-label="Expandir menú lateral"
+          >
+            <PanelLeft size={18} strokeWidth={2} />
+            <span className="hidden group-hover:block absolute left-full ml-2.5 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+              Expandir menú
+            </span>
+          </button>
+        </div>
+      ) : (
+        <div className="p-4 border-b border-[#FDE8EF] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center font-fredoka font-bold text-sm shadow-xs ring-2 ring-pink-100 shrink-0">
+              EH
+            </div>
+            <div>
+              <h1 className="font-fredoka text-base font-bold text-[#C04267] leading-tight">Admin</h1>
+              <p className="font-quicksand text-xs text-gray-400 leading-tight">Entre Hilos</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {/* Botón para contraer (solo en pantallas desktop/tablet) */}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="hidden md:flex w-8 h-8 rounded-lg hover:bg-pink-50 text-gray-400 hover:text-[#EE6B8D] items-center justify-center transition-colors group relative"
+              title="Contraer menú lateral"
+              aria-label="Contraer menú lateral"
+            >
+              <PanelLeftClose size={18} strokeWidth={2} />
+              <span className="hidden group-hover:block absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+                Contraer
+              </span>
+            </button>
+
+            {/* Botón cerrar en móvil */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500"
+              aria-label="Cerrar menú"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Navegación */}
+      <nav className={`flex-1 overflow-y-auto ${effectiveCollapsed ? "py-4 px-2 space-y-2 flex flex-col items-center" : "p-3 space-y-1"}`}>
         {menuGroups.map((item) => {
           const Icon = item.icon;
           const active = mainTab === item.id;
+
+          if (effectiveCollapsed) {
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setMainTab(item.id);
+                  setSubTab(item.defaultSubTab);
+                  setSidebarOpen(false);
+                }}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all relative group ${
+                  active
+                    ? "bg-[#FDF4F7] text-[#EE6B8D] border-2 border-[#EE6B8D]/40 shadow-xs font-bold ring-2 ring-pink-100/50"
+                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-100/80"
+                }`}
+                title={item.label}
+                aria-label={item.label}
+              >
+                <Icon size={20} strokeWidth={active ? 2.4 : 1.7} />
+                <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+                  {item.label}
+                </span>
+              </button>
+            );
+          }
+
           return (
             <button
               key={item.id}
@@ -1185,64 +1300,113 @@ export default function AdminPage() {
                 setSubTab(item.defaultSubTab);
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-quicksand text-sm font-semibold transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold transition-all text-left ${
                 active
-                  ? "bg-[#FDF4F7] text-[#EE6B8D] shadow-sm font-bold"
+                  ? "bg-[#FDF4F7] text-[#EE6B8D] shadow-xs font-bold border border-[#FDE8EF]"
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
               }`}
             >
               <Icon size={18} strokeWidth={active ? 2.5 : 1.5} />
-              {item.label}
+              <span className="truncate">{item.label}</span>
             </button>
           );
         })}
       </nav>
 
-      <div className="p-3 border-t border-[#FDE8EF] space-y-1">
-        <Link
-          href="/"
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all"
-        >
-          <Home size={18} strokeWidth={1.5} />
-          Ir a inicio
-        </Link>
-        <button onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-red-400 hover:bg-red-50 hover:text-red-500 transition-all"
-        >
-          <LogOut size={18} strokeWidth={1.5} />
-          Cerrar sesión
-        </button>
-      </div>
+      {/* Pie del sidebar */}
+      {effectiveCollapsed ? (
+        <div className="py-3 px-2 border-t border-[#FDE8EF] flex flex-col items-center gap-2">
+          <Link
+            href="/"
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all relative group"
+            title="Ir a inicio de la tienda"
+            aria-label="Ir a inicio"
+          >
+            <Home size={19} strokeWidth={1.8} />
+            <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+              Ir a inicio
+            </span>
+          </Link>
+          <button
+            onClick={handleSignOut}
+            className="w-11 h-11 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 border border-red-200/60 flex items-center justify-center transition-all relative group"
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut size={19} strokeWidth={1.8} />
+            <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-red-600 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+              Cerrar sesión
+            </span>
+          </button>
+        </div>
+      ) : (
+        <div className="p-3 border-t border-[#FDE8EF] space-y-1">
+          <Link
+            href="/"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all"
+          >
+            <Home size={18} strokeWidth={1.5} />
+            <span>Ir a inicio</span>
+          </Link>
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-red-400 hover:bg-red-50 hover:text-red-500 transition-all"
+          >
+            <LogOut size={18} strokeWidth={1.5} />
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#FDF4F7] flex">
+    <div className="min-h-screen bg-[#FDF4F7] flex flex-col md:flex-row">
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-white shadow-lg border-r border-[#FDE8EF] transform transition-transform duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        className={`fixed md:sticky top-0 left-0 z-50 h-screen ${
+          effectiveCollapsed ? "md:w-[72px]" : "md:w-64"
+        } w-64 bg-white shadow-lg md:shadow-none border-r border-[#FDE8EF] transform transition-all duration-300 ease-in-out shrink-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
         {sidebarContent}
       </aside>
 
-      <button
-        onClick={() => setSidebarOpen(true)}
-        className="fixed top-4 left-4 z-30 lg:hidden w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-50"
-        aria-label="Abrir menú"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A4A4A" strokeWidth="2" strokeLinecap="round">
-          <line x1="4" y1="6" x2="20" y2="6" />
-          <line x1="4" y1="12" x2="20" y2="12" />
-          <line x1="4" y1="18" x2="20" y2="18" />
-        </svg>
-      </button>
+      {/* Header Compacto para Celular (< md) */}
+      <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#FDE8EF] px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="w-9 h-9 rounded-xl bg-[#FDF4F7] text-[#C04267] flex items-center justify-center hover:bg-pink-100 transition-colors"
+            aria-label="Abrir menú de navegación"
+          >
+            <Menu size={18} />
+          </button>
+          <div>
+            <h1 className="font-fredoka text-sm font-bold text-[#C04267] leading-tight">
+              Entre Hilos
+            </h1>
+            <p className="font-quicksand text-[10px] text-gray-500 font-semibold leading-none capitalize">
+              {menuGroups.find((m) => m.id === mainTab)?.label || "Super Admin"}
+            </p>
+          </div>
+        </div>
 
-      <main className="flex-1 min-w-0 p-4 pt-20 sm:p-8 sm:pt-20 lg:pt-8">
+        <Link
+          href="/"
+          className="text-xs font-quicksand font-bold text-[#EE6B8D] hover:text-[#C04267] flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-pink-50 transition-colors"
+        >
+          <Home size={13} />
+          <span className="hidden xs:inline">Ver Tienda</span>
+        </Link>
+      </header>
+
+      <main className="flex-1 min-w-0 p-3.5 sm:p-5 lg:p-6 transition-all duration-300">
         {mainTab === "dashboard" && (
           <div>
             <div className="mb-6">
@@ -1327,7 +1491,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {subTab === "heroes" && !loading && (
+        {mainTab === "diseno" && subTab === "heroes" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Heroes</h2>
@@ -1381,7 +1545,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {subTab === "inicio" && !loading && (
+        {mainTab === "diseno" && subTab === "inicio" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Inicio - Secciones</h2>
@@ -1422,7 +1586,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {subTab === "eventos" && !loading && (
+        {mainTab === "eventos" && subTab === "eventos" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
@@ -3463,7 +3627,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {subTab === "catalogos" && !loading && (
+        {mainTab === "catalogo" && subTab === "catalogos" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
@@ -3710,7 +3874,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {subTab === "productos" && (() => {
+        {mainTab === "catalogo" && subTab === "productos" && (() => {
           // Lista de eventos combinada (base + dinámicos de Supabase)
           const allAvailableEvents = (() => {
             const map = new Map<string, string>();
@@ -3884,142 +4048,257 @@ export default function AdminPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                <table className="w-full text-left text-sm min-w-[850px]">
-                  <thead>
-                    <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
-                      <th className="px-3 py-3 w-8">
-                        <button
-                          type="button"
-                          onClick={() => toggleSelectAllVisible(productosVisibles)}
-                          className="text-gray-400 hover:text-[#EE6B8D] transition-colors"
-                          title={allVisibleSelected ? "Deseleccionar visibles" : "Seleccionar visibles"}
-                        >
-                          {allVisibleSelected ? (
-                            <CheckSquare size={16} className="text-[#EE6B8D]" />
-                          ) : (
-                            <Square size={16} />
-                          )}
-                        </button>
-                      </th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Categoría</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Catálogos y Eventos</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Precio</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Stock</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-center">Asignar</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Visible en web</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productosVisibles.map((p: any) => {
-                      const isActive = !inactiveIds.has(p.id);
-                      const isSelected = selectedProductIds.has(p.id);
-                      const activeSlugs = getProductActiveSlugs(p, assignments);
+              <>
+                {/* 1. VISTA DE TARJETAS PARA MÓVILES (md:hidden) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:hidden gap-3 mb-6">
+                  {productosVisibles.map((p: any) => {
+                    const isActive = !inactiveIds.has(p.id);
+                    const isSelected = selectedProductIds.has(p.id);
+                    const activeSlugs = getProductActiveSlugs(p, assignments);
 
-                      return (
-                        <tr
-                          key={p.id}
-                          className={`border-b border-gray-50 transition-colors ${
-                            isSelected
-                              ? "bg-pink-50/60"
-                              : isActive
-                              ? "hover:bg-[#FDF4F7]/50"
-                              : "bg-gray-50/50 hover:bg-gray-100/60"
-                          }`}
-                        >
-                          <td className="px-3 py-3">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSelectProduct(p.id)}
-                              className="rounded border-gray-300 text-[#EE6B8D] focus:ring-[#EE6B8D] cursor-pointer"
+                    return (
+                      <div
+                        key={p.id}
+                        className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${
+                          isSelected
+                            ? "bg-pink-50/70 border-[#EE6B8D]"
+                            : isActive
+                            ? "bg-white border-[#FDE8EF] shadow-2xs"
+                            : "bg-gray-50/80 border-gray-200"
+                        }`}
+                      >
+                        {/* Cabecera: Checkbox, foto, nombre y SKU */}
+                        <div className="flex items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectProduct(p.id)}
+                            className="mt-1 rounded border-gray-300 text-[#EE6B8D] focus:ring-[#EE6B8D] cursor-pointer"
+                          />
+                          {p.imagen ? (
+                            <img
+                              src={p.imagen}
+                              alt=""
+                              className="w-12 h-12 rounded-xl object-cover bg-gray-100 shrink-0"
                             />
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-3">
-                              {p.imagen && <img src={p.imagen} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 flex-shrink-0" />}
-                              <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[200px] truncate" title={p.nombre}>{p.nombre}</p>
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl bg-pink-100 text-[#C04267] flex items-center justify-center text-xs font-bold shrink-0">
+                              {p.sku?.substring(0, 3) || "EH"}
                             </div>
-                          </td>
-                          <td className="px-3 py-3 font-quicksand text-[11px] text-gray-500">{p.sku}</td>
-                          <td className="px-3 py-3 font-quicksand text-xs text-gray-500">{p.categoria}</td>
-                          <td className="px-3 py-3">
-                            {activeSlugs.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 max-w-[220px]">
-                                {activeSlugs.map((slug) => {
-                                  const badgeInfo = getSlugBadgeInfo(slug, eventos);
-                                  return (
-                                    <span
-                                      key={slug}
-                                      className={`inline-block font-quicksand text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeInfo.colorClass}`}
-                                    >
-                                      {badgeInfo.label}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <span className="font-quicksand text-[11px] text-gray-400 italic">Sin asignar</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 font-quicksand text-xs text-gray-700 whitespace-nowrap">S/ {p.precio?.toFixed(2)}</td>
-                          <td className="px-3 py-3">
-                            <span className={`font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-quicksand text-xs font-bold text-gray-900 line-clamp-2 leading-tight">
+                              {p.nombre}
+                            </p>
+                            <p className="font-quicksand text-[11px] text-gray-400 mt-0.5">
+                              SKU: {p.sku} · {p.categoria}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Catálogos y Eventos */}
+                        {activeSlugs.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {activeSlugs.map((slug) => {
+                              const badgeInfo = getSlugBadgeInfo(slug, eventos);
+                              return (
+                                <span
+                                  key={slug}
+                                  className={`inline-block font-quicksand text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeInfo.colorClass}`}
+                                >
+                                  {badgeInfo.label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Fila inferior: Precio, Stock, Botón Editar y Switch Activo */}
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 gap-2">
+                          <div>
+                            <span className="font-fredoka text-sm font-bold text-gray-900 block">
+                              S/ {p.precio?.toFixed(2)}
+                            </span>
+                            <span className={`inline-block font-quicksand text-[10px] font-semibold px-2 py-0.2 rounded-full ${
                               p.stock === 0 ? "bg-gray-100 text-gray-500" : p.stock <= 5 ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
                             }`}>
                               {p.stock === 0 ? "A pedido" : `${p.stock} uds`}
                             </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className={`font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                              isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
-                            }`}>
-                              {isActive ? "Activo" : "Oculto"}
-                            </span>
-                          </td>
-                          {/* Columna de acción: botón Editar abre el modal de edición de producto */}
-                          <td className="px-3 py-3 text-center">
+                          </div>
+
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => {
                                 setEditingProductItem(p);
                                 setProductModalOpen(true);
                               }}
-                              title="Editar producto, precio, stock y catálogos"
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-[#FDF4F7] hover:border-[#EE6B8D] text-gray-400 hover:text-[#C04267] transition-all shadow-xs"
+                              className="w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-[#FDF4F7] hover:border-[#EE6B8D] text-gray-500 hover:text-[#C04267] flex items-center justify-center transition-all shadow-2xs"
+                              title="Editar producto"
                             >
                               <Pencil size={13} />
                             </button>
-                          </td>
-                          <td className="px-3 py-3 text-right">
                             <button
+                              type="button"
                               onClick={() => handleToggleProducto(p, !isActive)}
                               title={isActive ? "Ocultar de la web" : "Mostrar en la web"}
-                              className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${isActive ? "bg-green-400" : "bg-gray-300"}`}
+                              className={`relative inline-flex w-10 h-5.5 rounded-full transition-colors ${isActive ? "bg-green-500" : "bg-gray-300"}`}
                             >
-                              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isActive ? "translate-x-5" : ""}`} />
+                              <span className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform ${isActive ? "translate-x-4.5" : ""}`} />
                             </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {productosVisibles.length === 0 && (
+                    <div className="col-span-full py-10 text-center font-quicksand text-xs text-gray-400 bg-white rounded-2xl border border-[#FDE8EF]">
+                      {productosSearch
+                        ? `No se encontraron productos con "${productosSearch}"`
+                        : "No hay productos en este filtro."}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
+                <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto mb-6">
+                  <table className="w-full text-left text-sm min-w-[700px] lg:min-w-full">
+                    <thead>
+                      <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
+                        <th className="px-3 py-3 w-8">
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectAllVisible(productosVisibles)}
+                            className="text-gray-400 hover:text-[#EE6B8D] transition-colors"
+                            title={allVisibleSelected ? "Deseleccionar visibles" : "Seleccionar visibles"}
+                          >
+                            {allVisibleSelected ? (
+                              <CheckSquare size={16} className="text-[#EE6B8D]" />
+                            ) : (
+                              <Square size={16} />
+                            )}
+                          </button>
+                        </th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Categoría</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Catálogos y Eventos</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Precio</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Stock</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-center">Editar</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Visible en web</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productosVisibles.map((p: any) => {
+                        const isActive = !inactiveIds.has(p.id);
+                        const isSelected = selectedProductIds.has(p.id);
+                        const activeSlugs = getProductActiveSlugs(p, assignments);
+
+                        return (
+                          <tr
+                            key={p.id}
+                            className={`border-b border-gray-50 transition-colors ${
+                              isSelected
+                                ? "bg-pink-50/60"
+                                : isActive
+                                ? "hover:bg-[#FDF4F7]/50"
+                                : "bg-gray-50/50 hover:bg-gray-100/60"
+                            }`}
+                          >
+                            <td className="px-3 py-3">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectProduct(p.id)}
+                                className="rounded border-gray-300 text-[#EE6B8D] focus:ring-[#EE6B8D] cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="flex items-center gap-3">
+                                {p.imagen && <img src={p.imagen} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 flex-shrink-0" />}
+                                <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[200px] truncate" title={p.nombre}>{p.nombre}</p>
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 font-quicksand text-[11px] text-gray-500">{p.sku}</td>
+                            <td className="px-3 py-3 font-quicksand text-xs text-gray-500">{p.categoria}</td>
+                            <td className="px-3 py-3">
+                              {activeSlugs.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                  {activeSlugs.map((slug) => {
+                                    const badgeInfo = getSlugBadgeInfo(slug, eventos);
+                                    return (
+                                      <span
+                                        key={slug}
+                                        className={`inline-block font-quicksand text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeInfo.colorClass}`}
+                                      >
+                                        {badgeInfo.label}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="font-quicksand text-[11px] text-gray-400 italic">Sin asignar</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 font-quicksand text-xs text-gray-700 whitespace-nowrap">S/ {p.precio?.toFixed(2)}</td>
+                            <td className="px-3 py-3">
+                              <span className={`font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                p.stock === 0 ? "bg-gray-100 text-gray-500" : p.stock <= 5 ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
+                              }`}>
+                                {p.stock === 0 ? "A pedido" : `${p.stock} uds`}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className={`font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
+                              }`}>
+                                {isActive ? "Activo" : "Oculto"}
+                              </span>
+                            </td>
+                            {/* Columna de acción: botón Editar abre el modal de edición de producto */}
+                            <td className="px-3 py-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingProductItem(p);
+                                  setProductModalOpen(true);
+                                }}
+                                title="Editar producto, precio, stock y catálogos"
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-[#FDF4F7] hover:border-[#EE6B8D] text-gray-400 hover:text-[#C04267] transition-all shadow-xs"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              <button
+                                onClick={() => handleToggleProducto(p, !isActive)}
+                                title={isActive ? "Ocultar de la web" : "Mostrar en la web"}
+                                className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${isActive ? "bg-green-400" : "bg-gray-300"}`}
+                              >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isActive ? "translate-x-5" : ""}`} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {productosVisibles.length === 0 && (
+                        <tr>
+                          <td colSpan={10} className="px-3 py-10 text-center font-quicksand text-xs text-gray-400">
+                            {productosSearch
+                              ? `No se encontraron productos con "${productosSearch}"`
+                              : productosFiltrados.length === 0
+                                ? `No hay productos en este filtro.`
+                                : "Cargando productos..."}
                           </td>
                         </tr>
-                      );
-                    })}
-                    {productosVisibles.length === 0 && (
-                      <tr>
-                        <td colSpan={9} className="px-3 py-10 text-center font-quicksand text-xs text-gray-400">
-                          {productosSearch
-                            ? `No se encontraron productos con "${productosSearch}"`
-                            : productosFiltrados.length === 0
-                              ? `No hay productos en este filtro.`
-                              : "Cargando productos..."}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
 
             {/* Modal para crear o editar productos completos */}
@@ -4335,7 +4614,7 @@ export default function AdminPage() {
           );
         })()}
 
-        {subTab === "precios" && (
+        {mainTab === "catalogo" && subTab === "precios" && (
           <div>
             <div className="mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Precios por tamaño</h2>
@@ -4447,7 +4726,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {subTab === "resenas" && !loading && (
+        {mainTab === "atencion" && subTab === "resenas" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Reseñas</h2>
@@ -4656,7 +4935,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {subTab === "pedidos" && !loading && (
+        {mainTab === "pedidos" && subTab === "pedidos" && !loading && (
           <div>
             <PedidosView
               pedidos={data}

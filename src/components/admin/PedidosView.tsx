@@ -219,125 +219,148 @@ export default function PedidosView({
         </div>
       </div>
 
-      {/* Tabla de Pedidos */}
+      {/* Vista de Pedidos: Tarjetas en Móvil/Tablet y Tabla en Pantallas Grandes */}
       {filteredPedidos.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-[#FDE8EF] text-gray-400 font-quicksand text-xs">
           No se encontraron pedidos con los filtros aplicados.
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm min-w-[900px]">
-            <thead>
-              <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">#</th>
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Canal</th>
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Cliente</th>
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha de Entrega</th>
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Detalle del Pedido</th>
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Total / Pagos</th>
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
-                <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Contacto</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPedidos.map((row: any) => {
-                const { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas } = parseRowData(row);
-                const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
-                const itemsList: any[] = Array.isArray(row.items) ? row.items : [];
-                const tieneAdelanto = adelanto > 0;
+        <>
+          {/* 1. VISTA DE TARJETAS PARA MÓVIL Y TABLET (Evita scroll horizontal y espacios muertos) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:hidden gap-3.5">
+            {filteredPedidos.map((row: any) => {
+              const { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas } = parseRowData(row);
+              const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
+              const itemsList: any[] = Array.isArray(row.items) ? row.items : [];
+              const tieneAdelanto = adelanto > 0;
+              const displayId = row.id ? (String(row.id).length > 8 ? `#${String(row.id).slice(0, 6)}` : `#${row.id}`) : "#S/N";
+              const displayCliente = row.cliente_nombre || row.cliente_email || "Cliente web";
 
-                return (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/40 transition-colors">
-                    {/* ID */}
-                    <td className="px-3 py-3 font-quicksand text-xs font-bold text-gray-800">
-                      #{row.id}
-                    </td>
-
-                    {/* Canal */}
-                    <td className="px-3 py-3">
+              return (
+                <div
+                  key={row.id}
+                  className="bg-white rounded-2xl border border-[#FDE8EF] p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between space-y-3"
+                >
+                  {/* Fila Superior: ID, Canal, Estado y WhatsApp */}
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-gray-100">
+                    <div className="flex items-center gap-2">
+                      <span className="font-fredoka text-sm font-bold text-gray-900">
+                        {displayId}
+                      </span>
                       <span className={`inline-block font-quicksand text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${canalInfo.badgeClass}`}>
                         {canalInfo.label}
                       </span>
-                    </td>
+                    </div>
 
-                    {/* Cliente */}
-                    <td className="px-3 py-3">
-                      <p className="font-quicksand text-xs font-bold text-gray-900">{row.cliente_nombre}</p>
-                      {row.cliente_telefono && (
-                        <p className="font-quicksand text-[11px] text-gray-500 font-mono mt-0.5">{row.cliente_telefono}</p>
-                      )}
-                      {row.direccion_envio && (
-                        <p className="font-quicksand text-[10px] text-gray-400 truncate max-w-[180px]" title={row.direccion_envio}>
-                          {row.direccion_envio}
+                    <div className="flex items-center gap-1.5">
+                      {row.cliente_telefono ? (
+                        <a
+                          href={generateWhatsAppLink(row)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] rounded-lg font-quicksand text-xs font-bold transition-colors"
+                          title="Contactar por WhatsApp"
+                        >
+                          <ExternalLink size={12} />
+                          <span>WhatsApp</span>
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Cliente y Entrega */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-quicksand text-xs font-bold text-gray-900">
+                          {displayCliente}
                         </p>
-                      )}
-                    </td>
-
-                    {/* Fecha de Entrega */}
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {fechaEntrega ? (
-                        <div className="flex items-center gap-1.5 text-xs font-quicksand text-gray-800 font-bold">
-                          <Calendar size={13} className="text-[#EE6B8D]" />
-                          <span>
-                            {new Date(fechaEntrega).toLocaleDateString("es-PE", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
-                      )}
-                      {horaEntrega && (
-                        <p className="font-quicksand text-[10px] text-gray-500 mt-0.5">{horaEntrega}</p>
-                      )}
-                    </td>
-
-                    {/* Items */}
-                    <td className="px-3 py-3">
-                      <div className="space-y-1 max-w-[260px]">
-                        {itemsList.map((it: any, i: number) => (
-                          <div key={i} className="font-quicksand text-xs text-gray-700 flex items-center justify-between gap-2">
-                            <span className="truncate">
-                              {it.cantidad}x {it.nombre}
-                            </span>
-                            <span className="font-semibold text-gray-500 text-[11px] shrink-0">
-                              S/ {(Number(it.precio || 0) * (it.cantidad || 1)).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
-                        {cleanNotas && (
-                          <p className="font-quicksand text-[10px] text-gray-400 italic bg-gray-50 p-1.5 rounded-lg border border-gray-100 mt-1 max-w-[240px] truncate" title={cleanNotas}>
-                            Nota: {cleanNotas}
-                          </p>
+                        {row.cliente_telefono && (
+                          <a
+                            href={`tel:${row.cliente_telefono}`}
+                            className="font-quicksand text-[11px] text-gray-500 font-mono hover:text-[#EE6B8D] inline-block"
+                          >
+                            {row.cliente_telefono}
+                          </a>
                         )}
                       </div>
-                    </td>
 
-                    {/* Total y Pagos */}
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <p className="font-quicksand text-xs font-bold text-gray-900">
-                        S/ {Number(row.total || 0).toFixed(2)}
+                      {/* Fecha de Entrega */}
+                      <div className="text-right shrink-0">
+                        {fechaEntrega ? (
+                          <div className="flex items-center justify-end gap-1 text-xs font-quicksand text-gray-800 font-bold">
+                            <Calendar size={12} className="text-[#EE6B8D]" />
+                            <span>
+                              {new Date(fechaEntrega).toLocaleDateString("es-PE", {
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
+                        )}
+                        {horaEntrega && (
+                          <p className="font-quicksand text-[10px] text-gray-500">{horaEntrega}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {row.direccion_envio && (
+                      <p className="font-quicksand text-[11px] text-gray-500 bg-gray-50 p-1.5 rounded-lg border border-gray-100/70">
+                        {row.direccion_envio}
                       </p>
-                      {tieneAdelanto && (
-                        <p className="font-quicksand text-[10px] text-green-600 font-semibold mt-0.5">
-                          Adelanto: S/ {adelanto.toFixed(2)}
+                    )}
+                  </div>
+
+                  {/* Resumen de Productos (solo si hay items o notas) */}
+                  {(itemsList.length > 0 || cleanNotas) && (
+                    <div className="space-y-1 bg-[#FDF4F7]/40 p-2.5 rounded-xl border border-pink-100/50">
+                      {itemsList.length > 0 && (
+                        <div className="space-y-1">
+                          {itemsList.map((it: any, i: number) => (
+                            <div key={i} className="font-quicksand text-xs text-gray-700 flex items-center justify-between gap-2">
+                              <span className="truncate">
+                                {it.cantidad}x {it.nombre}
+                              </span>
+                              <span className="font-bold text-gray-600 text-[11px] shrink-0">
+                                S/ {(Number(it.precio || 0) * (it.cantidad || 1)).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {cleanNotas && (
+                        <p className="font-quicksand text-[10px] text-gray-500 italic pt-1 border-t border-pink-100/40">
+                          Nota: {cleanNotas}
                         </p>
                       )}
-                      {saldoPendiente > 0 ? (
-                        <p className="font-quicksand text-[10px] text-amber-600 font-bold mt-0.5">
-                          Saldo: S/ {saldoPendiente.toFixed(2)}
-                        </p>
-                      ) : tieneAdelanto ? (
-                        <p className="font-quicksand text-[10px] text-green-700 font-bold mt-0.5">
-                          Completado
-                        </p>
-                      ) : null}
-                    </td>
+                    </div>
+                  )}
 
-                    {/* Estado */}
-                    <td className="px-3 py-3">
+                  {/* Pie de Tarjeta: Totales y Selector de Estado */}
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="font-quicksand text-xs font-bold text-gray-900 block">
+                        Total: S/ {Number(row.total || 0).toFixed(2)}
+                      </span>
+                      {tieneAdelanto && (
+                        <span className="font-quicksand text-[10px] text-green-600 font-semibold block">
+                          Adelanto: S/ {adelanto.toFixed(2)}
+                        </span>
+                      )}
+                      {saldoPendiente > 0 ? (
+                        <span className="font-quicksand text-[10px] text-amber-600 font-bold block">
+                          Saldo: S/ {saldoPendiente.toFixed(2)}
+                        </span>
+                      ) : tieneAdelanto ? (
+                        <span className="font-quicksand text-[10px] text-green-700 font-bold block">
+                          Cancelado
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="shrink-0">
                       <select
                         value={row.estado || "pendiente"}
                         onChange={(e) => onCambiarEstado(row.id, e.target.value)}
@@ -351,30 +374,165 @@ export default function PedidosView({
                         <option value="entregado">Entregado</option>
                         <option value="cancelado">Cancelado</option>
                       </select>
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-                    {/* Contacto WhatsApp */}
-                    <td className="px-3 py-3 text-right whitespace-nowrap">
-                      {row.cliente_telefono ? (
-                        <a
-                          href={generateWhatsAppLink(row)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] rounded-xl font-quicksand text-xs font-bold transition-colors"
+          {/* 2. TABLA COMPLETA PARA PANTALLAS GRANDES */}
+          <div className="hidden lg:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+            <table className="w-full text-left text-sm min-w-full">
+              <thead>
+                <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">#</th>
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Canal</th>
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Cliente</th>
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha de Entrega</th>
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Detalle del Pedido</th>
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Total / Pagos</th>
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
+                  <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Contacto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPedidos.map((row: any) => {
+                  const { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas } = parseRowData(row);
+                  const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
+                  const itemsList: any[] = Array.isArray(row.items) ? row.items : [];
+                  const tieneAdelanto = adelanto > 0;
+
+                  return (
+                    <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/40 transition-colors">
+                      {/* ID */}
+                      <td className="px-3 py-3 font-quicksand text-xs font-bold text-gray-800">
+                        #{row.id}
+                      </td>
+
+                      {/* Canal */}
+                      <td className="px-3 py-3">
+                        <span className={`inline-block font-quicksand text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${canalInfo.badgeClass}`}>
+                          {canalInfo.label}
+                        </span>
+                      </td>
+
+                      {/* Cliente */}
+                      <td className="px-3 py-3">
+                        <p className="font-quicksand text-xs font-bold text-gray-900">{row.cliente_nombre}</p>
+                        {row.cliente_telefono && (
+                          <p className="font-quicksand text-[11px] text-gray-500 font-mono mt-0.5">{row.cliente_telefono}</p>
+                        )}
+                        {row.direccion_envio && (
+                          <p className="font-quicksand text-[10px] text-gray-400 truncate max-w-[180px]" title={row.direccion_envio}>
+                            {row.direccion_envio}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Fecha de Entrega */}
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {fechaEntrega ? (
+                          <div className="flex items-center gap-1.5 text-xs font-quicksand text-gray-800 font-bold">
+                            <Calendar size={13} className="text-[#EE6B8D]" />
+                            <span>
+                              {new Date(fechaEntrega).toLocaleDateString("es-PE", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
+                        )}
+                        {horaEntrega && (
+                          <p className="font-quicksand text-[10px] text-gray-500 mt-0.5">{horaEntrega}</p>
+                        )}
+                      </td>
+
+                      {/* Items */}
+                      <td className="px-3 py-3">
+                        <div className="space-y-1 max-w-[260px]">
+                          {itemsList.map((it: any, i: number) => (
+                            <div key={i} className="font-quicksand text-xs text-gray-700 flex items-center justify-between gap-2">
+                              <span className="truncate">
+                                {it.cantidad}x {it.nombre}
+                              </span>
+                              <span className="font-semibold text-gray-500 text-[11px] shrink-0">
+                                S/ {(Number(it.precio || 0) * (it.cantidad || 1)).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                          {cleanNotas && (
+                            <p className="font-quicksand text-[10px] text-gray-400 italic bg-gray-50 p-1.5 rounded-lg border border-gray-100 mt-1 max-w-[240px] truncate" title={cleanNotas}>
+                              Nota: {cleanNotas}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Total y Pagos */}
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <p className="font-quicksand text-xs font-bold text-gray-900">
+                          S/ {Number(row.total || 0).toFixed(2)}
+                        </p>
+                        {tieneAdelanto && (
+                          <p className="font-quicksand text-[10px] text-green-600 font-semibold mt-0.5">
+                            Adelanto: S/ {adelanto.toFixed(2)}
+                          </p>
+                        )}
+                        {saldoPendiente > 0 ? (
+                          <p className="font-quicksand text-[10px] text-amber-600 font-bold mt-0.5">
+                            Saldo: S/ {saldoPendiente.toFixed(2)}
+                          </p>
+                        ) : tieneAdelanto ? (
+                          <p className="font-quicksand text-[10px] text-green-700 font-bold mt-0.5">
+                            Completado
+                          </p>
+                        ) : null}
+                      </td>
+
+                      {/* Estado */}
+                      <td className="px-3 py-3">
+                        <select
+                          value={row.estado || "pendiente"}
+                          onChange={(e) => onCambiarEstado(row.id, e.target.value)}
+                          className="font-quicksand text-xs px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-semibold text-gray-800 focus:outline-none focus:border-[#EE6B8D]"
                         >
-                          <ExternalLink size={13} />
-                          <span>WhatsApp</span>
-                        </a>
-                      ) : (
-                        <span className="font-quicksand text-[11px] text-gray-400 italic">Sin tel.</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          <option value="pendiente">Pendiente</option>
+                          <option value="confirmado">Confirmado</option>
+                          <option value="en_produccion">En preparación</option>
+                          <option value="listo">Listo</option>
+                          <option value="enviado">Enviado</option>
+                          <option value="entregado">Entregado</option>
+                          <option value="cancelado">Cancelado</option>
+                        </select>
+                      </td>
+
+                      {/* Contacto WhatsApp */}
+                      <td className="px-3 py-3 text-right whitespace-nowrap">
+                        {row.cliente_telefono ? (
+                          <a
+                            href={generateWhatsAppLink(row)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] rounded-xl font-quicksand text-xs font-bold transition-colors"
+                          >
+                            <ExternalLink size={13} />
+                            <span>WhatsApp</span>
+                          </a>
+                        ) : (
+                          <span className="font-quicksand text-[11px] text-gray-400 italic">Sin tel.</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

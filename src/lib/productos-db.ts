@@ -135,6 +135,7 @@ export async function saveProduct(productData: {
   nombre: string;
   precio: number;
   imagen: string;
+  imagenes?: string[];
   categoria: 'Ramos' | 'Amigurumis' | 'Cajas' | 'Personalizado' | 'General';
   stock?: number;
   descripcion?: string;
@@ -145,12 +146,16 @@ export async function saveProduct(productData: {
   const id = productData.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const sku = productData.sku || `${productData.categoria.substring(0, 4).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
 
+  const imagenes = Array.isArray(productData.imagenes) ? productData.imagenes.filter(Boolean) : [];
+  const primaryImg = productData.imagen?.trim() || imagenes[0] || '';
+
   const newProduct: Product = {
     id,
     sku,
     nombre: productData.nombre.trim(),
     precio: Number(productData.precio) || 0,
-    imagen: productData.imagen.trim(),
+    imagen: primaryImg,
+    imagenes: imagenes.length > 0 ? imagenes : (primaryImg ? [primaryImg] : []),
     categoria: productData.categoria,
     stock: Number(productData.stock) || 0,
     descripcion: (productData.descripcion || '').trim(),
@@ -166,6 +171,7 @@ export async function saveProduct(productData: {
       nombre: newProduct.nombre,
       precio: newProduct.precio,
       imagen: newProduct.imagen,
+      imagenes: newProduct.imagenes,
       categoria: newProduct.categoria,
       stock: newProduct.stock,
       descripcion: newProduct.descripcion,
