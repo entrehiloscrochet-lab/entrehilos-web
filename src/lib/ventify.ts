@@ -128,11 +128,9 @@ async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[];
       const rawAll: Product[] = Array.isArray(data.all) ? data.all : [];
       const assignments: ProductoCatalogoAssignment[] = Array.isArray(data.assignments) ? data.assignments : [];
       
-      // Enriquecer cada producto con sus catálogos y eventos activos
+      // Enriquecer cada producto con sus catálogos y eventos activos usando las asignaciones frescas
       rawAll.forEach((p) => {
-        if (!p.catalogos || p.catalogos.length === 0) {
-          p.catalogos = getProductActiveSlugs(p, assignments);
-        }
+        p.catalogos = getProductActiveSlugs(p, assignments);
       });
 
       const inactiveIds: string[] = Array.isArray(data.inactiveIds) ? data.inactiveIds : [];
@@ -155,7 +153,23 @@ async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[];
 
 let inactiveIdsCache: string[] | null = null;
 let inactiveIdsFetchedAt = 0;
-const INACTIVE_CACHE_TTL = 30_000;
+const INACTIVE_CACHE_TTL = 10_000;
+
+let assignmentsCache: ProductoCatalogoAssignment[] | null = null;
+let assignmentsFetchedAt = 0;
+const ASSIGNMENTS_CACHE_TTL = 10_000;
+
+/**
+ * Invalida las cachés en memoria de productos y asignaciones tanto en servidor como cliente
+ */
+export function invalidateProductCaches() {
+  assignmentsCache = null;
+  assignmentsFetchedAt = 0;
+  inactiveIdsCache = null;
+  inactiveIdsFetchedAt = 0;
+  clientFetchPromise = null;
+  clientFetchTime = 0;
+}
 
 /**
  * Obtiene los IDs de productos de Ventify desactivados desde Supabase.
@@ -187,10 +201,6 @@ export async function getInactiveProductIds(): Promise<string[]> {
     return [];
   }
 }
-
-let assignmentsCache: ProductoCatalogoAssignment[] | null = null;
-let assignmentsFetchedAt = 0;
-const ASSIGNMENTS_CACHE_TTL = 30_000;
 
 /**
  * Obtiene las asignaciones de productos a catálogos y eventos desde Supabase.

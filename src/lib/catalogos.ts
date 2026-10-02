@@ -46,15 +46,17 @@ export function getDefaultProductSlugs(p: {
 }): string[] {
   const slugs = new Set<string>();
   const sku = (p.sku || '').trim();
+  const skuLower = sku.toLowerCase();
   const name = (p.nombre || '').toLowerCase();
   const catOrig = (p.categoriaOriginal || '').toLowerCase();
 
-  // 1. Ramos
+  // 1. Ramos (Ramos-*, Ramo-*, Flores-*, o mención en nombre/categoría)
   if (
-    sku.startsWith('Ramos-') ||
-    sku.startsWith('Mujer-') ||
-    sku.startsWith('Madre-') ||
-    sku.startsWith('Flores-') ||
+    skuLower.startsWith('ramo') ||
+    skuLower.startsWith('mujer-') ||
+    skuLower.startsWith('madre-') ||
+    skuLower.startsWith('flores-') ||
+    name.includes('ramo') ||
     catOrig.includes('ramo') ||
     catOrig.includes('flores')
   ) {
@@ -62,21 +64,27 @@ export function getDefaultProductSlugs(p: {
   }
 
   // 2. Amigurumis
-  if (sku.startsWith('Amigu-') || catOrig.includes('amigurumi') || catOrig.includes('muñeco')) {
+  if (skuLower.startsWith('amigu-') || catOrig.includes('amigurumi') || catOrig.includes('muñeco')) {
     slugs.add('amigurumis');
   }
 
-  // 3. Cajas
-  if (['Caja-001', 'Caja-002', 'Caja-003', 'Caja-004', 'Caja-005'].includes(sku)) {
+  // 3. Cajas (cualquier Caja-*, caja-*, o mención a box, caja, cajita)
+  if (
+    skuLower.startsWith('caja-') ||
+    name.includes('caja') ||
+    name.includes('cajita') ||
+    name.includes('box') ||
+    catOrig.includes('caja')
+  ) {
     slugs.add('cajas');
   }
 
   // 4. HotWheels (Catálogo y Evento)
   if (
-    sku.startsWith('Cua-') ||
-    sku.startsWith('Carr-') ||
-    sku.startsWith('HW-') ||
-    ['Caja-004', 'Caja-005'].includes(sku) ||
+    skuLower.startsWith('cua-') ||
+    skuLower.startsWith('carr-') ||
+    skuLower.startsWith('hw-') ||
+    ['caja-004', 'caja-005', 'caja-012', 'caja-018', 'caja-022'].includes(skuLower) ||
     catOrig.includes('hotwheels') ||
     name.includes('hotwheels')
   ) {
@@ -84,32 +92,33 @@ export function getDefaultProductSlugs(p: {
   }
 
   // 5. Personalizados
-  if (sku.startsWith('Amigu-') || sku.startsWith('Carr-') || catOrig.includes('personalizado')) {
+  if (skuLower.startsWith('amigu-') || skuLower.startsWith('carr-') || catOrig.includes('personalizado') || name.includes('personalizado')) {
     slugs.add('personalizados');
   }
 
-  // 6. Eventos específicos por defecto
-  if (sku.startsWith('Mujer-') || name.includes('mujer') || catOrig.includes('mujer')) {
+  // 6. Eventos específicos por defecto según categoría original o nombre
+  if (skuLower.startsWith('mujer-') || name.includes('mujer') || catOrig.includes('mujer')) {
     slugs.add('dia-de-la-mujer');
   }
   if (
-    (sku.startsWith('Ramos-') || ['Caja-001', 'Caja-002', 'Caja-003'].includes(sku))
+    (skuLower.startsWith('ramo') || ['caja-001', 'caja-002', 'caja-003'].includes(skuLower)) &&
+    (catOrig.includes('san valentin') || catOrig.includes('san valentín') || catOrig.includes('novia'))
   ) {
     slugs.add('san-valentin');
     slugs.add('dia-de-la-novia');
   }
   if (
-    sku.startsWith('Madre-') ||
-    catOrig.includes('día de la madre') ||
-    catOrig.includes('dia de la madre') ||
-    name.includes('madre')
+    skuLower.startsWith('madre-') ||
+    catOrig.includes('madre') ||
+    name.includes('madre') ||
+    name.includes('mamá')
   ) {
     slugs.add('dia-de-la-madre');
   }
   if (
     catOrig.includes('flores amarillas') ||
     name.includes('flores amarillas') ||
-    sku.startsWith('Flores-')
+    skuLower.startsWith('flores-')
   ) {
     slugs.add('flores-amarillas');
   }
@@ -133,7 +142,7 @@ export function getProductActiveSlugs(
 
   const productAssignments = assignments.filter((a) => {
     if (p.id && a.producto_id === p.id) return true;
-    if (p.sku && a.sku && a.sku === p.sku) return true;
+    if (p.sku && a.sku && a.sku.toLowerCase() === p.sku.toLowerCase()) return true;
     return false;
   });
 
@@ -150,7 +159,8 @@ export function getProductActiveSlugs(
 }
 
 /**
- * Consulta si un producto pertenece a un catálogo o evento específico
+ * Consulta si un producto pertenece a un catálogo o evento específico.
+ * Da prioridad absoluta a assignments si se proporcionan.
  */
 export function isProductInSlug(
   p: {
@@ -166,12 +176,17 @@ export function isProductInSlug(
   if (!slug) return false;
   const target = slug.toLowerCase().trim();
 
+  // Si se pasaron asignaciones explícitas de BD, calcular siempre con ellas
+  if (assignments && assignments.length > 0) {
+    const active = getProductActiveSlugs(p, assignments);
+    return active.includes(target);
+  }
+
   // Si ya tiene el array de catálogos calculado, comprobarlo directamente
   if (Array.isArray(p.catalogos)) {
     return p.catalogos.includes(target);
   }
 
-  // De lo contrario, calcular con assignments si están disponibles
   if (assignments) {
     const active = getProductActiveSlugs(p, assignments);
     return active.includes(target);

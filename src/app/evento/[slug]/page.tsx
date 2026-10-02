@@ -63,15 +63,26 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
 
       let dbEvento: any = null;
       try {
-        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-        const supabase = getSupabaseBrowserClient();
-        const { data } = await supabase
-          .from("eventos")
-          .select("*")
-          .eq("slug", slug)
-          .maybeSingle();
-        dbEvento = data;
-      } catch (e) { console.error(e); }
+        const res = await fetch("/api/eventos");
+        if (res.ok) {
+          const eventosList = await res.json();
+          dbEvento = eventosList.find((e: any) => e.slug?.toLowerCase() === slug.toLowerCase()) || null;
+        }
+      } catch (e) {
+        console.error("Error cargando eventos desde api:", e);
+      }
+      if (!dbEvento) {
+        try {
+          const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+          const supabase = getSupabaseBrowserClient();
+          const { data } = await supabase
+            .from("eventos")
+            .select("*")
+            .eq("slug", slug)
+            .maybeSingle();
+          dbEvento = data;
+        } catch (e) { console.error(e); }
+      }
 
       if (!dbEvento && !eventSlugs.includes(slug)) {
         notFound();
@@ -125,15 +136,6 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
       // Para eventos de alta demanda, ordenar por stock descendente
       if (['san-valentin', 'dia-de-la-novia'].includes(slug)) {
         filtered = filtered.sort((a: any, b: any) => b.stock - a.stock);
-      }
-
-      // Si no hay resultados y es un evento de BD, buscar por palabras clave del nombre del evento
-      if (filtered.length === 0 && dbEvento) {
-        const searchKeywords = (dbEvento.nombre || slug).toLowerCase().split(/[\s-]+/).filter((w: string) => w.length > 2);
-        filtered = allProducts.filter((p: any) => {
-          const str = `${p.nombre || ''} ${p.categoriaOriginal || ''} ${p.sku || ''}`.toLowerCase();
-          return searchKeywords.some((kw: string) => str.includes(kw));
-        });
       }
 
       setProducts(filtered);

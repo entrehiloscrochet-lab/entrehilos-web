@@ -16,7 +16,7 @@ export async function GET() {
       { all, active, inactiveIds, assignments },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
         },
       }
     );

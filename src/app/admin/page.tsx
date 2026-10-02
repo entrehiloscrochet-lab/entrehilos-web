@@ -144,6 +144,11 @@ async function fetchVentifyData(): Promise<{ all: any[]; active: any[]; inactive
 }
 
 function filterProductos(products: any[], filter: string, assignments: ProductoCatalogoAssignment[] = []): any[] {
+  if (filter.startsWith("evento-")) {
+    const slug = filter.replace("evento-", "");
+    return filterByEventSlug(products, slug, assignments);
+  }
+
   switch (filter) {
     case "cat-ramos":
       return products.filter((p) => isProductInSlug(p, "ramos", assignments) && p.stock > 0).sort((a, b) => b.stock - a.stock);
@@ -153,20 +158,6 @@ function filterProductos(products: any[], filter: string, assignments: ProductoC
       return products.filter((p) => isProductInSlug(p, "cajas", assignments));
     case "cat-hotwheels":
       return products.filter((p) => isProductInSlug(p, "hotwheels", assignments));
-    case "evento-dia-de-la-mujer":
-      return filterByEventSlug(products, "dia-de-la-mujer", assignments);
-    case "evento-san-valentin":
-      return filterByEventSlug(products, "san-valentin", assignments);
-    case "evento-dia-de-la-novia":
-      return filterByEventSlug(products, "dia-de-la-novia", assignments);
-    case "evento-dia-de-la-madre":
-      return filterByEventSlug(products, "dia-de-la-madre", assignments);
-    case "evento-flores-amarillas":
-      return filterByEventSlug(products, "flores-amarillas", assignments);
-    case "evento-hotwheels":
-      return filterByEventSlug(products, "hotwheels", assignments);
-    case "evento-personalizados":
-      return filterByEventSlug(products, "personalizados", assignments);
     case "page-personalizados":
       return products.filter((p) => isProductInSlug(p, "personalizados", assignments));
     default:
@@ -1013,6 +1004,24 @@ export default function AdminPage() {
         return [...filtered, ...newRows];
       });
 
+      // Actualizar inmediatamente los catalogos de este producto en el estado local de productos
+      setRawProducts((prev: any[]) =>
+        prev.map((p) => {
+          if (p.id === editingProductoCatalogos.id || (editingProductoCatalogos.sku && p.sku === editingProductoCatalogos.sku)) {
+            return { ...p, catalogos: slugs_incluidos };
+          }
+          return p;
+        })
+      );
+      setAllProducts((prev: any[]) =>
+        prev.map((p) => {
+          if (p.id === editingProductoCatalogos.id || (editingProductoCatalogos.sku && p.sku === editingProductoCatalogos.sku)) {
+            return { ...p, catalogos: slugs_incluidos };
+          }
+          return p;
+        })
+      );
+
       setEditingProductoCatalogos(null);
     } catch (err: any) {
       alert("Error al guardar: " + err.message);
@@ -1071,6 +1080,10 @@ export default function AdminPage() {
       const fresh = await fetchVentifyData();
       if (fresh.assignments) {
         setAssignments(fresh.assignments);
+      }
+      if (fresh.all && fresh.all.length > 0) {
+        setRawProducts(fresh.all);
+        setAllProducts(fresh.all);
       }
 
       setSelectedProductIds(new Set());
@@ -3692,28 +3705,6 @@ export default function AdminPage() {
         )}
 
         {subTab === "productos" && (() => {
-          const featuredEvent = eventos.find((e: any) => e.featured);
-          const featuredEventSlug = featuredEvent?.slug;
-          const productosFiltrados = productosFilter === "evento-destacado"
-            ? (featuredEventSlug ? filterByEventSlug(rawProducts, featuredEventSlug, assignments) : [])
-            : filterProductos(rawProducts, productosFilter, assignments);
-          const productosVisibles = productosFiltrados.filter((p: any) =>
-            !productosSearch ||
-            p.nombre?.toLowerCase().includes(productosSearch.toLowerCase()) ||
-            p.sku?.toLowerCase().includes(productosSearch.toLowerCase())
-          );
-          const filterLabel =
-            productosFilter === "evento-destacado" && featuredEvent
-              ? featuredEvent.nombre
-              : productosFilter === "ver-todo"
-                ? "todo el catálogo"
-                : [...CATALOGO_FILTERS, ...EVENTO_FILTERS, { key: "page-personalizados", label: "Personalizados" }]
-                    .find((f) => f.key === productosFilter)?.label || "todo el catálogo";
-
-          const allVisibleSelected =
-            productosVisibles.length > 0 &&
-            productosVisibles.every((p: any) => selectedProductIds.has(p.id));
-
           // Lista de eventos combinada (base + dinámicos de Supabase)
           const allAvailableEvents = (() => {
             const map = new Map<string, string>();
@@ -3725,6 +3716,34 @@ export default function AdminPage() {
             });
             return Array.from(map.entries()).map(([slug, label]) => ({ slug, label }));
           })();
+
+          const featuredEvent = eventos.find((e: any) => e.featured);
+          const featuredEventSlug = featuredEvent?.slug;
+          const productosFiltrados = productosFilter === "evento-destacado"
+            ? (featuredEventSlug ? filterByEventSlug(rawProducts, featuredEventSlug, assignments) : [])
+            : filterProductos(rawProducts, productosFilter, assignments);
+          const productosVisibles = productosFiltrados.filter((p: any) =>
+            !productosSearch ||
+            p.nombre?.toLowerCase().includes(productosSearch.toLowerCase()) ||
+            p.sku?.toLowerCase().includes(productosSearch.toLowerCase())
+          );
+          const filterLabel = (() => {
+            if (productosFilter === "evento-destacado" && featuredEvent) return featuredEvent.nombre;
+            if (productosFilter === "ver-todo") return "todo el catálogo";
+            if (productosFilter === "page-personalizados") return "Personalizados";
+            const cat = CATALOGO_FILTERS.find((f) => f.key === productosFilter);
+            if (cat) return cat.label;
+            if (productosFilter.startsWith("evento-")) {
+              const slug = productosFilter.replace("evento-", "");
+              const ev = allAvailableEvents.find((e) => e.slug === slug);
+              if (ev) return ev.label;
+            }
+            return "todo el catálogo";
+          })();
+
+          const allVisibleSelected =
+            productosVisibles.length > 0 &&
+            productosVisibles.every((p: any) => selectedProductIds.has(p.id));
 
           return (
           <div>
@@ -3765,17 +3784,23 @@ export default function AdminPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="font-quicksand text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1 min-w-[64px]">Eventos</span>
-                {EVENTO_FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => setProductosFilter(f.key)}
-                    className={`font-quicksand text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                      productosFilter === f.key ? "bg-[#EE6B8D] text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-[#FDE8EF] hover:text-[#C04267]"
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+                {allAvailableEvents.map((f) => {
+                  const filterKey = `evento-${f.slug}`;
+                  const isActive = productosFilter === filterKey;
+                  return (
+                    <button
+                      key={f.slug}
+                      onClick={() => setProductosFilter(filterKey)}
+                      className={`font-quicksand text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                        isActive
+                          ? "bg-[#EE6B8D] text-white shadow-sm font-bold ring-2 ring-[#EE6B8D]/30"
+                          : "bg-gray-100 text-gray-600 hover:bg-[#FDE8EF] hover:text-[#C04267]"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-quicksand text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1 min-w-[64px]">Páginas</span>

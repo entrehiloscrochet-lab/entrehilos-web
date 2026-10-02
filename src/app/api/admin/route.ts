@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { invalidateProductCaches } from "@/lib/ventify";
 
 const TABLES: Record<string, string> = {
   suscriptores: "suscriptores",
@@ -327,6 +328,7 @@ export async function PATCH(request: NextRequest) {
         .upsert({ producto_id }, { onConflict: "producto_id" });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    invalidateProductCaches();
     return NextResponse.json({ success: true });
   }
 
@@ -394,6 +396,7 @@ export async function PATCH(request: NextRequest) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    invalidateProductCaches();
     return NextResponse.json({ success: true });
   }
 
@@ -439,6 +442,7 @@ export async function PATCH(request: NextRequest) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    invalidateProductCaches();
     return NextResponse.json({ success: true });
   }
 
