@@ -114,7 +114,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       'Ver Todo': '',
     };
     if (tab === 'Ver Todo') {
-      return allProducts.filter((p: any) => p.stock > 0 || p.sku.startsWith('Amigu-') || p.sku.startsWith('Caja-'));
+      return allProducts;
     }
     return filterByCatalogSlug(tabSlugMap[tab]);
   };

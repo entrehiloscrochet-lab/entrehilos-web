@@ -151,7 +151,7 @@ function filterProductos(products: any[], filter: string, assignments: ProductoC
 
   switch (filter) {
     case "cat-ramos":
-      return products.filter((p) => isProductInSlug(p, "ramos", assignments) && p.stock > 0).sort((a, b) => b.stock - a.stock);
+      return products.filter((p) => isProductInSlug(p, "ramos", assignments)).sort((a, b) => b.stock - a.stock);
     case "cat-amigurumis":
       return products.filter((p) => isProductInSlug(p, "amigurumis", assignments));
     case "cat-cajas":
