@@ -30,11 +30,13 @@ export interface Product {
   nombre: string;
   precio: number;
   imagen: string;
-  categoria: 'Ramos' | 'Amigurumis' | 'Personalizado' | 'General';
-  categoriaOriginal?: string | null; // Categoría original de Ventify
+  imagenes?: string[];
+  categoria: 'Ramos' | 'Amigurumis' | 'Cajas' | 'Personalizado' | 'General';
+  categoriaOriginal?: string | null; // Categoría original
   stock: number;
   descripcion?: string;
   catalogos?: string[]; // Slugs de catálogos y eventos donde este producto debe mostrarse
+  is_active?: boolean;
 }
 
 interface VentifyConfig {
@@ -244,6 +246,17 @@ export async function getAllVentifyProducts(): Promise<Product[]> {
   if (typeof window !== 'undefined') {
     const data = await fetchFromApiProxy();
     return data.all;
+  }
+
+  // 1. Priorizar catálogo propio unificado (Supabase public.productos + snapshot de 49 productos base)
+  try {
+    const { getAllLocalProducts } = await import('./productos-db');
+    const localProds = await getAllLocalProducts();
+    if (localProds && localProds.length > 0) {
+      return localProds;
+    }
+  } catch (err) {
+    console.warn('Fallback a Ventify API:', err);
   }
 
   try {

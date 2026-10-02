@@ -446,12 +446,116 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  if (action === "actualizar-producto") {
+    const { producto } = updates || {};
+    if (!producto || !producto.id) return NextResponse.json({ error: "producto e id requeridos" }, { status: 400 });
+    const { saveProduct } = await import("@/lib/productos-db");
+    const saved = await saveProduct(producto);
+    return NextResponse.json({ success: true, producto: saved });
+  }
+
+  if (action === "actualizar-pedido-agendado") {
+    const { error } = await supabaseAdmin
+      .from("pedidos")
+      .update(updates)
+      .eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { clave, titulo, subtitulo, descripcion, badge, precio, producto_sku, tipo, imagen_url, imagen_url_mobile, link_url, nombre, slug, resena } = body;
+  const { action, producto, clave, titulo, subtitulo, descripcion, badge, precio, producto_sku, tipo, imagen_url, imagen_url_mobile, link_url, nombre, slug, resena } = body;
+
+  if (action === "crear-producto" || action === "guardar-producto") {
+    const prodData = producto || body;
+    if (!prodData || !prodData.nombre || prodData.precio === undefined) {
+      return NextResponse.json({ error: "Nombre y precio requeridos" }, { status: 400 });
+    }
+    const { saveProduct } = await import("@/lib/productos-db");
+    const saved = await saveProduct(prodData);
+    return NextResponse.json({ success: true, producto: saved });
+  }
+
+  if (action === "agendar-pedido") {
+    const {
+      origen,
+      cliente_nombre,
+      cliente_telefono,
+      cliente_email,
+      direccion_envio,
+      items,
+      total,
+      adelanto,
+      saldo_pendiente,
+      fecha_entrega,
+      hora_entrega,
+      metodo_pago,
+      estado,
+      notas,
+    } = body;
+
+    if (!cliente_nombre || !items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "Nombre de cliente e ítems son requeridos" }, { status: 400 });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("pedidos")
+      .insert({
+        origen: origen || "whatsapp",
+        cliente_nombre,
+        cliente_telefono: cliente_telefono || "",
+        cliente_email: cliente_email || null,
+        direccion_envio: direccion_envio || "Coordinar por WhatsApp",
+        items,
+        total: Number(total) || 0,
+        adelanto: Number(adelanto) || 0,
+        saldo_pendiente: Number(saldo_pendiente) ?? Math.max(0, (Number(total) || 0) - (Number(adelanto) || 0)),
+        fecha_entrega: fecha_entrega || null,
+        hora_entrega: hora_entrega || null,
+        metodo_pago: metodo_pago || "yape",
+        estado: estado || "pendiente",
+        notas: notas || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.warn("Reintentando pedido agendado con fallback a campos estándar:", error.message);
+      const fallbackNotas = [
+        notas,
+        `[Origen: ${origen || 'whatsapp'}]`,
+        fecha_entrega ? `[Fecha Entrega: ${fecha_entrega} ${hora_entrega || ''}]` : null,
+        adelanto ? `[Adelanto: S/${adelanto} | Saldo: S/${saldo_pendiente}]` : null,
+      ].filter(Boolean).join(" | ");
+
+      const { data: fbData, error: fbError } = await supabaseAdmin
+        .from("pedidos")
+        .insert({
+          cliente_nombre,
+          cliente_telefono: cliente_telefono || "",
+          cliente_email: cliente_email || null,
+          direccion_envio: direccion_envio || "Coordinar por WhatsApp",
+          items,
+          total: Number(total) || 0,
+          metodo_pago: metodo_pago || "yape",
+          estado: estado || "pendiente",
+          notas: fallbackNotas,
+        })
+        .select()
+        .single();
+
+      if (fbError) {
+        return NextResponse.json({ error: fbError.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data: fbData });
+    }
+
+    return NextResponse.json({ success: true, data });
+  }
 
   if (resena) {
     const { data, error } = await supabaseAdmin

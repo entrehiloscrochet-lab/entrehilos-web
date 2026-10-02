@@ -1,0 +1,731 @@
+[
+  {
+    "id": "0Tk1qHaFi84sqAafnmrr",
+    "sku": "Ramos-026",
+    "nombre": "Ramo Eterno",
+    "precio": 60,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1778192997812-6hfa8vwje7p.jpg?alt=media&token=7a983dd2-3656-4d00-aede-a15148ad2132",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre",
+      "dia-de-la-mujer"
+    ]
+  },
+  {
+    "id": "0gDie0a1oFtBN9ZzDZj5",
+    "sku": "Choco-001",
+    "nombre": "Ferrero Rocher 8 Und x 100 Gr",
+    "precio": 40,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1776479189529-8sms8hn99ii.webp?alt=media&token=67da78d2-fd0e-4dab-9e3f-9ee066e66102",
+    "categoria": "General",
+    "categoriaOriginal": "Extras Dulces",
+    "stock": 5,
+    "descripcion": "product image",
+    "catalogos": []
+  },
+  {
+    "id": "0v7WKHNF69tWi0McIn4a",
+    "sku": "Ramos-022",
+    "nombre": "Tulipán \"Gracias mamá\"",
+    "precio": 30,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1778193520495-bf8s26y473.jpg?alt=media&token=d8be5e11-afae-42aa-95dd-0b4b12a4a605",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "0zvPJthh4Hw46IccmS4o",
+    "sku": "Ramos-021",
+    "nombre": "Ramo Abejita ",
+    "precio": 45,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1778193472568-9m3zld2y8q.jpg?alt=media&token=cf3321cf-ecb9-40b7-9c12-284a9e9a7de9",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "1UI8FrjuCWZKQeJlqHtM",
+    "sku": "Ramos-010",
+    "nombre": "Ramo Mixto",
+    "precio": 60,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1778193439842-9o26aazq1im.jpg?alt=media&token=cd451a00-6606-4416-8cbc-48c6020282fa",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "2j5SVExk4K8FWzGnYH1o",
+    "sku": "Cua-001",
+    "nombre": "Cuadro HotWheels",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1772655778473-4g8eh39bb44.png?alt=media&token=1fb8dc7a-eedc-41b7-83dc-ee8ecea631da",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "Cuadro HotWhlees campeón, perfecto para el día de Novio o del día de los HotWhlees",
+    "catalogos": [
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "3RNcZ2HFKvLu2xOiExNu",
+    "sku": "Amigu-06",
+    "nombre": "Abejita Crochet - Llavero ",
+    "precio": 10,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1775578987352-qag7q9wo59j.jpg?alt=media&token=d5415ae0-f2ce-4bb2-95bf-a896f11097fe",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "amigurumis",
+      "personalizados"
+    ]
+  },
+  {
+    "id": "4L7dVRk4SZSIFbk4JrIn",
+    "sku": "Madre-003",
+    "nombre": "Ramo Flor Tricolor ",
+    "precio": 35,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770061082058-5dpybxu63kf.jpg?alt=media&token=df4c3f19-35f0-4bd2-a778-92d62ffb9dd4",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "5XlXgUyaj2oC57YYbUkn",
+    "sku": "Caja-005",
+    "nombre": "Caja Sorpresa HotWheels",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770060638011-i9v5w5l62k.png?alt=media&token=ef9035e1-eac6-40ed-bdfe-723580a9824c",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "Cajita sorpresa para Él, incluye una florcita de limpiapipas o tejido + 1 carrito exclusivo HotWhlees + Papitas Inka Chips",
+    "catalogos": [
+      "cajas",
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "6dbOCrwH2i8MrHOvChWC",
+    "sku": "Ramos-028",
+    "nombre": "Ramo Eterno Rojo",
+    "precio": 60,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1778193316287-l82gqi35eej.jpg?alt=media&token=6f51808d-9d31-4169-93ef-ddf18cd956dd",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "6xahQlImzFtsrTqpRxqX",
+    "sku": "Ramos-001",
+    "nombre": "Ramo Margaritas Crochet",
+    "precio": 70,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770054766205-q5tf3shjbn.jpg?alt=media&token=a3a3a41f-0882-4273-9f09-bb5f17df99e7",
+    "categoria": "Ramos",
+    "categoriaOriginal": "Flores amarillas",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ]
+  },
+  {
+    "id": "7tXFzhHUrrVztfreHons",
+    "sku": "Caja-003",
+    "nombre": "Cajita Snoopy Crochet y Margarita Crochet",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770055075365-ztkcedeoeg.jpg?alt=media&token=c53af3cf-aee4-4bfe-9696-483bf7b85c5c",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "cajas",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "8QgfrSkj21MmmVIlmg7n",
+    "sku": "Caja-002",
+    "nombre": "Cajita Ramo Individual Crochet",
+    "precio": 60,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1776730321325-yq4mmwl9j08.png?alt=media&token=04952262-3709-4fb8-b391-978deea56780",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "cajas",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "8uW6Dp33PsPIznotb4RM",
+    "sku": "Caja-010",
+    "nombre": "Box lirios ",
+    "precio": 75,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1778193403552-kkvww46nae9.jpg?alt=media&token=01682666-c906-433e-a8f3-c170b1588956",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "cajas",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "AWC4X2HuXvao9XEV8U09",
+    "sku": "Caja-001",
+    "nombre": "Cajita Tulipan Crochet",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770054920957-3a3f1hv1icz.jpg?alt=media&token=87cae662-4634-434f-a569-7c9e68076b9f",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "Cajita con rosa y maceta iluminada con lucecitas luciérnagas ✨",
+    "catalogos": [
+      "cajas",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "EXWPIsOmE6FUND1x5qo2",
+    "sku": "Ramos-016",
+    "nombre": "Ramo Rosita ",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770836694304-0qsj9v12c73p.jpeg?alt=media&token=c339afc6-05e9-4800-a20b-ba900ed33479",
+    "categoria": "General",
+    "categoriaOriginal": "San Valentin",
+    "stock": 0,
+    "descripcion": "Ramo rosita hecho por las hermosas manos de mi mobiecita Myckelin Linda Graciela Campos Ortiz",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia"
+    ]
+  },
+  {
+    "id": "EwPqsMYG8yfkqIHNXJns",
+    "sku": "Glob-001",
+    "nombre": "Globos corazón",
+    "precio": 8,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1776478576825-dbhybbalzg7.png?alt=media&token=24d86a01-6023-48b4-b517-b2e7e2dcef07",
+    "categoria": "General",
+    "categoriaOriginal": "Extras",
+    "stock": 5,
+    "descripcion": "product image",
+    "catalogos": []
+  },
+  {
+    "id": "FhTND99LsggNw38RgWVh",
+    "sku": "Ramos-030",
+    "nombre": "Ramo Girasol Individual Crochet",
+    "precio": 25,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469269415-c1dl0vdenyj.jpeg?alt=media&token=6d0e5bcb-1570-4f47-be78-2f2837a67bb1",
+    "categoria": "Ramos",
+    "categoriaOriginal": "Flores amarillas",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ]
+  },
+  {
+    "id": "FuJ2s1UWdUuX8AITMwaN",
+    "sku": "Caja-018",
+    "nombre": "Box Spiderman",
+    "precio": 65,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577197146-5z0vn3axky4.jpg?alt=media&token=57700739-18a4-4ebf-b953-19563b70ce4c",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "cajas",
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "G6qZ5fl6ioo1xrd9vXom",
+    "sku": "Ramo-019",
+    "nombre": "Ramo Amor Mio",
+    "precio": 65,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577268286-pv08oslo92a.jpg?alt=media&token=0ac2fc42-a720-47e3-8555-8605ca69b49f",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 1,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "hotwheels",
+      "dia-del-novio"
+    ]
+  },
+  {
+    "id": "H7uVSKRv4PRbw62ORc8t",
+    "sku": "Ramos-035",
+    "nombre": "Ramo Snoopy y Doble Girasol Crochet",
+    "precio": 75,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469240394-jta4fbzrv2.jpeg?alt=media&token=3c8687ac-1d69-49a7-96df-bac900bc6419",
+    "categoria": "Ramos",
+    "categoriaOriginal": "Flores amarillas",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ]
+  },
+  {
+    "id": "K3A0EjypbaGSFBLpxDYv",
+    "sku": "Madre-002",
+    "nombre": "Ramo Tulipanes ",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770061030955-zum2i2raysn.jpg?alt=media&token=ab2e6b14-98a0-426f-ad0c-23b54b4c2002",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "Ldpm6dqIcJqXAH1hctzS",
+    "sku": "Choco-001",
+    "nombre": "Ferrero Rocher 4 Und x 50 Gr",
+    "precio": 25,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1776479535884-u0pyykb9y08.webp?alt=media&token=1dbe62cc-4db6-4f02-9208-62a46c74a217",
+    "categoria": "General",
+    "categoriaOriginal": "Extras Dulces",
+    "stock": 5,
+    "descripcion": "product image",
+    "catalogos": []
+  },
+  {
+    "id": "M4fiEfxxptGqIXwR4i4Z",
+    "sku": "caja-022",
+    "nombre": "Box Raancing Love",
+    "precio": 85,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577092317-bsr9iv7dwog.webp?alt=media&token=49f6a057-1e8d-446d-b7a1-9dbe147c51f9",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "cajas",
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "O5IgmF88yLcGXpdBWejP",
+    "sku": "Carr-001",
+    "nombre": "Carritos HotWheels Personalizados",
+    "precio": 20,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770060705292-sflyn4ducjl.png?alt=media&token=2d7ea2a9-97bd-4959-bfa7-1dade2ac728d",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "QcZXnrkkIccufwWpenC0",
+    "sku": "Ramos-032",
+    "nombre": "Ramo 3 Tulipanes Amarillos Crochet",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469210275-c6cjlsnsh5.jpeg?alt=media&token=96200110-a332-4051-a12a-e40dc8890357",
+    "categoria": "Ramos",
+    "categoriaOriginal": "Flores amarillas",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ]
+  },
+  {
+    "id": "RofSAZt5MqZnWcB8je3c",
+    "sku": "Choco-001",
+    "nombre": "Barra MILKY LA IBÉRICA",
+    "precio": 12,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1776480059162-bf74fonju1i.webp?alt=media&token=43727a35-e452-41b8-b23a-28edee4fbd43",
+    "categoria": "General",
+    "categoriaOriginal": "Extras Dulces",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": []
+  },
+  {
+    "id": "S1vKB9RA1oM61YLKtjwv",
+    "sku": "Caja-012",
+    "nombre": "Box Cuchareable spiderman ",
+    "precio": 60,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577016251-ykga9m2ft6r.webp?alt=media&token=0974c2ea-b963-42b5-be73-aa1b83124076",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "cajas",
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "SxheZyUYCJjF46EmIcvb",
+    "sku": "Ramos-010",
+    "nombre": "Ramo Snoopy",
+    "precio": 80,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770836408513-gci4x8kugx5.jpeg?alt=media&token=279facb4-aca7-437b-a70e-2416b1f0c055",
+    "categoria": "General",
+    "categoriaOriginal": "San Valentin",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia"
+    ]
+  },
+  {
+    "id": "TWvmWkUxwHRWBzIg4pMz",
+    "sku": "Amigu-008",
+    "nombre": "Luffy Crochet",
+    "precio": 95,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1785528072199-cywx6qihd4c.webp?alt=media&token=6b3184c9-f74d-4fa1-9e7e-5e6d5543bc49",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "amigurumis",
+      "personalizados"
+    ]
+  },
+  {
+    "id": "VFHg5OOd3KUeioEzHa7Q",
+    "sku": "Ramos-014",
+    "nombre": "Ramo Tulipán ",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770836653528-5r5txsjnuly.jpeg?alt=media&token=7eb30604-0b20-4cfc-a622-1cd9b4b029e4",
+    "categoria": "General",
+    "categoriaOriginal": "San Valentin",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia"
+    ]
+  },
+  {
+    "id": "YGnMILgnayE1xbqhuXAx",
+    "sku": "luces",
+    "nombre": "Luces hada",
+    "precio": 5,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1776480309738-w2izd3j6y2.webp?alt=media&token=ac841376-a5d5-4a88-a9c6-e0ab74270030",
+    "categoria": "General",
+    "categoriaOriginal": "Extras",
+    "stock": 5,
+    "descripcion": "product image",
+    "catalogos": []
+  },
+  {
+    "id": "aadMWS6WsTvhRQZLHAg6",
+    "sku": "Choco-001",
+    "nombre": "Chocolate Bon o Bon",
+    "precio": 4,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1776479679076-dmdp3bztnwj.jpg?alt=media&token=6642f3a7-bfc6-487c-96e8-d5ced039bec4",
+    "categoria": "General",
+    "categoriaOriginal": "Extras Dulces",
+    "stock": 10,
+    "descripcion": "product image",
+    "catalogos": []
+  },
+  {
+    "id": "cKjWJJHfNLP9L7noYMaV",
+    "sku": "Caja-004",
+    "nombre": "Cajita Ramo Limpiapipas Hot Wheels",
+    "precio": 35,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770060573157-aha5gl73l8q.png?alt=media&token=92ac85a6-64f6-47f0-9bd2-67f5a2710796",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "Cajita sorpresa con ventana transparente + ramito azul hecho con limpiapipas o tejido + carrito HotWhlees exclusivo",
+    "catalogos": [
+      "ramos",
+      "cajas",
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "dq8YTSnxIHlNRIu6kOsx",
+    "sku": "Ramos-011",
+    "nombre": "Ramo Snoopy Mixto",
+    "precio": 75,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770836503681-31zz7iswnsf.jpeg?alt=media&token=aca3cc6c-5911-4362-9f7d-8b2634556cfe",
+    "categoria": "General",
+    "categoriaOriginal": "San Valentin",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia",
+      "dia-de-la-mujer"
+    ]
+  },
+  {
+    "id": "eaS0PS9VzfyZ3fTQUdIx",
+    "sku": "Ramos-013",
+    "nombre": "Ramo Love",
+    "precio": 110,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770836608977-mx107s5d7t.jpeg?alt=media&token=af7b5a52-50e6-4b4a-97d2-4e4c45d137a6",
+    "categoria": "General",
+    "categoriaOriginal": "San Valentin",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia",
+      "dia-de-la-mujer"
+    ]
+  },
+  {
+    "id": "eoStSsr7hUol9J4eA2h5",
+    "sku": "Ramos-033",
+    "nombre": "Ramo 3 Girasoles y Abejita Crochet",
+    "precio": 75,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469178684-xbcqk18r3b.jpeg?alt=media&token=1429caea-91ad-4a61-ad0a-1b5f4a9e11c6",
+    "categoria": "Ramos",
+    "categoriaOriginal": "Flores amarillas",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ]
+  },
+  {
+    "id": "fRnBuityrcWb7t22dXP1",
+    "sku": "Amigu-004",
+    "nombre": "Naruto Crochet",
+    "precio": 55,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770989521699-n4n5lyfwiyn.png?alt=media&token=99463a23-bb99-43e8-aee6-c021d24c6de1",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "amigurumis",
+      "personalizados"
+    ]
+  },
+  {
+    "id": "gD5HWUMQ2EnMiFcvRsaY",
+    "sku": "Ramos-031",
+    "nombre": "Ramo Tulipán Individual Crochet",
+    "precio": 25,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469298326-n56eolw74ih.jpeg?alt=media&token=4bd2ccb0-20b5-4a73-acec-a404f130aa52",
+    "categoria": "Ramos",
+    "categoriaOriginal": "Flores amarillas",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ]
+  },
+  {
+    "id": "hkdhhgWezli7jJ3QrCij",
+    "sku": "Ramos-034",
+    "nombre": "Ramo Pollito Amigurumi y Flores Crochet",
+    "precio": 75,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469340246-4g32yzyk7uo.jpeg?alt=media&token=2104fc69-4c65-488d-9a6d-c7c9a5b17b09",
+    "categoria": "Ramos",
+    "categoriaOriginal": "Flores amarillas",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ]
+  },
+  {
+    "id": "hsMCcWzywdvd02zmki4r",
+    "sku": "Amigu-003",
+    "nombre": "Messi Crochet",
+    "precio": 95,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1772655344144-dtlpwllaeu.jpg?alt=media&token=14a00098-7bbb-4d4a-ac7f-a7359a12b35e",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "amigurumis",
+      "personalizados"
+    ]
+  },
+  {
+    "id": "mvf5dwq44joPNxF9kQPt",
+    "sku": "Madre-001",
+    "nombre": "Ramo 3 Tulipanes ",
+    "precio": 50,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770060984226-6zwrbd2zuln.jpg?alt=media&token=2c69f7bf-471c-410f-8b5f-f0e2d7511aff",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "nGdL2TU5ekWioD6KZysw",
+    "sku": "Ramos-012",
+    "nombre": "Ramo Princesa ",
+    "precio": 115,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770836550713-wme9zd4mye.jpeg?alt=media&token=b4c05d57-3d65-430c-97c4-1f7e3c6a10f2",
+    "categoria": "General",
+    "categoriaOriginal": "San Valentin",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia"
+    ]
+  },
+  {
+    "id": "neqXhEahCjiBvGhDVyIX",
+    "sku": "Ramos-002",
+    "nombre": "Ramo Rosas Crochet",
+    "precio": 85,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770054812221-syjuhb2xxhj.jpg?alt=media&token=3c19d663-3de8-46b1-b438-b13f4a0d9682",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia"
+    ]
+  },
+  {
+    "id": "oxdy7pnqqPnsLDjyF8Rx",
+    "sku": "Caja-009",
+    "nombre": "Box Rosas",
+    "precio": 70,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1778193360673-3g3su0zoen9.jpg?alt=media&token=6a95de28-4ab8-4906-8af2-db2165dddccf",
+    "categoria": "General",
+    "categoriaOriginal": "Día de la Madre",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "cajas",
+      "dia-de-la-madre"
+    ]
+  },
+  {
+    "id": "rFDGAIq3Iw70fbzpYTwn",
+    "sku": "Ramo-020",
+    "nombre": "Ramo Snoopy F1",
+    "precio": 55,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790576859111-prnvzlzcro.jpg?alt=media&token=e7cfb751-ea03-4a72-acd0-c6eaba209188",
+    "categoria": "General",
+    "categoriaOriginal": "Día HotWheels",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "hotwheels"
+    ]
+  },
+  {
+    "id": "trTevYJ3ieLU8eNNidM3",
+    "sku": "Amigu-001",
+    "nombre": "Goku Crochet",
+    "precio": 70,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1785527970378-yid4dya8qep.jpeg?alt=media&token=cc8e2786-f32e-4d19-9a38-c6884208fd51",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "Goku tejido crochet a mano, ideal para regalos especiales de aniversario, cumpleaños o simplemente darle a esa personita especial! Puedes empezar tu colección Crochet!",
+    "catalogos": [
+      "amigurumis",
+      "personalizados"
+    ]
+  },
+  {
+    "id": "xASgR7QwcbqRxleyXXLD",
+    "sku": "Ramos-003",
+    "nombre": "Ramo Conejito Crochet",
+    "precio": 100,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1770054867062-6dmqvqh9tjo.jpg?alt=media&token=25d97f82-2241-4404-a6fb-24dcdeee6c8a",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "ramos",
+      "san-valentin",
+      "dia-de-la-novia"
+    ]
+  },
+  {
+    "id": "yGO7CC9csMJ6JAuKwpM4",
+    "sku": "Amigu-002",
+    "nombre": "Hombre Araña Crochet",
+    "precio": 80,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1785527950407-uh79o7ng9n.webp?alt=media&token=b815c6fa-bc87-4706-9d89-1cd5e656f2af",
+    "categoria": "Personalizado",
+    "categoriaOriginal": "Personalizados",
+    "stock": 0,
+    "descripcion": "product image",
+    "catalogos": [
+      "amigurumis",
+      "personalizados"
+    ]
+  }
+]

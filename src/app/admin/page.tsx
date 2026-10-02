@@ -19,6 +19,9 @@ import {
   ProductoCatalogoAssignment,
   getDefaultProductSlugs,
 } from "@/lib/catalogos";
+import ProductFormModal from "@/components/admin/ProductFormModal";
+import AgendarPedidoModal from "@/components/admin/AgendarPedidoModal";
+import PedidosView from "@/components/admin/PedidosView";
 
 type MainTab = "dashboard" | "pedidos" | "catalogo" | "diseno" | "eventos" | "atencion" | "clientes";
 
@@ -197,6 +200,9 @@ export default function AdminPage() {
   const [productosFilter, setProductosFilter] = useState("ver-todo");
   const [eventos, setEventos] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<ProductoCatalogoAssignment[]>([]);
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [editingProductItem, setEditingProductItem] = useState<any | null>(null);
+  const [agendarModalOpen, setAgendarModalOpen] = useState(false);
   const [editingProductoCatalogos, setEditingProductoCatalogos] = useState<any | null>(null);
   const [selectedSlugsForProducto, setSelectedSlugsForProducto] = useState<string[]>([]);
   const [savingCatalogos, setSavingCatalogos] = useState(false);
@@ -909,7 +915,7 @@ export default function AdminPage() {
     if (ok) setData((prev) => prev.map((item: any) => item.id === id ? { ...item, leido: true } : item));
   };
 
-  const handleCambiarEstado = async (id: number, estado: string) => {
+  const handleCambiarEstado = async (id: number | string, estado: string) => {
     const ok = await apiPatch({ action: "cambiar-estado", id, estado });
     if (ok) setData((prev) => prev.map((item: any) => item.id === id ? { ...item, estado } : item));
   };
@@ -3756,14 +3762,27 @@ export default function AdminPage() {
                   </p>
                 )}
               </div>
-              <div className="relative w-full sm:w-80">
-                <input
-                  value={productosSearch}
-                  onChange={(e) => setProductosSearch(e.target.value)}
-                  placeholder="Buscar producto por nombre o SKU..."
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg font-quicksand text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] pr-10"
-                />
-                <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300" />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProductItem(null);
+                    setProductModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all whitespace-nowrap"
+                >
+                  <Plus size={16} />
+                  <span>Nuevo Producto</span>
+                </button>
+                <div className="relative w-full sm:w-80">
+                  <input
+                    value={productosSearch}
+                    onChange={(e) => setProductosSearch(e.target.value)}
+                    placeholder="Buscar producto por nombre o SKU..."
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg font-quicksand text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] pr-10"
+                  />
+                  <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                </div>
               </div>
             </div>
 
@@ -3961,12 +3980,15 @@ export default function AdminPage() {
                               {isActive ? "Activo" : "Oculto"}
                             </span>
                           </td>
-                          {/* Columna de acción: botón Editar abre el modal de asignación */}
+                          {/* Columna de acción: botón Editar abre el modal de edición de producto */}
                           <td className="px-3 py-3 text-center">
                             <button
                               type="button"
-                              onClick={() => handleOpenAssignModal(p)}
-                              title="Editar asignaciones de catálogos y eventos"
+                              onClick={() => {
+                                setEditingProductItem(p);
+                                setProductModalOpen(true);
+                              }}
+                              title="Editar producto, precio, stock y catálogos"
                               className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-[#FDF4F7] hover:border-[#EE6B8D] text-gray-400 hover:text-[#C04267] transition-all shadow-xs"
                             >
                               <Pencil size={13} />
@@ -3999,6 +4021,56 @@ export default function AdminPage() {
                 </table>
               </div>
             )}
+
+            {/* Modal para crear o editar productos completos */}
+            <ProductFormModal
+              isOpen={productModalOpen}
+              onClose={() => {
+                setProductModalOpen(false);
+                setEditingProductItem(null);
+              }}
+              product={editingProductItem}
+              assignments={assignments}
+              eventos={eventos}
+              inactiveIds={inactiveIds}
+              onSaveSuccess={(savedProduct, activeSlugs, isActive) => {
+                setRawProducts((prev: any[]) => {
+                  const idx = prev.findIndex((p) => p.id === savedProduct.id);
+                  if (idx >= 0) {
+                    const copy = [...prev];
+                    copy[idx] = { ...copy[idx], ...savedProduct, catalogos: activeSlugs };
+                    return copy;
+                  }
+                  return [{ ...savedProduct, catalogos: activeSlugs }, ...prev];
+                });
+                setAllProducts((prev: any[]) => {
+                  const idx = prev.findIndex((p) => p.id === savedProduct.id);
+                  if (idx >= 0) {
+                    const copy = [...prev];
+                    copy[idx] = { ...copy[idx], ...savedProduct, catalogos: activeSlugs };
+                    return copy;
+                  }
+                  return [{ ...savedProduct, catalogos: activeSlugs }, ...prev];
+                });
+                setInactiveIds((prev) => {
+                  const next = new Set(prev);
+                  if (isActive) next.delete(savedProduct.id);
+                  else next.add(savedProduct.id);
+                  return next;
+                });
+                setAssignments((prev) => {
+                  const filtered = prev.filter((a) => a.producto_id !== savedProduct.id);
+                  const newAss: ProductoCatalogoAssignment[] = activeSlugs.map((slug) => ({
+                    id: Date.now() + Math.random(),
+                    producto_id: savedProduct.id,
+                    sku: savedProduct.sku || null,
+                    categoria_slug: slug,
+                    incluir: true,
+                  }));
+                  return [...filtered, ...newAss];
+                });
+              }}
+            />
 
             {/* Modal de asignación de catálogos y eventos */}
             {editingProductoCatalogos && (
@@ -4584,7 +4656,26 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab !== "dashboard" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && !loading && data.length > 0 && (
+        {subTab === "pedidos" && !loading && (
+          <div>
+            <PedidosView
+              pedidos={data}
+              loading={loading}
+              onCambiarEstado={handleCambiarEstado}
+              onOpenAgendarModal={() => setAgendarModalOpen(true)}
+            />
+            <AgendarPedidoModal
+              isOpen={agendarModalOpen}
+              onClose={() => setAgendarModalOpen(false)}
+              availableProducts={rawProducts}
+              onSaveSuccess={() => {
+                fetchData();
+              }}
+            />
+          </div>
+        )}
+
+        {mainTab !== "dashboard" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && !loading && data.length > 0 && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
@@ -4614,23 +4705,6 @@ export default function AdminPage() {
                         {cols.map((key) => {
                           const value = row[key];
 
-                          if (key === "estado" && subTab === "pedidos") {
-                            return (
-                              <td key={key} className="px-3 py-3">
-                                <select value={value || "pendiente"}
-                                  onChange={(e) => handleCambiarEstado(row.id, e.target.value)}
-                                  className="font-quicksand text-xs px-2 py-1 rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#EE6B8D]"
-                                >
-                                  <option value="pendiente">Pendiente</option>
-                                  <option value="confirmado">Confirmado</option>
-                                  <option value="enviado">Enviado</option>
-                                  <option value="entregado">Entregado</option>
-                                  <option value="cancelado">Cancelado</option>
-                                </select>
-                              </td>
-                            );
-                          }
-
                           if (key === "estado" && subTab === "personalizados") {
                             return (
                               <td key={key} className="px-3 py-3">
@@ -4645,14 +4719,6 @@ export default function AdminPage() {
                                   <option value="entregado">Entregado</option>
                                   <option value="cancelado">Cancelado</option>
                                 </select>
-                              </td>
-                            );
-                          }
-
-                          if (key === "usuario_id" && subTab === "pedidos") {
-                            return (
-                              <td key={key} className="px-3 py-3 font-quicksand text-xs text-gray-700">
-                                {rowIdx + 1}
                               </td>
                             );
                           }
@@ -4682,7 +4748,7 @@ export default function AdminPage() {
                               </button>
                             )}
 
-                            {(subTab === "pedidos" || subTab === "personalizados") && (
+                            {subTab === "personalizados" && (
                               <a href={whatsappLink(row)} target="_blank" rel="noopener noreferrer"
                                 className="flex items-center gap-1 text-xs text-[#25D366] hover:text-[#20BA5A] font-quicksand font-medium"
                               >
