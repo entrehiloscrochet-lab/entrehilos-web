@@ -1,7 +1,7 @@
 'use client';
 
 import Image from "next/image";
-import { X, Plus, Minus, ChevronRight, Sparkles, Ruler, Calendar } from "lucide-react";
+import { X, Plus, Minus, ChevronRight, Sparkles, Ruler, Calendar, Clock, AlertCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Product } from "@/lib/ventify";
 import { useCart } from "@/context/CartContext";
@@ -136,13 +136,9 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
 
   const handleAdd = () => {
     removeFromCart(product.id);
-    for (let i = 0; i < quantity; i++) {
-      addToCart(product, precioUnitario);
-    }
+    addToCart(product, precioUnitario, quantity);
     localExtras.forEach(extra => {
-      for (let i = 0; i < extra.cantidad; i++) {
-        addExtraToItem(product.id, extra.producto);
-      }
+      addExtraToItem(product.id, extra.producto, extra.cantidad);
     });
     handleClose();
   };
@@ -272,7 +268,7 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
 
           {product.stock <= 5 && product.stock > 0 && (
             <span className="absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-lato font-medium bg-white/90 backdrop-blur-sm shadow-sm" style={{ color: BRAND.gold }}>
-              Últimas {product.stock} unidades
+              Últimas {product.stock} unidades en stock
             </span>
           )}
 
@@ -307,7 +303,7 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
 
               {product.stock <= 5 && product.stock > 0 && (
                 <span className="absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-lato font-medium bg-white/90 backdrop-blur-sm shadow-sm" style={{ color: BRAND.gold }}>
-                  Últimas {product.stock} unidades
+                  Últimas {product.stock} unidades en stock
                 </span>
               )}
 
@@ -477,13 +473,30 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
           </div>
 
           {/* Sticky Bottom Bar */}
-          <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-b from-white to-gray-50/80 border-t-2 border-dashed px-6 py-5" style={{ borderColor: BRAND.line }}>
+          <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-b from-white to-gray-50/80 border-t-2 border-dashed px-6 py-4 sm:py-5" style={{ borderColor: BRAND.line }}>
+            {/* Alerta de unidades a pedido cuando la cantidad supera el stock físico disponible */}
+            {product.stock > 0 && quantity > product.stock && (
+              <div className="mb-3.5 p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs leading-relaxed">
+                  <p className="font-quicksand font-bold text-amber-900">
+                    Disponibilidad combinada: Entrega inmediata + A pedido
+                  </p>
+                  <p className="font-quicksand text-amber-800 mt-0.5">
+                    Hay <strong className="text-amber-950 font-bold">{product.stock} {product.stock === 1 ? 'unidad' : 'unidades'}</strong> disponibles para entrega inmediata.
+                    Las <strong className="text-amber-950 font-bold">{quantity - product.stock} {quantity - product.stock === 1 ? 'unidad adicional se confeccionará' : 'unidades adicionales se confeccionarán'}</strong> con amor a pedido (tiempo estimado: 1 a 2 semanas).
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-4">
               <div className="flex items-center border-2 rounded-full" style={{ borderColor: BRAND.line }}>
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="w-11 h-11 flex items-center justify-center hover:bg-gray-50 rounded-l-full transition-colors"
                   disabled={quantity <= 1}
+                  aria-label="Disminuir cantidad"
                 >
                   <Minus size={16} className={quantity <= 1 ? 'text-gray-300' : ''} style={{ color: quantity <= 1 ? undefined : BRAND.ink }} />
                 </button>
@@ -491,8 +504,10 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
                   {String(quantity).padStart(2, '0')}
                 </span>
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={() => setQuantity(Math.min(50, quantity + 1))}
                   className="w-11 h-11 flex items-center justify-center hover:bg-gray-50 rounded-r-full transition-colors"
+                  disabled={quantity >= 50}
+                  aria-label="Aumentar cantidad"
                 >
                   <Plus size={16} style={{ color: BRAND.ink }} />
                 </button>
@@ -501,7 +516,7 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
               <button
                 onClick={handleAdd}
                 disabled={!canAdd}
-                className="flex-1 font-lato text-sm font-semibold py-3.5 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                className="flex-1 font-lato text-sm font-semibold py-3.5 px-4 sm:px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg text-center"
                 style={{
                   backgroundColor: canAdd ? '#EE6B8D' : '#F1EAE2',
                   color: canAdd ? 'white' : '#B8AC9F',
@@ -511,9 +526,11 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
                 onMouseLeave={(e) => { if (canAdd) e.currentTarget.style.backgroundColor = '#EE6B8D'; }}
               >
                 {isSoldOut
-                  ? 'Solicitar a pedido'
+                  ? `Solicitar a pedido — S/ ${totalConExtras.toFixed(2)}`
+                  : quantity > product.stock
+                  ? `Agregar (${product.stock} stock + ${quantity - product.stock} a pedido) — S/ ${totalConExtras.toFixed(2)}`
                   : `Agregar — S/ ${totalConExtras.toFixed(2)}`}
-                {canAdd && !isSoldOut && <ChevronRight size={18} />}
+                {canAdd && !isSoldOut && <ChevronRight size={18} className="shrink-0" />}
               </button>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { Sparkles, Heart, Package, Truck, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import QuickViewDrawer from "@/components/QuickViewDrawer";
 import CampanaRotondaSection from "@/components/CampanaRotondaSection";
+import EventoProductosRotondaSection from "@/components/EventoProductosRotondaSection";
 
 interface HomeClientProps {
   products: Product[];
@@ -591,11 +592,12 @@ export default function HomeClient({ products, sections, heroData, eventosData }
 
   const rotondaEvento = getRotondaEvento(eventosData);
 
-  const aboutSection = sections.find((s: any) => s.section_key === 'about_us');
-  const rotondaSection = sections.find((s: any) => s.section_key === 'campana_rotonda');
-  const showcaseSection = sections.find((s: any) => s.section_key === 'showcase');
-  const customSection = sections.find((s: any) => s.section_key === 'custom_amigurumi');
-  const faqSection = sections.find((s: any) => s.section_key === 'faq');
+  const aboutSection = sections.find((s: any) => s.section_key === 'about_us' && s.activo !== false);
+  const productosRotondaSection = sections.find((s: any) => s.section_key === 'evento_productos_rotonda');
+  const rotondaSection = sections.find((s: any) => s.section_key === 'campana_rotonda' && s.activo !== false);
+  const showcaseSection = sections.find((s: any) => s.section_key === 'showcase' && s.activo !== false);
+  const customSection = sections.find((s: any) => s.section_key === 'custom_amigurumi' && s.activo !== false);
+  const faqSection = sections.find((s: any) => s.section_key === 'faq' && s.activo !== false);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: BRAND.canvas }}>
@@ -607,6 +609,17 @@ export default function HomeClient({ products, sections, heroData, eventosData }
       )}
 
       <HeroCarousel products={products} heroData={heroData} eventosData={eventosData} />
+
+      {/* Carrusel 3D de Productos del Catálogo de la Campaña / Evento Actual */}
+      {(!productosRotondaSection || productosRotondaSection.activo !== false) && (
+        <EventoProductosRotondaSection
+          section={productosRotondaSection}
+          eventoActual={rotondaEvento}
+          products={products}
+          eventosData={eventosData}
+          onQuickView={setSelectedProduct}
+        />
+      )}
 
       {/* Galería Rotonda 3D de Campañas / Fotos de Clientes */}
       <CampanaRotondaSection section={rotondaSection} eventoActual={rotondaEvento} />

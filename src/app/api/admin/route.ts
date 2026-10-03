@@ -62,7 +62,27 @@ export async function GET(request: NextRequest) {
   }
 
   if (tab === "inicio") {
-    const sections = data || [];
+    const sections = [...(data || [])];
+
+    const hasProductosRotonda = sections.some((s: any) => s.section_key === "evento_productos_rotonda");
+    if (!hasProductosRotonda) {
+      const defaultProductosRotonda = {
+        id: -98,
+        section_key: "evento_productos_rotonda",
+        tipo: "content",
+        titulo: "Colección {evento}",
+        subtitulo: "Catálogo Especial · {evento}",
+        descripcion: "Descubre los ramos, arreglos y creaciones exclusivas tejidas a mano para celebrar en grande esta temporada.",
+        items: {
+          evento_slug: "auto",
+          limite: 8,
+        },
+        orden: 0,
+        activo: true,
+      };
+      sections.unshift(defaultProductosRotonda);
+    }
+
     const hasRotonda = sections.some((s: any) => s.section_key === "campana_rotonda");
     if (!hasRotonda) {
       const defaultRotonda = {
@@ -101,7 +121,7 @@ export async function GET(request: NextRequest) {
         orden: 1,
         activo: true,
       };
-      return NextResponse.json([defaultRotonda, ...sections]);
+      sections.push(defaultRotonda);
     }
     return NextResponse.json(sections);
   }
@@ -221,7 +241,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (action === "actualizar-seccion") {
-    if (typeof id === "number" && id < 0) {
+    if (!id || (typeof id === "number" && id < 0)) {
       const { error } = await supabaseAdmin
         .from("home_sections")
         .upsert({ ...updates, updated_at: new Date().toISOString() }, { onConflict: "section_key" });

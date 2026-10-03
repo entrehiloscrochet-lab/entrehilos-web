@@ -9,7 +9,6 @@ async function getHomeSections() {
     const { data } = await supabaseAdmin
       .from("home_sections")
       .select("*")
-      .eq("activo", true)
       .order("orden", { ascending: true });
     return data || [];
   } catch {

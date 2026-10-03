@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getVentifyProducts } from "@/lib/ventify";
 import { notFound } from "next/navigation";
 import { loadExtras } from "@/lib/extras-cache";
+import { isProductInSlug } from "@/lib/catalogos";
 import ProductCard from "@/components/ProductCard";
 import QuickViewDrawer from "@/components/QuickViewDrawer";
 import CampanaRotondaSection from "@/components/CampanaRotondaSection";
@@ -129,7 +130,6 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
           return p.catalogos.includes(slug.toLowerCase());
         }
         // Fallback a reglas base por SKU/nombre/categoría (sin assignments BD)
-        const { isProductInSlug } = require('@/lib/catalogos');
         return isProductInSlug(p, slug);
       });
 

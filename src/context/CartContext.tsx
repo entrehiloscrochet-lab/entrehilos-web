@@ -20,10 +20,10 @@ export interface CartItem extends Product {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, precioOverride?: number) => void;
+  addToCart: (product: Product, precioOverride?: number, qtyToAdd?: number) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
-  addExtraToItem: (productId: string, extraProduct: Product) => void;
+  addExtraToItem: (productId: string, extraProduct: Product, qtyToAdd?: number) => void;
   removeExtraFromItem: (productId: string, extraId: string) => void;
   updateExtraQuantity: (productId: string, extraId: string, quantity: number) => void;
   clearCart: () => void;
@@ -62,22 +62,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, isClient]);
 
-  const addToCart = (product: Product, precioOverride?: number) => {
+  const addToCart = (product: Product, precioOverride?: number, qtyToAdd: number = 1) => {
     const isSoldOut = product.stock === 0;
 
     setItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
 
       if (existingItem) {
-        if (!isSoldOut && existingItem.quantity >= product.stock) {
-          showToast(`Solo hay ${product.stock} unidades disponibles de ${product.nombre}`, "warning");
-          return prevItems;
+        const nextQty = existingItem.quantity + qtyToAdd;
+        if (!isSoldOut && nextQty > product.stock) {
+          showToast(
+            `Atención: ${product.stock} en stock inmediata y ${nextQty - product.stock} se elaborarán a pedido (1-2 sem)`,
+            "info"
+          );
         }
         return prevItems.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: nextQty } : item
         );
       } else {
-        return [...prevItems, { ...product, precio: precioOverride ?? product.precio, quantity: 1, extras: [] }];
+        if (!isSoldOut && qtyToAdd > product.stock) {
+          showToast(
+            `Atención: ${product.stock} en stock inmediata y ${qtyToAdd - product.stock} se elaborarán a pedido (1-2 sem)`,
+            "info"
+          );
+        }
+        return [
+          ...prevItems,
+          {
+            ...product,
+            precio: precioOverride ?? product.precio,
+            quantity: qtyToAdd,
+            extras: [],
+          },
+        ];
       }
     });
   };
@@ -93,46 +110,49 @@ export function CartProvider({ children }: { children: ReactNode }) {
       prevItems.map((item) => {
         if (item.id === id) {
           const isSoldOut = item.stock === 0;
-          const newQuantity = isSoldOut ? quantity : Math.min(quantity, item.stock);
-          
-          if (!isSoldOut && newQuantity < quantity) {
-            showToast(`Solo hay ${item.stock} unidades disponibles de ${item.nombre}`, "warning");
+          if (!isSoldOut && quantity > item.stock && item.quantity <= item.stock) {
+            showToast(
+              `Atención: ${item.stock} en stock inmediata y ${quantity - item.stock} se elaborarán a pedido (1-2 sem)`,
+              "info"
+            );
           }
-          return { ...item, quantity: newQuantity };
+          return { ...item, quantity };
         }
         return item;
       })
     );
   };
 
-  const addExtraToItem = (productId: string, extraProduct: Product) => {
+  const addExtraToItem = (productId: string, extraProduct: Product, qtyToAdd: number = 1) => {
     setItems((prevItems) => prevItems.map(item => {
       if (item.id === productId) {
         const existingExtra = item.extras.find(e => e.id === extraProduct.id);
         
         if (existingExtra) {
-          if (existingExtra.cantidad >= extraProduct.stock) {
+          const nextQty = existingExtra.cantidad + qtyToAdd;
+          const cappedQty = extraProduct.stock > 0 ? Math.min(nextQty, extraProduct.stock) : nextQty;
+          if (extraProduct.stock > 0 && nextQty > extraProduct.stock) {
             showToast(`Stock límite: solo quedan ${extraProduct.stock} de ${extraProduct.nombre}`, "warning");
-            return item;
           }
           return {
             ...item,
-            extras: item.extras.map(e => e.id === extraProduct.id ? { ...e, cantidad: e.cantidad + 1 } : e)
+            extras: item.extras.map(e => e.id === extraProduct.id ? { ...e, cantidad: cappedQty } : e)
           };
         } else {
           if (extraProduct.stock === 0) {
             showToast(`${extraProduct.nombre} está agotado por el momento`, "error");
             return item;
           }
+          const cappedQty = extraProduct.stock > 0 ? Math.min(qtyToAdd, extraProduct.stock) : qtyToAdd;
           return {
             ...item,
             extras: [...item.extras, {
               id: extraProduct.id,
               nombre: extraProduct.nombre,
               precio: extraProduct.precio,
-              cantidad: 1,
+              cantidad: cappedQty,
               stock: extraProduct.stock,
-              categoriaOriginal: extraProduct.categoriaOriginal // Ya no lanzará error
+              categoriaOriginal: extraProduct.categoriaOriginal
             }]
           };
         }
@@ -198,7 +218,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       message += `   - Cantidad: ${item.quantity}\n`;
       message += `   - Precio: S/ ${(item.precio * item.quantity).toFixed(2)}\n`;
       if (item.stock === 0) {
-        message += `   - A PEDIDO (1-2 semanas)\n`;
+        message += `   - Disponibilidad: A PEDIDO (1-2 semanas)\n`;
+      } else if (item.quantity > item.stock) {
+        message += `   - Disponibilidad: ${item.stock} en stock inmediata + ${item.quantity - item.stock} a pedido (1-2 semanas)\n`;
+      } else {
+        message += `   - Disponibilidad: En stock inmediata\n`;
       }
       
       if (item.extras && item.extras.length > 0) {

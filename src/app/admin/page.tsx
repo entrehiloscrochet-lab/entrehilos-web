@@ -37,7 +37,7 @@ const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; d
   catalogo: [
     { id: "productos", label: "Visibilidad de Productos", icon: Package, desc: "Activar o desactivar productos en la web" },
     { id: "precios", label: "Precios por Tamaño", icon: Tag, desc: "Precios pequeño, mediano y grande para amigurumis" },
-    { id: "catalogos", label: "Catálogos de Campañas (PDF)", icon: FileDown, desc: "Subir o adjuntar catálogos de eventos para descarga" },
+    { id: "catalogos", label: "Catálogo de Portada", icon: Sparkles, desc: "Elegir productos y subir imágenes para el carrusel de la portada" },
   ],
   diseno: [
     { id: "heroes", label: "Banners (Heroes)", icon: ImageIcon, desc: "Carrusel principal y banners de colecciones" },
@@ -45,7 +45,7 @@ const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; d
   ],
   eventos: [
     { id: "eventos", label: "Eventos Especiales", icon: Sparkles, desc: "Campañas y fechas especiales activas" },
-    { id: "catalogos", label: "Catálogos de Campañas (PDF)", icon: FileDown, desc: "Subir o adjuntar catálogos de eventos para descarga" },
+    { id: "catalogos", label: "Catálogo de Portada", icon: Sparkles, desc: "Elegir productos y subir imágenes para el carrusel de la portada" },
   ],
   atencion: [
     { id: "mensajes", label: "Mensajes de Contacto", icon: MessageSquare, desc: "Consultas enviadas desde el formulario" },
@@ -222,6 +222,22 @@ export default function AdminPage() {
   const sectionImgRef = useRef<HTMLInputElement | null>(null);
   const eventoImgRef = useRef<HTMLInputElement | null>(null);
   const [eventoImgUploading, setEventoImgUploading] = useState(false);
+
+  // Estados para Catálogo de Portada (Elegir productos y subir imágenes)
+  const [portadaEventoSlug, setPortadaEventoSlug] = useState<string>("auto");
+  const [portadaSelectedIds, setPortadaSelectedIds] = useState<Set<string>>(new Set());
+  const [portadaCustomImages, setPortadaCustomImages] = useState<any[]>([]);
+  const [portadaSaving, setPortadaSaving] = useState(false);
+  const [portadaTab, setPortadaTab] = useState<"productos" | "imagenes">("productos");
+  const [portadaProductSearch, setPortadaProductSearch] = useState("");
+  const [uploadingPortadaImg, setUploadingPortadaImg] = useState(false);
+  const [newCatalogImgTitle, setNewCatalogImgTitle] = useState("");
+  const [newCatalogImgPrice, setNewCatalogImgPrice] = useState("");
+  const [newCatalogImgUrl, setNewCatalogImgUrl] = useState("");
+  const [newCatalogImgCategoria, setNewCatalogImgCategoria] = useState("");
+  const [portadaCategoryFilter, setPortadaCategoryFilter] = useState<string>("evento");
+  const [portadaActivo, setPortadaActivo] = useState(true);
+  const [portadaSectionId, setPortadaSectionId] = useState<number | null>(null);
 
   const [editingEvento, setEditingEvento] = useState<any | null>(null);
   const [editEventoNombre, setEditEventoNombre] = useState("");
@@ -841,6 +857,169 @@ export default function AdminPage() {
     });
   }, [subTab, data, amiguProducts.length]);
 
+  useEffect(() => {
+    if (subTab === "catalogos") {
+      fetch("/api/admin?tab=inicio")
+        .then((r) => r.json())
+        .then((sections) => {
+          if (Array.isArray(sections)) {
+            const sec = sections.find((s: any) => s.section_key === "evento_productos_rotonda");
+            if (sec) {
+              setPortadaSectionId(sec.id);
+              if (typeof sec.activo === "boolean") {
+                setPortadaActivo(sec.activo);
+              }
+            }
+            if (sec?.items) {
+              const it = typeof sec.items === "string" ? JSON.parse(sec.items) : sec.items;
+              if (it.evento_slug) setPortadaEventoSlug(it.evento_slug);
+              if (Array.isArray(it.selected_product_ids)) {
+                setPortadaSelectedIds(new Set(it.selected_product_ids));
+              }
+              if (Array.isArray(it.custom_catalog_images)) {
+                setPortadaCustomImages(it.custom_catalog_images);
+              }
+            }
+          }
+        })
+        .catch(() => {});
+
+      if (rawProducts.length === 0) {
+        fetchVentifyData().then((d) => {
+          setRawProducts(d.all);
+          setInactiveIds(new Set(d.inactiveIds));
+          setAssignments(d.assignments || []);
+        }).catch(() => {});
+      }
+
+      fetch("/api/eventos")
+        .then((r) => r.json())
+        .then((evList) => {
+          if (Array.isArray(evList)) setEventos(evList);
+        })
+        .catch(() => {});
+    }
+  }, [subTab, rawProducts.length]);
+
+  const handleSavePortadaConfig = async (
+    customImgs?: any[],
+    selectedIds?: Set<string>,
+    evSlug?: string,
+    activoVal?: boolean
+  ) => {
+    setPortadaSaving(true);
+    try {
+      const itemsPayload = {
+        evento_slug: evSlug !== undefined ? evSlug : portadaEventoSlug,
+        limite: 8,
+        selected_product_ids: Array.from(selectedIds !== undefined ? selectedIds : portadaSelectedIds),
+        custom_catalog_images: customImgs !== undefined ? customImgs : portadaCustomImages,
+      };
+
+      const resolvedActivo = activoVal !== undefined ? activoVal : portadaActivo;
+
+      await apiPatch({
+        action: "actualizar-seccion",
+        id: portadaSectionId || -98,
+        section_key: "evento_productos_rotonda",
+        tipo: "content",
+        activo: resolvedActivo,
+        items: itemsPayload,
+      });
+
+      alert(resolvedActivo ? "Configuración guardada y carrusel activo en la portada." : "Configuración guardada. El carrusel ha sido ocultado de la portada.");
+    } catch (e) {
+      console.error(e);
+      alert("Error al guardar la configuración.");
+    } finally {
+      setPortadaSaving(false);
+    }
+  };
+
+  const handleTogglePortadaActivo = async (newVal: boolean) => {
+    setPortadaActivo(newVal);
+    await handleSavePortadaConfig(undefined, undefined, undefined, newVal);
+  };
+
+  const handleSetMainEvent = async (eventoItem: any) => {
+    try {
+      await apiPatch({
+        action: "actualizar-evento",
+        id: eventoItem.id,
+        featured: true,
+      });
+      setEventos((prev) =>
+        prev.map((e) => ({
+          ...e,
+          featured: e.id === eventoItem.id,
+        }))
+      );
+      alert(`"${eventoItem.nombre}" ahora es el EVENTO PRINCIPAL de la tienda.`);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleUploadCustomPortadaImage = async (file: File) => {
+    setUploadingPortadaImg(true);
+    try {
+      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+      const supabase = getSupabaseBrowserClient();
+      const ext = file.name.split(".").pop();
+      const nombre = `portada-catalogo-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
+      if (error) throw error;
+      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+      if (pub?.publicUrl) {
+        setNewCatalogImgUrl(pub.publicUrl);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Error al subir imagen: " + (err.message || "Error desconocido"));
+    } finally {
+      setUploadingPortadaImg(false);
+    }
+  };
+
+  const handleAddCustomCatalogItem = () => {
+    if (!newCatalogImgUrl) {
+      alert("Debes seleccionar y subir una imagen primero.");
+      return;
+    }
+    const newItem = {
+      id: `custom-${Date.now()}`,
+      title: newCatalogImgTitle.trim() || "Producto Especial",
+      price: newCatalogImgPrice.trim() ? parseFloat(newCatalogImgPrice.replace(",", ".")) : null,
+      image: newCatalogImgUrl,
+      categoria: newCatalogImgCategoria.trim() || "Catálogo",
+    };
+    const updated = [...portadaCustomImages, newItem];
+    setPortadaCustomImages(updated);
+    setNewCatalogImgTitle("");
+    setNewCatalogImgPrice("");
+    setNewCatalogImgUrl("");
+    setNewCatalogImgCategoria("");
+    handleSavePortadaConfig(updated);
+  };
+
+  const handleRemoveCustomCatalogItem = (index: number) => {
+    const updated = portadaCustomImages.filter((_, i) => i !== index);
+    setPortadaCustomImages(updated);
+    handleSavePortadaConfig(updated);
+  };
+
+  const togglePortadaProductId = (id: string) => {
+    setPortadaSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   async function handleGuardarPrecios(sku: string) {
     const draft = preciosDraft[sku];
     if (!draft) return;
@@ -910,12 +1089,16 @@ export default function AdminPage() {
       link_url: sectionLinkUrl || null,
       link_text: sectionLinkText || null,
     };
-    if (editingSection.tipo === 'showcase' || editingSection.tipo === 'faq' || editingSection.section_key === 'campana_rotonda') {
+    if (editingSection.tipo === 'showcase' || editingSection.tipo === 'faq' || editingSection.section_key === 'campana_rotonda' || editingSection.section_key === 'evento_productos_rotonda') {
       try {
-        updateData.items = JSON.parse(sectionItems);
+        updateData.items = typeof sectionItems === "object" ? sectionItems : JSON.parse(sectionItems);
       } catch { /* keep existing */ }
       if (editingSection.section_key === 'campana_rotonda') {
         updateData.section_key = 'campana_rotonda';
+        updateData.tipo = 'content';
+      }
+      if (editingSection.section_key === 'evento_productos_rotonda') {
+        updateData.section_key = 'evento_productos_rotonda';
         updateData.tipo = 'content';
       }
     }
@@ -1562,10 +1745,10 @@ export default function AdminPage() {
                       {section.section_key}
                     </span>
                     <span className="font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full" style={{
-                      backgroundColor: section.section_key === 'campana_rotonda' ? '#FCE4EC' : section.tipo === 'faq' ? '#E8F5E9' : section.tipo === 'showcase' ? '#FFF3E0' : section.tipo === 'personalizados' ? '#FCE4EC' : '#F3E5F5',
-                      color: section.section_key === 'campana_rotonda' ? '#C04267' : section.tipo === 'faq' ? '#2E7D32' : section.tipo === 'showcase' ? '#E65100' : section.tipo === 'personalizados' ? '#C04267' : '#7B1FA2',
+                      backgroundColor: section.section_key === 'evento_productos_rotonda' ? '#FDF4F7' : section.section_key === 'campana_rotonda' ? '#FCE4EC' : section.tipo === 'faq' ? '#E8F5E9' : section.tipo === 'showcase' ? '#FFF3E0' : section.tipo === 'personalizados' ? '#FCE4EC' : '#F3E5F5',
+                      color: section.section_key === 'evento_productos_rotonda' ? '#EE6B8D' : section.section_key === 'campana_rotonda' ? '#C04267' : section.tipo === 'faq' ? '#2E7D32' : section.tipo === 'showcase' ? '#E65100' : section.tipo === 'personalizados' ? '#C04267' : '#7B1FA2',
                     }}>
-                      {section.section_key === 'campana_rotonda' ? 'Rotonda 3D' : section.tipo}
+                      {section.section_key === 'evento_productos_rotonda' ? 'Rotonda Productos' : section.section_key === 'campana_rotonda' ? 'Rotonda Momentos' : section.tipo}
                     </span>
                   </div>
                   <h3 className="font-quicksand text-sm font-bold text-gray-800 mb-1">{section.titulo || 'Sin título'}</h3>
@@ -2090,7 +2273,7 @@ export default function AdminPage() {
                   />
 
                   {/* Link URL */}
-                  <label className="font-quicksand text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5 block">Link del botón "Ver Colección"</label>
+                  <label className="font-quicksand text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5 block">Link del botón &quot;Ver Colección&quot;</label>
                   <input
                     value={editLinkUrl}
                     onChange={(e) => setEditLinkUrl(e.target.value)}
@@ -2817,6 +3000,135 @@ export default function AdminPage() {
                 </>
               )}
 
+              {editingSection.section_key === 'evento_productos_rotonda' && (
+                <>
+                  <hr className="border-gray-100 my-5" />
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-4 bg-[#EE6B8D] rounded-full" />
+                    <h4 className="font-quicksand text-sm font-bold text-gray-700">
+                      Carrusel 3D de Productos de Campaña
+                    </h4>
+                  </div>
+                  <p className="font-quicksand text-xs text-gray-500 mb-4 leading-relaxed">
+                    Este carrusel se ubica justo arriba de Momentos en la portada y muestra los productos del catálogo del evento que esté transcurriendo (con vista 3D de 4 en desktop o 3 si solo hay 3 productos).
+                  </p>
+
+                  {(() => {
+                    let itemsConfig: any = { evento_slug: "auto", limite: 8 };
+                    try {
+                      if (sectionItems) {
+                        const parsed = JSON.parse(sectionItems);
+                        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                          itemsConfig = { ...itemsConfig, ...parsed };
+                        }
+                      }
+                    } catch {}
+
+                    const updateConfig = (patch: any) => {
+                      const next = { ...itemsConfig, ...patch };
+                      setSectionItems(JSON.stringify(next, null, 2));
+                    };
+
+                    const selectedSlug = itemsConfig.evento_slug || "auto";
+                    const currentEvent = eventos.find((e: any) => e.activo !== false) || eventos[0];
+                    const activeEventSlug = selectedSlug === "auto" ? (currentEvent?.slug || "flores-amarillas") : selectedSlug;
+                    const matchedEvent = eventos.find((e: any) => e.slug?.toLowerCase() === activeEventSlug?.toLowerCase()) || currentEvent;
+
+                    const eventProducts = (rawProducts || []).filter((p: any) => {
+                      if (inactiveIds.has(p.id)) return false;
+                      if (Array.isArray(p.catalogos) && p.catalogos.includes(activeEventSlug)) return true;
+                      return isProductInSlug(p, activeEventSlug, assignments);
+                    });
+
+                    const displayCount = eventProducts.length;
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                          <div>
+                            <label className="font-quicksand text-xs font-bold text-gray-700 block mb-1">
+                              Evento o Campaña a Mostrar
+                            </label>
+                            <select
+                              value={selectedSlug}
+                              onChange={(e) => updateConfig({ evento_slug: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl font-quicksand text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] bg-white text-gray-700"
+                            >
+                              <option value="auto">
+                                Automático: Detectar evento activo actual ({currentEvent?.nombre || "Campaña vigente"})
+                              </option>
+                              {eventos.map((ev: any) => (
+                                <option key={ev.slug || ev.id} value={ev.slug}>
+                                  Fijar: {ev.nombre} ({ev.slug})
+                                </option>
+                              ))}
+                            </select>
+                            <p className="font-quicksand text-[11px] text-gray-400 mt-1">
+                              En modo automático tomará el evento que esté activo en el calendario o marcado como destacado.
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="font-quicksand text-xs font-bold text-gray-700 block mb-1">
+                              Límite Máximo de Productos
+                            </label>
+                            <select
+                              value={itemsConfig.limite || 8}
+                              onChange={(e) => updateConfig({ limite: Number(e.target.value) })}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl font-quicksand text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] bg-white text-gray-700"
+                            >
+                              <option value={3}>3 productos (Modo 3D: 1 adelante y dos a los costados)</option>
+                              <option value={4}>4 productos (Rotonda completa de 4)</option>
+                              <option value={6}>6 productos</option>
+                              <option value={8}>8 productos (Recomendado)</option>
+                              <option value={12}>12 productos</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-pink-50/50 rounded-2xl border border-pink-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-quicksand text-xs font-bold text-[#C04267] flex items-center gap-1.5">
+                              <Package size={14} className="text-[#EE6B8D]" />
+                              Productos Detectados: {matchedEvent?.nombre || activeEventSlug} ({displayCount})
+                            </span>
+                            <span className="font-quicksand text-[11px] font-semibold text-gray-600 bg-white px-2 py-0.5 rounded-full border border-pink-100">
+                              {displayCount === 3
+                                ? "Modo 3D de 3 (1 adelante y 2 costados)"
+                                : displayCount > 3
+                                ? "Modo 3D de 4 (2 centro y 2 laterales)"
+                                : `${displayCount} productos`}
+                            </span>
+                          </div>
+
+                          {displayCount > 0 ? (
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 mt-3">
+                              {eventProducts.slice(0, itemsConfig.limite || 8).map((p: any, pIdx: number) => (
+                                <div key={p.id || pIdx} className="bg-white rounded-xl p-2 border border-pink-100 shadow-2xs flex flex-col items-center text-center">
+                                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 mb-1.5 relative">
+                                    <img src={p.imagen || "/logo.png"} alt="" className="w-full h-full object-cover" />
+                                  </div>
+                                  <span className="font-quicksand text-[11px] font-bold text-gray-700 line-clamp-1">
+                                    {p.nombre}
+                                  </span>
+                                  <span className="font-quicksand text-[10px] text-[#EE6B8D] font-bold">
+                                    S/ {Number(p.precio || 0).toFixed(2)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="font-quicksand text-xs text-amber-700 mt-1">
+                              Aún no hay productos asignados al catálogo de este evento. Puedes asignarlos en la sección <b>Catálogo → Visibilidad de Productos</b>.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+
               {editingSection.tipo === 'personalizados' && (
                 <>
                   <hr className="border-gray-100 my-5" />
@@ -2985,7 +3297,7 @@ export default function AdminPage() {
                               {editEventoDiaInicio} de {MESES.find((m) => m.val === editEventoMesInicio)?.name || "Mes"}
                             </p>
                             <p className="font-quicksand text-[10px] text-gray-600 mt-1 leading-tight">
-                              Toma el día de fin de <strong>"{currentPrevEvent.nombre}"</strong> ({formatEventoFecha(currentPrevEvent.fecha_fin)}).
+                              Toma el día de fin de <strong>&quot;{currentPrevEvent.nombre}&quot;</strong> ({formatEventoFecha(currentPrevEvent.fecha_fin)}).
                             </p>
                           </div>
 
@@ -3627,252 +3939,627 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab === "catalogo" && subTab === "catalogos" && !loading && (
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="font-fredoka text-xl font-bold text-[#C04267] flex items-center gap-2">
-                  <FileDown size={22} className="text-[#EE6B8D]" />
-                  Catálogos de Campañas y Eventos (PDF y Enlaces)
-                </h2>
-                <p className="font-quicksand text-xs text-gray-500 mt-1 max-w-2xl">
-                  Sube archivos PDF directamente desde tu equipo o adjunta enlaces manuales (Google Drive, Canva, etc.). Tus clientes podrán descargar el catálogo desde la tienda y el botón flotante.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-quicksand text-xs font-semibold text-gray-600 bg-white border border-[#FDE8EF] px-3.5 py-1.5 rounded-full shadow-xs">
-                  {data.filter((e: any) => Boolean(e.catalogo_url)).length} de {data.length} con catálogo
-                </span>
-              </div>
-            </div>
+        {(mainTab === "catalogo" || mainTab === "eventos") && subTab === "catalogos" && !loading && (() => {
+          // Eventos disponibles
+          const activeFeaturedEvent = eventos.find((e: any) => e.featured && e.activo !== false) || eventos.find((e: any) => e.activo !== false) || eventos[0];
+          const resolvedCurrentEventSlug = portadaEventoSlug === "auto" ? (activeFeaturedEvent?.slug || "dia-del-novio") : portadaEventoSlug;
+          const currentEventObj = eventos.find((e: any) => e.slug === resolvedCurrentEventSlug) || activeFeaturedEvent;
 
-            {/* Listado en cuadrícula de eventos con tarjetas especializadas para catálogo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {data.map((evento: any) => {
-                const statusInfo = getEventoStatus(evento);
-                const hasCatalog = Boolean(evento.catalogo_url);
+          // Productos del evento
+          const eventProducts = rawProducts.filter((p: any) => isProductInSlug(p, resolvedCurrentEventSlug, assignments));
 
-                return (
-                  <div
-                    key={evento.id}
-                    className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
+          // Productos filtrados según categoría y búsqueda
+          const filteredRawProducts = rawProducts.filter((p: any) => {
+            // Filtro por categoría o evento
+            if (portadaCategoryFilter === "evento") {
+              if (!isProductInSlug(p, resolvedCurrentEventSlug, assignments)) return false;
+            } else if (portadaCategoryFilter !== "todos") {
+              if (!isProductInSlug(p, portadaCategoryFilter, assignments)) return false;
+            }
+
+            // Filtro por búsqueda
+            if (portadaProductSearch.trim()) {
+              const q = portadaProductSearch.toLowerCase();
+              const name = (p.nombre || p.title || "").toLowerCase();
+              const sku = (p.sku || "").toLowerCase();
+              if (!name.includes(q) && !sku.includes(q)) return false;
+            }
+
+            return true;
+          });
+
+          const totalItemsCount = portadaSelectedIds.size > 0 
+            ? portadaSelectedIds.size + portadaCustomImages.length 
+            : eventProducts.length + portadaCustomImages.length;
+
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-fredoka text-xl font-bold text-[#C04267] flex items-center gap-2">
+                    <Sparkles size={22} className="text-[#EE6B8D]" />
+                    Catálogo y Carrusel 3D de Portada
+                  </h2>
+                  <p className="font-quicksand text-xs text-gray-500 mt-1 max-w-2xl">
+                    Elige los productos o sube imágenes de catálogo que se lucirán en la rotonda 3D ubicada justo arriba de &quot;Momentos&quot; en la página principal.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSavePortadaConfig()}
+                    disabled={portadaSaving}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
+                    {portadaSaving ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        <span>Guardar Cambios de Portada</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Interruptor de Visibilidad en el Landing */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white rounded-2xl border border-[#FDE8EF] shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    portadaActivo ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-400"
+                  }`}>
+                    <Eye size={22} />
+                  </div>
+                  <div>
+                    <h4 className="font-quicksand text-sm font-bold text-gray-800">
+                      Visibilidad del Carrusel en la Portada (Landing)
+                    </h4>
+                    <p className="font-quicksand text-xs text-gray-500 mt-0.5">
+                      {portadaActivo
+                        ? "El carrusel de productos se muestra actualmente en la página principal (arriba de Momentos)."
+                        : "El carrusel está actualmente DESACTIVADO y oculto para los clientes en la portada."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`font-quicksand text-xs font-bold px-3 py-1 rounded-full border ${
+                    portadaActivo
+                      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                      : "text-gray-500 bg-gray-100 border-gray-200"
+                  }`}>
+                    {portadaActivo ? "Visible en Landing" : "Oculto en Landing"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePortadaActivo(!portadaActivo)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                      portadaActivo ? "bg-[#C04267]" : "bg-gray-300"
+                    }`}
+                    aria-label="Alternar visibilidad en la portada"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        portadaActivo ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Tarjeta de Evento Principal Activo y Modo Rotonda */}
+              <div className="bg-white rounded-2xl border border-[#FDE8EF] p-5 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-[#FDF4F7] border border-[#FDE8EF] flex items-center justify-center text-[#C04267] shrink-0">
+                      <Sparkles size={24} />
+                    </div>
                     <div>
-                      {/* Cabecera de la tarjeta con imagen o banner */}
-                      <div className="relative aspect-[21/9] bg-gray-50 border-b border-gray-100 overflow-hidden">
-                        {evento.imagen_url || evento.imagen_url_mobile ? (
-                          <img
-                            src={evento.imagen_url || evento.imagen_url_mobile}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
-                            <ImageIcon size={24} />
-                            <span className="font-quicksand text-[11px] text-gray-400 mt-1">Sin banner</span>
-                          </div>
-                        )}
-
-                        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
-                          <span className={`font-quicksand text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-sm ${statusInfo.color}`}>
-                            {statusInfo.label}
+                      <div className="flex items-center gap-2">
+                        <span className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-[#EE6B8D] bg-[#FDF4F7] px-2.5 py-0.5 rounded-full border border-[#FDE8EF]">
+                          Evento Principal de la Tienda
+                        </span>
+                        {currentEventObj?.featured && (
+                          <span className="font-quicksand text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            Activo y Destacado
                           </span>
-                          {hasCatalog ? (() => {
-                            const b = getCatalogFormatBadge(evento.catalogo_url);
-                            return (
-                              <span className={`font-quicksand text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-xs flex items-center gap-1 ${b.color}`}>
-                                <Check size={11} /> {b.label} listo
-                              </span>
-                            );
-                          })() : (
-                            <span className="font-quicksand text-[10px] font-semibold text-gray-700 bg-white/95 backdrop-blur-sm border border-gray-200 px-2.5 py-0.5 rounded-full shadow-xs">
-                              Sin catálogo
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
+                      <h3 className="font-fredoka text-lg font-bold text-gray-800 mt-0.5">
+                        {currentEventObj?.nombre || "Evento Principal"}
+                      </h3>
+                      <p className="font-quicksand text-xs text-gray-500">
+                        Ruta: <span className="font-mono text-gray-600">/evento/{resolvedCurrentEventSlug}</span>
+                      </p>
+                    </div>
+                  </div>
 
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <h3 className="font-quicksand text-sm font-bold text-gray-800 line-clamp-1">
-                            {evento.nombre}
-                          </h3>
-                        </div>
-                        <p className="font-quicksand text-[11px] text-gray-400 font-mono mb-3">/evento/{evento.slug}</p>
+                  {/* Selector rápido para cambiar el evento de la portada */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                    <label className="font-quicksand text-xs font-semibold text-gray-600">
+                      Asignar evento a mostrar:
+                    </label>
+                    <select
+                      value={portadaEventoSlug}
+                      onChange={(e) => {
+                        const newSlug = e.target.value;
+                        setPortadaEventoSlug(newSlug);
+                        if (newSlug !== "auto") {
+                          const evTarget = eventos.find((ev: any) => ev.slug === newSlug);
+                          if (evTarget) {
+                            handleSetMainEvent(evTarget);
+                          }
+                        }
+                      }}
+                      className="px-3 py-2 text-xs font-quicksand font-bold text-gray-700 bg-[#FDF4F7] border border-[#FDE8EF] rounded-xl focus:outline-none focus:border-[#EE6B8D]"
+                    >
+                      <option value="auto">Automático (Evento Principal Activo)</option>
+                      {eventos.map((ev: any) => (
+                        <option key={ev.id || ev.slug} value={ev.slug}>
+                          {ev.nombre} {ev.featured ? "★ (Principal)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-                        {/* Toggle: visibilidad del botón flotante */}
-                        <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50/70">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Eye size={13} className={evento.catalogo_boton_visible !== false ? "text-[#C04267]" : "text-gray-400"} />
-                            <span className="font-quicksand text-[11px] font-semibold text-gray-700">
-                              Botón flotante en tienda
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleBotonCatalogo(evento.id, !(evento.catalogo_boton_visible !== false))}
-                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                              evento.catalogo_boton_visible !== false
-                                ? "bg-[#C04267]"
-                                : "bg-gray-300"
-                            }`}
-                            aria-label={evento.catalogo_boton_visible !== false ? "Ocultar botón" : "Mostrar botón"}
-                          >
-                            <span
-                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                                evento.catalogo_boton_visible !== false ? "translate-x-4" : "translate-x-0"
-                              }`}
-                            />
-                          </button>
-                        </div>
+                {/* Explicación de la Lógica de 3 vs 4 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                  <div className="p-3.5 bg-[#FAF7F5] rounded-xl border border-pink-100 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-pink-100 text-[#C04267] flex items-center justify-center shrink-0 mt-0.5">
+                      <Layers size={16} />
+                    </div>
+                    <div>
+                      <h4 className="font-quicksand text-xs font-bold text-gray-800">
+                        Comportamiento 3D Inteligente
+                      </h4>
+                      <p className="font-quicksand text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                        Si hay <strong>exactamente 3</strong> elementos, la rotonda presenta 1 al frente y 2 a los lados simétricamente. Si hay <strong>más de 3</strong>, se expande a 4 visibles en cuadrante rotatorio.
+                      </p>
+                    </div>
+                  </div>
 
-                        {/* Estado del catálogo */}
-                        {hasCatalog ? (
+                  <div className="p-3.5 bg-pink-50/60 rounded-xl border border-pink-100 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#EE6B8D] text-white flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      {totalItemsCount}
+                    </div>
+                    <div>
+                      <h4 className="font-quicksand text-xs font-bold text-[#C04267]">
+                        Estado Actual para la Rotonda
+                      </h4>
+                      <p className="font-quicksand text-[11px] text-gray-700 mt-0.5">
+                        {portadaSelectedIds.size > 0 ? (
+                          <>
+                            <strong>{portadaSelectedIds.size}</strong> productos seleccionados a mano
+                            {portadaCustomImages.length > 0 && ` + ${portadaCustomImages.length} imágenes personalizadas`}.
+                          </>
+                        ) : (
+                          <>
+                            Selección automática activa: <strong>{eventProducts.length}</strong> productos del evento &quot;{currentEventObj?.nombre}&quot;
+                            {portadaCustomImages.length > 0 && ` + ${portadaCustomImages.length} imágenes personalizadas`}.
+                          </>
+                        )}
+                        {" "}
+                        <span className="font-bold text-[#EE6B8D]">
+                          {totalItemsCount === 3
+                            ? "→ Modo Tríptico 3D activo (3 elementos)."
+                            : totalItemsCount > 3
+                            ? "→ Modo Cuadrante 3D activo (4 visibles en desktop)."
+                            : "→ Menos de 3 elementos (se recomiendan al menos 3)."}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                          <div className="bg-[#FAF7F5] border border-pink-100 rounded-xl p-3 space-y-2 mb-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <FileText size={14} className="text-[#C04267] shrink-0" />
-                                <span className="font-quicksand text-xs text-gray-700 font-medium truncate font-mono" title={evento.catalogo_url}>
-                                  {evento.catalogo_url.split("/").pop()}
+              {/* Selector de Pestañas: Productos vs Imágenes */}
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+                <button
+                  type="button"
+                  onClick={() => setPortadaTab("productos")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-quicksand font-bold text-xs transition-all cursor-pointer ${
+                    portadaTab === "productos"
+                      ? "bg-[#C04267] text-white shadow-sm"
+                      : "bg-white text-gray-600 hover:bg-[#FDF4F7] hover:text-[#C04267] border border-gray-200"
+                  }`}
+                >
+                  <Package size={15} />
+                  <span>Elegir Productos del Catálogo ({portadaSelectedIds.size > 0 ? `${portadaSelectedIds.size} elegidos` : "Automático"})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPortadaTab("imagenes")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-quicksand font-bold text-xs transition-all cursor-pointer ${
+                    portadaTab === "imagenes"
+                      ? "bg-[#C04267] text-white shadow-sm"
+                      : "bg-white text-gray-600 hover:bg-[#FDF4F7] hover:text-[#C04267] border border-gray-200"
+                  }`}
+                >
+                  <Upload size={15} />
+                  <span>Subir Imágenes Directas de Catálogo ({portadaCustomImages.length})</span>
+                </button>
+              </div>
+
+              {/* PESTAÑA 1: Elegir Productos */}
+              {portadaTab === "productos" && (
+                <div className="space-y-4">
+                  {/* Filtro por Categorías / Eventos */}
+                  <div className="flex flex-wrap items-center gap-2 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-2xs">
+                    <span className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mr-1">Filtrar lista:</span>
+                    <button
+                      type="button"
+                      onClick={() => setPortadaCategoryFilter("evento")}
+                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                        portadaCategoryFilter === "evento"
+                          ? "bg-[#EE6B8D] text-white shadow-xs"
+                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
+                      }`}
+                    >
+                      Evento: {currentEventObj?.nombre || "Principal"} ({eventProducts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPortadaCategoryFilter("todos")}
+                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                        portadaCategoryFilter === "todos"
+                          ? "bg-[#EE6B8D] text-white shadow-xs"
+                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
+                      }`}
+                    >
+                      Todo el Catálogo ({rawProducts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPortadaCategoryFilter("ramos")}
+                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                        portadaCategoryFilter === "ramos"
+                          ? "bg-[#EE6B8D] text-white shadow-xs"
+                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
+                      }`}
+                    >
+                      Ramos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPortadaCategoryFilter("amigurumis")}
+                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                        portadaCategoryFilter === "amigurumis"
+                          ? "bg-[#EE6B8D] text-white shadow-xs"
+                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
+                      }`}
+                    >
+                      Amigurumis
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPortadaCategoryFilter("cajas")}
+                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                        portadaCategoryFilter === "cajas"
+                          ? "bg-[#EE6B8D] text-white shadow-xs"
+                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
+                      }`}
+                    >
+                      Cajas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPortadaCategoryFilter("personalizados")}
+                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                        portadaCategoryFilter === "personalizados"
+                          ? "bg-[#EE6B8D] text-white shadow-xs"
+                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
+                      }`}
+                    >
+                      Personalizados
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100">
+                    <div className="relative flex-1 max-w-md">
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar producto por nombre o SKU..."
+                        value={portadaProductSearch}
+                        onChange={(e) => setPortadaProductSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 text-xs font-quicksand rounded-xl border border-gray-200 focus:outline-none focus:border-[#EE6B8D]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
+                          const top4Ids = pool.slice(0, 4).map((p: any) => String(p.id || p.sku));
+                          setPortadaSelectedIds(new Set(top4Ids));
+                        }}
+                        className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-[#C04267] font-quicksand font-bold text-xs rounded-xl border border-pink-200 transition-colors cursor-pointer"
+                      >
+                        Seleccionar primeros 4 de la lista
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
+                          const top3Ids = pool.slice(0, 3).map((p: any) => String(p.id || p.sku));
+                          setPortadaSelectedIds(new Set(top3Ids));
+                        }}
+                        className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-[#C04267] font-quicksand font-bold text-xs rounded-xl border border-pink-200 transition-colors cursor-pointer"
+                      >
+                        Seleccionar primeros 3 (Modo Tríptico)
+                      </button>
+
+                      {portadaSelectedIds.size > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setPortadaSelectedIds(new Set())}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-quicksand font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                        >
+                          Limpiar (Usar automático)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Grid de productos */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {filteredRawProducts.map((prod: any) => {
+                      const prodId = String(prod.id || prod.sku);
+                      const isSelected = portadaSelectedIds.has(prodId);
+                      const isFromActiveEvent = isProductInSlug(prod, resolvedCurrentEventSlug, assignments);
+                      const prodNombre = prod.nombre || prod.title || "Producto";
+                      const prodImagen = prod.imagen || prod.image;
+                      const prodPrecio = Number(prod.precio ?? prod.price ?? 0);
+
+                      return (
+                        <div
+                          key={prodId}
+                          onClick={() => togglePortadaProductId(prodId)}
+                          className={`cursor-pointer rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col justify-between group bg-white shadow-2xs hover:shadow-md ${
+                            isSelected
+                              ? "border-2 border-[#EE6B8D] ring-2 ring-[#EE6B8D]/20 shadow-md"
+                              : "border-gray-200 hover:border-pink-200"
+                          }`}
+                        >
+                          <div className="relative aspect-square bg-[#FDF4F7] overflow-hidden">
+                            {prodImagen ? (
+                              <img
+                                src={prodImagen}
+                                alt={prodNombre}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                <Package size={24} />
+                              </div>
+                            )}
+
+                            {/* Badge de selección */}
+                            <div className="absolute top-2 right-2">
+                              {isSelected ? (
+                                <div className="w-7 h-7 rounded-full bg-[#EE6B8D] text-white flex items-center justify-center shadow-md">
+                                  <Check size={16} />
+                                </div>
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-white/80 backdrop-blur-xs text-gray-400 flex items-center justify-center border border-gray-200 group-hover:border-[#EE6B8D] group-hover:text-[#EE6B8D]">
+                                  <Plus size={16} />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Indicador de si pertenece al evento actual */}
+                            {isFromActiveEvent && (
+                              <div className="absolute top-2 left-2">
+                                <span className="font-quicksand text-[9px] font-bold text-emerald-800 bg-emerald-100/95 px-2 py-0.5 rounded-full border border-emerald-300">
+                                  {currentEventObj?.nombre?.split(" ")[0] || "Evento"}
                                 </span>
                               </div>
-                              <a
-                                href={evento.catalogo_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="shrink-0 px-2 py-1 bg-white hover:bg-pink-50 text-[#C04267] text-[11px] font-quicksand font-bold rounded-lg border border-pink-200 flex items-center gap-1 transition-colors"
-                              >
-                                <ExternalLink size={11} /> Abrir
-                              </a>
-                            </div>
-                            <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingCatalogoEventoId(evento.id);
-                                  setTempCatalogoUrl(evento.catalogo_url || "");
-                                }}
-                                className="text-gray-500 hover:text-[#C04267] font-quicksand text-[11px] font-semibold transition-colors"
-                              >
-                                Modificar enlace
-                              </button>
-                              <span className="text-gray-300">•</span>
-                              <button
-                                type="button"
-                                onClick={() => eliminarCatalogoDirecto(evento.id)}
-                                className="text-red-500 hover:text-red-700 font-quicksand text-[11px] font-semibold transition-colors"
-                              >
-                                Quitar catálogo
-                              </button>
+                            )}
+                          </div>
+
+                          <div className="p-3">
+                            <h4 className="font-quicksand text-xs font-bold text-gray-800 line-clamp-2 leading-tight group-hover:text-[#C04267] transition-colors">
+                              {prodNombre}
+                            </h4>
+                            <p className="font-quicksand text-[10px] text-gray-400 mt-0.5 truncate">
+                              SKU: {prod.sku || "-"}
+                            </p>
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                              <span className="font-fredoka text-xs font-bold text-[#C04267]">
+                                S/ {prodPrecio.toFixed(2)}
+                              </span>
+                              <span className={`font-quicksand text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                isSelected ? "bg-[#FDF4F7] text-[#EE6B8D]" : "text-gray-400"
+                              }`}>
+                                {isSelected ? "En Portada" : "Agregar"}
+                              </span>
                             </div>
                           </div>
-                        ) : (
-                          <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 mb-3">
-                            <p className="font-quicksand text-xs text-amber-800 font-semibold mb-0.5">
-                              No hay catálogo adjunto
-                            </p>
-                            <p className="font-quicksand text-[11px] text-amber-700/80 leading-relaxed">
-                              El botón flotante de la tienda ofrecerá solicitar el catálogo por WhatsApp a tus clientes hasta que subas un archivo.
-                            </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* PESTAÑA 2: Subir Imágenes Directas de Catálogo */}
+              {portadaTab === "imagenes" && (
+                <div className="space-y-6">
+                  {/* Formulario para agregar una tarjeta o imagen directa */}
+                  <div className="bg-white rounded-2xl border border-[#FDE8EF] p-5 shadow-sm space-y-4">
+                    <div>
+                      <h3 className="font-fredoka text-base font-bold text-[#C04267] flex items-center gap-2">
+                        <Upload size={18} className="text-[#EE6B8D]" />
+                        Agregar Tarjeta de Catálogo a la Portada
+                      </h3>
+                      <p className="font-quicksand text-xs text-gray-500 mt-0.5">
+                        Sube una foto directamente desde tu celular o computadora, añade su título y precio, y se sumará inmediatamente al carrusel 3D.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                      {/* Subir archivo */}
+                      <div className="md:col-span-1">
+                        <label className="block font-quicksand text-xs font-bold text-gray-700 mb-1">
+                          Foto o Imagen
+                        </label>
+                        <label className="w-full flex flex-col items-center justify-center gap-1.5 py-4 px-3 rounded-xl border border-dashed border-[#EE6B8D]/50 bg-[#FDF4F7]/60 hover:bg-[#FDF4F7] text-[#C04267] font-quicksand font-bold text-xs cursor-pointer transition-all">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingPortadaImg}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUploadCustomPortadaImage(file);
+                            }}
+                          />
+                          {uploadingPortadaImg ? (
+                            <div className="flex items-center gap-1.5 py-1">
+                              <Loader2 size={16} className="animate-spin text-[#EE6B8D]" />
+                              <span className="text-[11px]">Subiendo...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload size={18} className="text-[#EE6B8D]" />
+                              <span className="text-[11px] text-center">
+                                {newCatalogImgUrl ? "Cambiar foto" : "Seleccionar imagen"}
+                              </span>
+                            </>
+                          )}
+                        </label>
+                        {newCatalogImgUrl && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <img src={newCatalogImgUrl} alt="" className="w-10 h-10 rounded-lg object-cover border border-pink-200" />
+                            <span className="font-quicksand text-[10px] text-emerald-600 font-bold truncate">Imagen lista</span>
                           </div>
                         )}
+                      </div>
 
-                        {/* Opciones directas para subir o adjuntar */}
-                        <div className="space-y-2">
-                          <label className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-[#EE6B8D]/50 bg-[#FDF4F7]/60 hover:bg-[#FDF4F7] text-[#C04267] font-quicksand font-bold text-xs cursor-pointer transition-all">
-                            <input
-                              type="file"
-                              accept=".pdf,application/pdf,image/*,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                              className="hidden"
-                              disabled={uploadingCatalogoEventoId === evento.id}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) subirCatalogoDirecto(evento.id, file);
-                              }}
-                            />
-                            {uploadingCatalogoEventoId === evento.id ? (
-                              <div className="flex items-center gap-1.5 py-0.5">
-                                <Loader2 size={14} className="animate-spin text-[#EE6B8D]" />
-                                <span>Subiendo archivo...</span>
-                              </div>
-                            ) : (
-                              <>
-                                <Upload size={14} className="text-[#EE6B8D]" />
-                                <span>{hasCatalog ? "Reemplazar archivo (PDF / PPT / Imagen)" : "Subir archivo (PDF, PPT o Imagen)"}</span>
-                              </>
-                            )}
+                      {/* Título */}
+                      <div className="md:col-span-1">
+                        <label className="block font-quicksand text-xs font-bold text-gray-700 mb-1">
+                          Título del Producto
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ej: Ramo Rosas Eternas"
+                          value={newCatalogImgTitle}
+                          onChange={(e) => setNewCatalogImgTitle(e.target.value)}
+                          className="w-full px-3.5 py-2.5 text-xs font-quicksand rounded-xl border border-gray-200 focus:outline-none focus:border-[#EE6B8D]"
+                        />
+                      </div>
+
+                      {/* Precio */}
+                      <div className="md:col-span-1">
+                        <label className="block font-quicksand text-xs font-bold text-gray-700 mb-1">
+                          Precio (S/)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ej: 45.00"
+                          value={newCatalogImgPrice}
+                          onChange={(e) => setNewCatalogImgPrice(e.target.value)}
+                          className="w-full px-3.5 py-2.5 text-xs font-quicksand rounded-xl border border-gray-200 focus:outline-none focus:border-[#EE6B8D]"
+                        />
+                      </div>
+
+                      {/* Categoría / Etiqueta y Botón */}
+                      <div className="md:col-span-1 flex flex-col gap-2">
+                        <div>
+                          <label className="block font-quicksand text-xs font-bold text-gray-700 mb-1">
+                            Etiqueta
                           </label>
-
-                          {editingCatalogoEventoId !== evento.id ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCatalogoEventoId(evento.id);
-                                setTempCatalogoUrl(evento.catalogo_url || "");
-                              }}
-                              className="w-full py-1.5 text-center font-quicksand text-xs text-gray-500 hover:text-[#C04267] transition-colors font-medium border border-gray-100 hover:border-pink-200 rounded-xl"
-                            >
-                              o pegar enlace manual (Canva, Drive...)
-                            </button>
-                          ) : (
-                            <div className="p-2.5 bg-[#FDF4F7]/80 rounded-xl border border-[#EE6B8D]/40 space-y-2 animate-in fade-in duration-150">
-                              <label className="block font-quicksand text-[11px] font-bold text-gray-700">
-                                Enlace público o URL del catálogo:
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="https://..."
-                                value={tempCatalogoUrl}
-                                onChange={(e) => setTempCatalogoUrl(e.target.value)}
-                                className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
-                              />
-                              <div className="flex justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingCatalogoEventoId(null);
-                                    setTempCatalogoUrl("");
-                                  }}
-                                  className="px-2.5 py-1 text-xs font-quicksand font-semibold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                  Cancelar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => guardarCatalogoManualDirecto(evento.id, tempCatalogoUrl)}
-                                  className="px-3.5 py-1 text-xs font-quicksand font-bold text-white bg-[#EE6B8D] hover:bg-[#C04267] rounded-lg transition-colors shadow-xs"
-                                >
-                                  Guardar enlace
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                          <input
+                            type="text"
+                            placeholder="Ej: Destacado / Ramo"
+                            value={newCatalogImgCategoria}
+                            onChange={(e) => setNewCatalogImgCategoria(e.target.value)}
+                            className="w-full px-3.5 py-2.5 text-xs font-quicksand rounded-xl border border-gray-200 focus:outline-none focus:border-[#EE6B8D]"
+                          />
                         </div>
+                        <button
+                          type="button"
+                          onClick={handleAddCustomCatalogItem}
+                          className="w-full py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white font-quicksand font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Plus size={15} />
+                          <span>Agregar a Portada</span>
+                        </button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
 
-            {/* Banner explicativo al pie */}
-            <div className="mt-8 bg-white border border-[#FDE8EF] rounded-2xl p-5 flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-pink-50 text-[#C04267] flex items-center justify-center shrink-0">
-                <FileDown size={20} />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-quicksand font-bold text-sm text-gray-800">
-                  ¿Cómo funciona el botón de descarga para tus clientes?
-                </h4>
-                <p className="font-quicksand text-xs text-gray-600 leading-relaxed">
-                  En la portada principal y en la página de cada evento aparece automáticamente un botón flotante circular con el icono de descarga y la etiqueta <strong>PDF</strong> colocado arriba de WhatsApp. Si el evento tiene su catálogo configurado aquí, el cliente lo descargará o abrirá al instante.
-                </p>
-              </div>
+                  {/* Listado de imágenes de catálogo subidas */}
+                  <div className="space-y-3">
+                    <h4 className="font-fredoka text-sm font-bold text-gray-800">
+                      Imágenes y Tarjetas Personalizadas ({portadaCustomImages.length})
+                    </h4>
+
+                    {portadaCustomImages.length === 0 ? (
+                      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+                        <p className="font-quicksand text-xs text-gray-500">
+                          Aún no has agregado imágenes personalizadas. Puedes subir fotos directas con el formulario de arriba.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {portadaCustomImages.map((item: any, idx: number) => (
+                          <div
+                            key={item.id || idx}
+                            className="bg-white rounded-2xl border border-pink-100 shadow-sm overflow-hidden flex flex-col justify-between"
+                          >
+                            <div className="relative aspect-square bg-gray-50 overflow-hidden">
+                              <img
+                                src={item.image}
+                                alt={item.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }}
+                              />
+                              <div className="absolute top-2 left-2">
+                                <span className="font-quicksand text-[10px] font-bold text-[#C04267] bg-white/90 backdrop-blur-xs px-2.5 py-0.5 rounded-full border border-pink-100 shadow-xs">
+                                  {item.categoria || "Catálogo"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="p-3">
+                              <h5 className="font-quicksand text-xs font-bold text-gray-800 line-clamp-1">
+                                {item.title}
+                              </h5>
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                                <span className="font-fredoka text-xs font-bold text-[#C04267]">
+                                  {item.price != null ? `S/ ${Number(item.price).toFixed(2)}` : "Consultar"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCustomCatalogItem(idx)}
+                                  className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                                  title="Quitar de la portada"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
+
 
         {mainTab === "catalogo" && subTab === "productos" && (() => {
           // Lista de eventos combinada (base + dinámicos de Supabase)

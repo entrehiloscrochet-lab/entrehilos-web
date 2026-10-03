@@ -596,7 +596,7 @@ export default function AgendarPedidoModal({
                       </div>
                     ) : filteredProducts.length === 0 ? (
                       <div className="p-3.5 text-center text-xs text-gray-500 font-quicksand space-y-2">
-                        <p>No se encontraron productos con "{prodSearch}"</p>
+                        <p>No se encontraron productos con &quot;{prodSearch}&quot;</p>
                         <button
                           type="button"
                           onClick={() => {
@@ -606,7 +606,7 @@ export default function AgendarPedidoModal({
                           className="px-3 py-1 bg-pink-100 hover:bg-pink-200 text-[#C04267] rounded-lg font-bold text-xs inline-flex items-center gap-1 transition-colors"
                         >
                           <Plus size={12} />
-                          <span>Crear "{prodSearch}" como ítem libre</span>
+                          <span>Crear &quot;{prodSearch}&quot; como ítem libre</span>
                         </button>
                       </div>
                     ) : (

@@ -1,1 +1,77 @@
-[]
+[
+  {
+    "id": "hkdhhgWezli7jJ3QrCij",
+    "sku": "Ramos-034",
+    "nombre": "Ramo Pollito Amigurumi y Flores Crochet",
+    "precio": 75,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469340246-4g32yzyk7uo.jpeg?alt=media&token=2104fc69-4c65-488d-9a6d-c7c9a5b17b09",
+    "imagenes": [
+      "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790469340246-4g32yzyk7uo.jpeg?alt=media&token=2104fc69-4c65-488d-9a6d-c7c9a5b17b09"
+    ],
+    "categoria": "Ramos",
+    "stock": 0,
+    "descripcion": "Ramo Pollito Amigurumi  + 1 girasol + 1 margarita",
+    "catalogos": [
+      "ramos",
+      "flores-amarillas"
+    ],
+    "is_active": true
+  },
+  {
+    "id": "G6qZ5fl6ioo1xrd9vXom",
+    "sku": "Ramo-019",
+    "nombre": "Ramo Amor Mio",
+    "precio": 65,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577268286-pv08oslo92a.jpg?alt=media&token=0ac2fc42-a720-47e3-8555-8605ca69b49f",
+    "imagenes": [
+      "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577268286-pv08oslo92a.jpg?alt=media&token=0ac2fc42-a720-47e3-8555-8605ca69b49f"
+    ],
+    "categoria": "General",
+    "stock": 1,
+    "descripcion": "Ramo spider grande + 1 hot wheels",
+    "catalogos": [
+      "ramos",
+      "hotwheels",
+      "dia-del-novio"
+    ],
+    "is_active": true
+  },
+  {
+    "id": "prod_1790990757436_h6upk",
+    "sku": "PROD-532",
+    "nombre": "Box Día del Novio",
+    "precio": 60,
+    "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/productos/prod_1790990709598_0_bxbk.jpg",
+    "imagenes": [
+      "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/productos/prod_1790990709598_0_bxbk.jpg"
+    ],
+    "categoria": "Cajas",
+    "stock": 5,
+    "descripcion": "Cajita sorpresa tematica spider man para Él, incluye un ramo spider + 1 kit kat + 1 papitas inka chips",
+    "catalogos": [
+      "cajas",
+      "personalizados",
+      "dia-del-novio"
+    ],
+    "is_active": true
+  },
+  {
+    "id": "FuJ2s1UWdUuX8AITMwaN",
+    "sku": "Caja-018",
+    "nombre": "Box Spiderman",
+    "precio": 65,
+    "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577197146-5z0vn3axky4.jpg?alt=media&token=57700739-18a4-4ebf-b953-19563b70ce4c",
+    "imagenes": [
+      "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1790577197146-5z0vn3axky4.jpg?alt=media&token=57700739-18a4-4ebf-b953-19563b70ce4c"
+    ],
+    "categoria": "General",
+    "stock": 2,
+    "descripcion": "Cajita sorpresa tematica hotwheels para Él, incluye un ramo spider + 1 kit kat + 1 papitas inka chips  + 1 carrito hot wheels",
+    "catalogos": [
+      "cajas",
+      "hotwheels",
+      "dia-del-novio"
+    ],
+    "is_active": true
+  }
+]

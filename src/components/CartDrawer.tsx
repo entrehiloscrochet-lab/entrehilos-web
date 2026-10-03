@@ -229,11 +229,20 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                           <p className="font-lato text-xs mt-0.5" style={{ color: BRAND.inkSoft }}>
                             S/ {item.precio.toFixed(2)} c/u
                           </p>
-                          {item.stock === 0 && (
+                          {item.stock === 0 ? (
                             <p className="font-lato text-[11px] mt-1 font-semibold" style={{ color: BRAND.clay }}>
                               A pedido (1-2 semanas)
                             </p>
-                          )}
+                          ) : item.quantity > item.stock ? (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                {item.stock} en stock
+                              </span>
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                +{item.quantity - item.stock} a pedido (1-2 sem)
+                              </span>
+                            </div>
+                          ) : null}
 
                           {/* Quantity controls */}
                           <div className="flex items-center justify-between mt-2">
@@ -246,8 +255,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                                 {item.quantity}
                               </span>
                               <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                disabled={item.stock > 0 && item.quantity >= item.stock}
-                                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-800 disabled:opacity-30">
+                                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-800">
                                 <Plus size={12} />
                               </button>
                             </div>

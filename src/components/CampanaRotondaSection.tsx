@@ -43,7 +43,7 @@ const DEFAULT_FALLBACK_ITEMS: RotondaItem[] = [
 ];
 
 export default function CampanaRotondaSection({ section, eventoActual }: CampanaRotondaSectionProps) {
-  if (section && section.activo === false) return null;
+  const seccionInactiva = Boolean(section && section.activo === false);
 
   // 1. Obtener fotos del evento actual o más reciente (fotos_campana)
   let itemsFromEvento: RotondaItem[] = [];
@@ -85,8 +85,6 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
   } else if (!eventoActual) {
     baseItems = DEFAULT_FALLBACK_ITEMS;
   }
-
-  if (baseItems.length === 0) return null;
 
   // Si hay menos de 4 fotos, duplicar cíclicamente las del mismo evento para conservar la rotación 3D
   let items: RotondaItem[] = [...baseItems];
@@ -139,6 +137,8 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [lightboxImg]);
+
+  if (seccionInactiva || baseItems.length === 0) return null;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
