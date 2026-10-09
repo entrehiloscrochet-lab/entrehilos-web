@@ -398,7 +398,7 @@ export default function EscandalloRecetasTab({
         {productosFiltrados.length === 0 ? (
           <div className="col-span-full py-16 bg-white rounded-3xl border border-[#FDE8EF] text-center text-gray-400 font-quicksand">
             <Calculator size={40} className="mx-auto text-gray-300 mb-2" />
-            No hay recetas creadas todavía. Pulsa en <strong>&quot;Nueva Receta&quot;</strong> para crear la primera.
+            No hay diseños creados todavía. Pulsa en <strong>&quot;Nuevo Diseño&quot;</strong> para crear el primero.
           </div>
         ) : (
           productosFiltrados.map((prod) => {
@@ -458,19 +458,19 @@ export default function EscandalloRecetasTab({
                           type="button"
                           onClick={() => abrirModalEditar(prod)}
                           className="p-1.5 rounded-xl text-gray-400 hover:text-[#EE6B8D] hover:bg-pink-50 transition-colors"
-                          title="Editar receta"
+                          title="Editar diseño"
                         >
                           <Edit2 size={15} />
                         </button>
                         <button
                           type="button"
                           onClick={() => {
-                            if (confirm(`¿Deseas eliminar la receta de "${prod.nombre}"?`)) {
+                            if (confirm(`¿Deseas eliminar el diseño de "${prod.nombre}"?`)) {
                               onEliminarProducto(prod.id);
                             }
                           }}
                           className="p-1.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Eliminar receta"
+                          title="Eliminar diseño"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -537,10 +537,10 @@ export default function EscandalloRecetasTab({
                               type="button"
                               onClick={() => onAdaptarTiempoReal(prod.id)}
                               className="w-full mt-1.5 py-1.5 px-2 rounded-xl bg-white border border-pink-200 text-[#C04267] hover:bg-pink-100 hover:border-pink-300 font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-98 cursor-pointer"
-                              title="Ajusta el tiempo deseado de la receta al tiempo real medido en tu bitácora"
+                              title="Ajusta el tiempo deseado del diseño al tiempo real medido en tu bitácora"
                             >
                               <Sparkles size={12} className="text-[#EE6B8D]" />
-                              <span>Adaptar receta a tiempo real ({prod.tiempo_real_promedio}h)</span>
+                              <span>Adaptar diseño a tiempo real ({prod.tiempo_real_promedio}h)</span>
                             </button>
                           )}
                         </>

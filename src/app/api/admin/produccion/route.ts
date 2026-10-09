@@ -106,6 +106,9 @@ interface RecetaInputItem {
   id?: string;
   material_id: string;
   cantidad?: number | string | null;
+  modo_uso?: "rendimiento" | "unidades" | "fraccion" | "cantidad";
+  rendimiento_piezas?: number;
+  costo_calculado?: number | string | null;
 }
 
 interface CampanaItemInput {
@@ -284,7 +287,10 @@ async function getProduccionData(): Promise<ResumenProduccionData> {
     const matMap = new Map<string, MaterialItem>(materiales.map((m) => [m.id, m]));
     const recetasItems = recRes.data || [];
 
-    const productos: ProductoProduccion[] = (prodRes.data || []).map((p: ProductoDbRow) => {
+    const productosMap = new Map<string, ProductoProduccion>();
+
+    // 1. Agregar los productos de Supabase
+    (prodRes.data || []).forEach((p: ProductoDbRow) => {
       const items = recetasItems
         .filter((r: RecetaDbRow) => r.producto_id === p.id)
         .map((r: RecetaDbRow) => ({
@@ -296,7 +302,15 @@ async function getProduccionData(): Promise<ResumenProduccionData> {
           material: matMap.get(r.material_id),
         }));
 
-      return {
+      let imagen = p.imagen;
+      let notas = p.notas || "";
+      const imgMatch = notas.match(/__IMG__:(.*?)__ENDIMG__/);
+      if (imgMatch) {
+        imagen = imgMatch[1];
+        notas = notas.replace(/__IMG__:.*?__ENDIMG__/, "").trim();
+      }
+
+      productosMap.set(p.id, {
         id: p.id,
         producto_tienda_id: p.producto_tienda_id,
         nombre: p.nombre,
@@ -308,18 +322,29 @@ async function getProduccionData(): Promise<ResumenProduccionData> {
         costo_mano_obra: Number(p.costo_mano_obra) || 0,
         costo_total: Number(p.costo_total) || 0,
         precio_sugerido: Number(p.precio_sugerido) || 0,
-        notas: p.notas || "",
-        imagen: p.imagen || undefined,
+        notas,
+        imagen: imagen || undefined,
         items_receta: items,
         created_at: p.created_at,
-      };
+      });
     });
 
-    // Safeguard 1: Si Supabase no tiene productos aún, cargar del fallback preservado
-    if (productos.length === 0 && fallback.productos && fallback.productos.length > 0) {
-      productos.push(...fallback.productos);
-    }
+    // 2. Preservar cualquier producto del fallback que no esté en Supabase (ej. Oso Amigurumi Clásico)
+    (fallback.productos || []).forEach((fbProd) => {
+      if (!productosMap.has(fbProd.id)) {
+        productosMap.set(fbProd.id, fbProd);
+      } else {
+        const existing = productosMap.get(fbProd.id)!;
+        if (!existing.imagen && fbProd.imagen) {
+          existing.imagen = fbProd.imagen;
+        }
+        if ((!existing.items_receta || existing.items_receta.length === 0) && fbProd.items_receta && fbProd.items_receta.length > 0) {
+          existing.items_receta = fbProd.items_receta;
+        }
+      }
+    });
 
+    const productos: ProductoProduccion[] = Array.from(productosMap.values());
     const prodMap = new Map<string, ProductoProduccion>(productos.map((p) => [p.id, p]));
     const campItems = itemRes.data || [];
     const campGastos = gastRes.data || [];
@@ -621,6 +646,7 @@ export async function POST(request: NextRequest) {
         producto_tienda_id,
       } = body;
 
+      const finalProdId = id || `prod-${Date.now()}`;
       const tProd = Number(tiempo_produccion) || 0;
       const pReal = Number(precio_venta_real) || 0;
       const mDeseado = Number(margen_deseado) || currentData.config.margen_deseado_default;
@@ -631,13 +657,18 @@ export async function POST(request: NextRequest) {
         const mat = currentData.materiales.find((m) => m.id === item.material_id);
         const cant = Number(item.cantidad) || 0;
         const unitCost = mat?.costo_unitario || 0;
-        const itemCost = Number((cant * unitCost).toFixed(4));
+        const itemCost =
+          item.costo_calculado !== undefined && item.costo_calculado !== null
+            ? Number(Number(item.costo_calculado).toFixed(4))
+            : Number((cant * unitCost).toFixed(4));
         costo_materiales += itemCost;
         return {
           id: item.id || `rec-${Date.now()}-${idx}`,
-          producto_id: id || `prod-${Date.now()}`,
+          producto_id: finalProdId,
           material_id: item.material_id,
           cantidad: cant,
+          modo_uso: item.modo_uso,
+          rendimiento_piezas: item.rendimiento_piezas,
           costo_calculado: itemCost,
           material: mat,
         };
@@ -649,8 +680,14 @@ export async function POST(request: NextRequest) {
       const divisor = 1 - mDeseado / 100;
       const precio_sugerido = divisor > 0 ? Math.round(costo_total / divisor) : costo_total;
 
+      let notasClean = (notas || "").trim();
+      let notasWithImg = notasClean;
+      if (imagen) {
+        notasWithImg = `__IMG__:${String(imagen).trim()}__ENDIMG__ ${notasClean}`.trim();
+      }
+
       const prodItem: ProductoProduccion = {
-        id: id || `prod-${Date.now()}`,
+        id: finalProdId,
         producto_tienda_id: producto_tienda_id || null,
         nombre: String(nombre || "").trim(),
         categoria: categoria || "Amigurumis",
@@ -661,7 +698,7 @@ export async function POST(request: NextRequest) {
         costo_mano_obra,
         costo_total,
         precio_sugerido,
-        notas: notas || "",
+        notas: notasClean,
         imagen: imagen ? String(imagen).trim() : undefined,
         items_receta: processedItems,
         created_at: new Date().toISOString(),
@@ -683,7 +720,7 @@ export async function POST(request: NextRequest) {
       saveFallbackData(currentData);
 
       try {
-        await supabaseAdmin.from("produccion_productos").upsert({
+        const payloadToUpsert: Record<string, unknown> = {
           id: prodItem.id,
           producto_tienda_id: prodItem.producto_tienda_id,
           nombre: prodItem.nombre,
@@ -695,14 +732,27 @@ export async function POST(request: NextRequest) {
           costo_mano_obra: prodItem.costo_mano_obra,
           costo_total: prodItem.costo_total,
           precio_sugerido: prodItem.precio_sugerido,
-          notas: prodItem.notas,
-          imagen: prodItem.imagen,
-        });
+          notas: notasWithImg,
+        };
+        if (prodItem.imagen) {
+          payloadToUpsert.imagen = prodItem.imagen;
+        }
+
+        let { error: upsertErr } = await supabaseAdmin.from("produccion_productos").upsert(payloadToUpsert);
+        if (upsertErr) {
+          console.error("UPSERT PRODUCCION ERROR:", upsertErr);
+          if (prodItem.imagen && (upsertErr.message?.includes("imagen") || upsertErr.code === "PGRST204")) {
+            delete payloadToUpsert.imagen;
+            const retry = await supabaseAdmin.from("produccion_productos").upsert(payloadToUpsert);
+            upsertErr = retry.error;
+            if (upsertErr) console.error("RETRY UPSERT ERROR:", upsertErr);
+          }
+        }
 
         // Reemplazar recetas
         await supabaseAdmin.from("produccion_recetas_items").delete().eq("producto_id", prodItem.id);
         if (processedItems.length > 0) {
-          await supabaseAdmin.from("produccion_recetas_items").insert(
+          const { error: itemsErr } = await supabaseAdmin.from("produccion_recetas_items").insert(
             processedItems.map((r) => ({
               id: r.id,
               producto_id: prodItem.id,
@@ -711,12 +761,13 @@ export async function POST(request: NextRequest) {
               costo_calculado: r.costo_calculado,
             }))
           );
+          if (itemsErr) console.error("ITEMS INSERT ERROR:", itemsErr);
         }
       } catch (e) {
-        // Fallback activo
+        console.error("SUPABASE PRODUCCION EXCEPTION:", e);
       }
 
-      return NextResponse.json({ success: true, producto: prodItem, data: currentData });
+      return NextResponse.json({ success: true, producto: prodItem, data: enrichDataWithRealTimes(currentData) });
     }
 
     if (action === "guardar-campana") {
