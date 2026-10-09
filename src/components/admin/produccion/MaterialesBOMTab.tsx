@@ -178,7 +178,7 @@ export default function MaterialesBOMTab({
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => setFiltroCategoria("todas")}
@@ -211,11 +211,10 @@ export default function MaterialesBOMTab({
         </div>
       </div>
 
-      {/* Tabla de Materiales */}
-      {/* Lista de Materiales: Vista de Tarjetas en Móvil (sin scroll horizontal) y Tabla en Desktop/Tablet */}
+      {/* Lista de Materiales: Vista de Tarjetas en Móvil y Tablet Vertical (sin scroll horizontal) y Tabla en Desktop/Tablet Horizontal */}
       <div className="bg-white rounded-3xl border border-[#FDE8EF] shadow-xs overflow-hidden">
-        {/* Vista Móvil (< md): Tarjetas compactas 100% legibles sin scroll horizontal */}
-        <div className="md:hidden divide-y divide-gray-100">
+        {/* Vista Móvil y Tablet Vertical (< lg): Tarjetas compactas 100% legibles sin scroll horizontal */}
+        <div className="lg:hidden divide-y divide-gray-100">
           {materialesFiltrados.length === 0 ? (
             <div className="py-12 text-center text-gray-400 font-quicksand text-xs">
               No se encontraron materiales registrados.
@@ -283,8 +282,8 @@ export default function MaterialesBOMTab({
           )}
         </div>
 
-        {/* Vista Desktop / Tablet (>= md): Tabla completa */}
-        <div className="hidden md:block overflow-x-auto">
+        {/* Vista Desktop / Tablet Horizontal (>= lg): Tabla completa */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-left font-quicksand text-xs sm:text-sm">
             <thead className="bg-[#FDF4F7] text-[#C04267] font-fredoka font-bold text-xs uppercase border-b border-pink-100">
               <tr>

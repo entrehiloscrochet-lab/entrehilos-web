@@ -365,7 +365,14 @@ export default function AdminPage() {
   const [data, setData] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("admin_sidebar_collapsed");
+      if (saved !== null) return saved === "true";
+      return window.innerWidth < 1024;
+    }
+    return false;
+  });
   const [isMobile, setIsMobile] = useState(false);
   const [tempUploading, setTempUploading] = useState(false);
   const [tempUploadingMobile, setTempUploadingMobile] = useState(false);
@@ -5039,8 +5046,8 @@ export default function AdminPage() {
               </div>
             ) : (
               <>
-                {/* 1. VISTA DE TARJETAS PARA MÓVILES (md:hidden) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:hidden gap-3 mb-6">
+                {/* 1. VISTA DE TARJETAS PARA MÓVILES Y TABLETS VERTICALES (lg:hidden) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-3 mb-6">
                       {productosVisibles.map((p) => {
                     const isActive = !inactiveIds.has(p.id);
                     const isSelected = selectedProductIds.has(p.id);
@@ -5151,9 +5158,9 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
-                <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto mb-6">
-                  <table className="w-full text-left text-sm min-w-[700px] lg:min-w-full">
+                {/* 2. TABLA COMPLETA PARA PANTALLAS GRANDES (hidden lg:block) */}
+                <div className="hidden lg:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto mb-6">
+                  <table className="w-full text-left text-sm min-w-full">
                     <thead>
                       <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                         <th className="px-3 py-3 w-8">
@@ -5628,8 +5635,8 @@ export default function AdminPage() {
               </div>
             ) : (
               <div>
-                {/* 1. VISTA TARJETAS PARA CELULARES (md:hidden) */}
-                <div className="md:hidden space-y-3">
+                {/* 1. VISTA TARJETAS PARA CELULARES Y TABLETS VERTICALES (lg:hidden) */}
+                <div className="lg:hidden space-y-3">
                   {amiguProducts.map((p) => {
                     const draft = preciosDraft[p.sku];
                     const saved = preciosRows[p.sku];
@@ -5766,9 +5773,9 @@ export default function AdminPage() {
                   })}
                 </div>
 
-                {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
-                <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                  <table className="w-full text-left text-sm min-w-[720px]">
+                {/* 2. TABLA COMPLETA PARA PANTALLAS GRANDES (hidden lg:block) */}
+                <div className="hidden lg:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-full">
                     <thead>
                       <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                         <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
@@ -5988,8 +5995,8 @@ export default function AdminPage() {
 
             {data.length > 0 && (
               <div>
-                {/* 1. VISTA TARJETAS PARA CELULARES (md:hidden) */}
-                <div className="md:hidden space-y-3">
+                {/* 1. VISTA TARJETAS PARA CELULARES Y TABLETS VERTICALES (lg:hidden) */}
+                <div className="lg:hidden space-y-3">
                   {data.map((row) => (
                     <div
                       key={row.id}
@@ -6073,9 +6080,9 @@ export default function AdminPage() {
                   ))}
                 </div>
 
-                {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
-                <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                  <table className="w-full text-left text-sm min-w-[720px]">
+                {/* 2. TABLA COMPLETA PARA PANTALLAS GRANDES (hidden lg:block) */}
+                <div className="hidden lg:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-full">
                     <thead>
                       <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                         <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
@@ -6206,8 +6213,8 @@ export default function AdminPage() {
                   {data.length} {data.length === 1 ? "registro" : "registros"}
                 </span>
               </div>
-            {/* 1. VISTA TARJETAS PARA CELULARES (md:hidden) */}
-            <div className="md:hidden space-y-3">
+            {/* 1. VISTA TARJETAS PARA CELULARES Y TABLETS VERTICALES (lg:hidden) */}
+            <div className="lg:hidden space-y-3">
               {data.map((row) => {
                 const cols = getColumns(data);
                 return (
@@ -6293,9 +6300,9 @@ export default function AdminPage() {
               })}
             </div>
 
-            {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
-            <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-              <table className="w-full text-left text-sm min-w-[800px]">
+            {/* 2. TABLA COMPLETA PARA PANTALLAS GRANDES (hidden lg:block) */}
+            <div className="hidden lg:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+              <table className="w-full text-left text-sm min-w-full">
                 <thead>
                   <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
                     {getColumns(data).map((key) => (

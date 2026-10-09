@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Calculator,
   Plus,
@@ -115,6 +115,10 @@ export default function EscandalloRecetasTab({
   const [formItemsReceta, setFormItemsReceta] = useState<FormRecetaRow[]>([]);
   const [guardando, setGuardando] = useState(false);
 
+  // Referencias para auto-scroll al añadir un nuevo insumo
+  const insumosListRef = useRef<HTMLDivElement>(null);
+  const nuevoInsumoAnchorRef = useRef<HTMLDivElement>(null);
+
   const abrirModalNuevo = () => {
     setEditando(null);
     setFormNombre("");
@@ -178,7 +182,8 @@ export default function EscandalloRecetasTab({
 
   const agregarFilaMaterial = () => {
     if (materiales.length === 0) return;
-    const mat = materiales[0];
+    const yaUsados = new Set(formItemsReceta.map((it) => it.material_id));
+    const mat = materiales.find((m) => !yaUsados.has(m.id)) || materiales[0];
     const esHilo = mat.categoria === "Hilos" || mat.categoria === "Relleno";
     setFormItemsReceta((prev) => [
       ...prev,
@@ -189,6 +194,17 @@ export default function EscandalloRecetasTab({
         cantidad: 1,
       },
     ]);
+
+    // Bajar en automático de inmediato al nuevo insumo agregado
+    setTimeout(() => {
+      if (insumosListRef.current) {
+        insumosListRef.current.scrollTo({
+          top: insumosListRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+      nuevoInsumoAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 60);
   };
 
   const eliminarFilaMaterial = (index: number) => {
@@ -863,34 +879,40 @@ export default function EscandalloRecetasTab({
                         Aún no has agregado materiales a esta receta. Pulsa &quot;+ Añadir Insumo&quot;.
                       </div>
                     ) : (
-                      <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                      <div
+                        ref={insumosListRef}
+                        className="space-y-2.5 max-h-[300px] overflow-y-auto overflow-x-hidden pr-1 scroll-smooth"
+                      >
                         {formItemsReceta.map((row, idx) => {
                           const mat = materiales.find((m) => m.id === row.material_id);
                           const esHilo = mat?.categoria === "Hilos" || mat?.categoria === "Relleno";
                           const subtotal = calculosModal.detallesInsumos[idx]?.costoItem || 0;
 
                           return (
-                            <div key={idx} className="bg-[#FDF4F7] p-2.5 rounded-2xl border border-pink-100/80 space-y-2 text-xs">
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={row.material_id}
-                                  onChange={(e) => actualizarFilaMaterial(idx, "material_id", e.target.value)}
-                                  className="flex-1 px-3 py-1.5 rounded-xl border border-pink-200 bg-white text-xs font-semibold focus:border-[#EE6B8D] focus:outline-none truncate"
-                                >
-                                  {materiales.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.nombre} (S/ {m.precio_compra.toFixed(2)} por {m.presentacion || `${m.cantidad_total} ${m.unidad_medida}`})
-                                    </option>
-                                  ))}
-                                </select>
+                            <div key={idx} className="bg-[#FDF4F7] p-2.5 rounded-2xl border border-pink-100/80 space-y-2 text-xs overflow-hidden">
+                              <div className="flex items-center gap-2 w-full min-w-0">
+                                <div className="flex-1 min-w-0">
+                                  <select
+                                    value={row.material_id}
+                                    onChange={(e) => actualizarFilaMaterial(idx, "material_id", e.target.value)}
+                                    className="w-full min-w-0 px-2.5 py-2 rounded-xl border border-pink-200 bg-white text-xs font-semibold focus:border-[#EE6B8D] focus:outline-none truncate cursor-pointer"
+                                  >
+                                    {materiales.map((m) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.nombre} (S/ {m.precio_compra.toFixed(2)} por {m.presentacion || `${m.cantidad_total} ${m.unidad_medida}`})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
 
                                 <button
                                   type="button"
                                   onClick={() => eliminarFilaMaterial(idx)}
-                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0 cursor-pointer"
+                                  className="w-8 h-8 rounded-xl bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 flex items-center justify-center shrink-0 cursor-pointer transition-colors shadow-2xs"
                                   title="Quitar insumo"
+                                  aria-label="Quitar insumo"
                                 >
-                                  ✕
+                                  <Trash2 size={14} />
                                 </button>
                               </div>
 
@@ -956,6 +978,7 @@ export default function EscandalloRecetasTab({
                             </div>
                           );
                         })}
+                        <div ref={nuevoInsumoAnchorRef} className="h-0" />
                       </div>
                     )}
 

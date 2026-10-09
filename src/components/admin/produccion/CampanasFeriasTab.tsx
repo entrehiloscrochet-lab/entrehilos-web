@@ -13,6 +13,7 @@ import {
   Trash2,
   Sparkles,
   PackageCheck,
+  Package,
   ChevronRight,
   Info,
   Layers,
@@ -97,6 +98,13 @@ export default function CampanasFeriasTab({
   const [formItems, setFormItems] = useState<{ producto_id: string; cantidad_meta: number; cantidad_terminada: number }[]>([]);
   const [guardando, setGuardando] = useState(false);
 
+  // Modal para agregar directamente un diseño/producto a la campaña activa desde la vista principal
+  const [modalAsignarDisenoAbierto, setModalAsignarDisenoAbierto] = useState(false);
+  const [asignarProductoId, setAsignarProductoId] = useState("");
+  const [asignarMeta, setAsignarMeta] = useState<number>(10);
+  const [asignarTerminadas, setAsignarTerminadas] = useState<number>(0);
+  const [asignandoGuardando, setAsignandoGuardando] = useState(false);
+
   const campanaActiva = useMemo(() => {
     return campanas.find((c) => c.id === campanaSeleccionadaId) || campanas[0] || null;
   }, [campanas, campanaSeleccionadaId]);
@@ -109,13 +117,7 @@ export default function CampanasFeriasTab({
     const finStr = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
     setFormFechaInicio(hoyStr);
     setFormFechaFin(finStr);
-    setFormItems(
-      productos.slice(0, 3).map((p) => ({
-        producto_id: p.id,
-        cantidad_meta: 10,
-        cantidad_terminada: 0,
-      }))
-    );
+    setFormItems([]);
     setModalAbierto(true);
   };
 
@@ -137,14 +139,71 @@ export default function CampanasFeriasTab({
 
   const agregarFilaProducto = () => {
     if (productos.length === 0) return;
+    const yaSeleccionados = new Set(formItems.map((it) => it.producto_id));
+    const disponible = productos.find((p) => !yaSeleccionados.has(p.id)) || productos[0];
     setFormItems((prev) => [
       ...prev,
-      { producto_id: productos[0].id, cantidad_meta: 10, cantidad_terminada: 0 },
+      { producto_id: disponible.id, cantidad_meta: 10, cantidad_terminada: 0 },
     ]);
   };
 
   const eliminarFilaProducto = (index: number) => {
     setFormItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const abrirModalAsignarDiseno = () => {
+    if (productos.length === 0) return;
+    const yaEnCampana = new Set(campanaActiva?.items.map((it) => it.producto_id) || []);
+    const disponible = productos.find((p) => !yaEnCampana.has(p.id)) || productos[0];
+    setAsignarProductoId(disponible.id);
+    setAsignarMeta(10);
+    setAsignarTerminadas(0);
+    setModalAsignarDisenoAbierto(true);
+  };
+
+  const handleGuardarAsignarDiseno = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!campanaActiva || !asignarProductoId) return;
+    setAsignandoGuardando(true);
+    try {
+      const ok = await onActualizarMeta(
+        campanaActiva.id,
+        asignarProductoId,
+        Number(asignarMeta) || 1,
+        Number(asignarTerminadas) || 0
+      );
+      if (ok) {
+        setModalAsignarDisenoAbierto(false);
+      }
+    } finally {
+      setAsignandoGuardando(false);
+    }
+  };
+
+  const handleQuitarItemDeCampana = async (productoId: string) => {
+    if (!campanaActiva) return;
+    const prod = productos.find((p) => p.id === productoId);
+    const nombre = prod?.nombre || "este diseño";
+    if (!confirm(`¿Deseas quitar "${nombre}" de las metas de esta campaña?`)) return;
+
+    const nuevosItems = campanaActiva.items
+      .filter((it) => it.producto_id !== productoId)
+      .map((it) => ({
+        producto_id: it.producto_id,
+        cantidad_meta: it.cantidad_meta,
+        cantidad_terminada: it.cantidad_terminada,
+      }));
+
+    await onGuardarCampana({
+      id: campanaActiva.id,
+      nombre: campanaActiva.nombre,
+      descripcion: campanaActiva.descripcion,
+      fecha_inicio: campanaActiva.fecha_inicio,
+      fecha_fin: campanaActiva.fecha_fin,
+      activa: campanaActiva.activa,
+      items: nuevosItems,
+      gastos: campanaActiva.gastos || [],
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -276,9 +335,9 @@ export default function CampanasFeriasTab({
         </div>
       </div>
 
-      {/* Selector de Campañas (Tabs horizontales) */}
+      {/* Selector de Campañas (Tabs horizontales adaptables) */}
       {campanas.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex flex-wrap items-center gap-2">
           {campanas.map((c) => {
             const isSelected = c.id === (campanaActiva?.id || "");
             return (
@@ -392,7 +451,7 @@ export default function CampanasFeriasTab({
 
           {/* Tabla de Metas por Producto */}
           <div className="bg-white rounded-2xl border border-[#FDE8EF] overflow-hidden shadow-xs">
-            <div className="p-4 border-b border-[#FDE8EF] flex items-center justify-between">
+            <div className="p-4 border-b border-[#FDE8EF] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h4 className="font-fredoka text-base font-bold text-gray-800">
                   Metas de Producción: {campanaActiva.nombre}
@@ -402,12 +461,21 @@ export default function CampanasFeriasTab({
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                <button
+                  type="button"
+                  onClick={abrirModalAsignarDiseno}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#EE6B8D] hover:bg-[#C04267] text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-98"
+                  title="Agregar modelo o diseño directamente a esta campaña"
+                >
+                  <Plus size={15} />
+                  <span>Agregar Diseño</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => abrirModalEditar(campanaActiva)}
-                  className="p-1.5 rounded-lg text-gray-500 hover:text-[#EE6B8D] hover:bg-pink-50 transition-colors"
-                  title="Editar campaña y metas"
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-[#EE6B8D] hover:bg-pink-50 transition-colors cursor-pointer"
+                  title="Editar datos de la campaña"
                 >
                   <Edit2 size={16} />
                 </button>
@@ -418,7 +486,7 @@ export default function CampanasFeriasTab({
                       onEliminarCampana(campanaActiva.id);
                     }
                   }}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
                   title="Eliminar campaña"
                 >
                   <Trash2 size={16} />
@@ -426,129 +494,34 @@ export default function CampanasFeriasTab({
               </div>
             </div>
 
-            {/* Vista Móvil (< md): Tarjetas completas por producto (sin scroll horizontal) */}
-            <div className="md:hidden divide-y divide-[#FDE8EF]">
-              {campanaActiva.items.map((it) => {
-                const prod = it.producto || productos.find((p) => p.id === it.producto_id);
-                const faltantes = Math.max(0, it.cantidad_meta - it.cantidad_terminada);
-                const tProd = prod?.tiempo_produccion || 1;
-                const horasRest = Number((faltantes * tProd).toFixed(1));
-                const avance =
-                  it.cantidad_meta > 0
-                    ? Math.min(100, Math.round((it.cantidad_terminada / it.cantidad_meta) * 100))
-                    : 100;
-                const completado = faltantes === 0;
-
-                return (
-                  <div key={it.id} className="p-4 space-y-3 font-quicksand">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-gray-800 text-sm truncate">{prod?.nombre || "Producto"}</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">
-                          {prod?.categoria} • {tProd}h por pieza
-                        </div>
-                      </div>
-
-                      {completado ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-bold text-xs shrink-0">
-                          <CheckCircle2 size={13} />
-                          Completado
-                        </span>
-                      ) : (
-                        <span className="text-xs font-bold text-[#C04267] bg-pink-50 border border-pink-100 px-2.5 py-0.5 rounded-full shrink-0">
-                          {avance}%
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Barra de Progreso */}
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-gray-500">Avance de producción:</span>
-                        <span className="font-bold text-gray-800">
-                          {it.cantidad_terminada} / {it.cantidad_meta} hechas
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            completado ? "bg-emerald-500" : "bg-[#EE6B8D]"
-                          }`}
-                          style={{ width: `${avance}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Faltantes y Horas */}
-                    <div className="grid grid-cols-2 gap-2 bg-[#FDF4F7] p-2.5 rounded-2xl text-xs">
-                      <div>
-                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Faltan tejer</div>
-                        <div className="font-bold text-gray-700 mt-0.5">
-                          {completado ? "0 piezas" : `${faltantes} piezas`}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Horas pendientes</div>
-                        <div className="font-bold text-gray-700 mt-0.5">
-                          {completado ? "0 hrs" : `${horasRest} hrs`}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Botones de acción directos */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onActualizarMeta(
-                            campanaActiva.id,
-                            it.producto_id,
-                            undefined,
-                            Math.max(0, it.cantidad_terminada - 1)
-                          )
-                        }
-                        disabled={it.cantidad_terminada <= 0}
-                        className="w-10 h-10 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-bold disabled:opacity-30 flex items-center justify-center shrink-0 cursor-pointer"
-                        title="Restar 1 pieza"
-                      >
-                        -1
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onActualizarMeta(
-                            campanaActiva.id,
-                            it.producto_id,
-                            undefined,
-                            it.cantidad_terminada + 1
-                          )
-                        }
-                        className="flex-1 py-2.5 px-3 rounded-xl bg-pink-100 hover:bg-[#EE6B8D] hover:text-white text-[#C04267] font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
-                      >
-                        <span>+1 Pieza Terminada</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Vista Desktop / Tablet (>= md): Tabla completa */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm font-quicksand min-w-[700px]">
-                <thead className="bg-[#FDF4F7] text-[#C04267] font-fredoka font-semibold border-b border-[#FDE8EF]">
-                  <tr>
-                    <th className="py-3 px-4">Modelo / Producto</th>
-                    <th className="py-3 px-4 text-center">Meta Planificada</th>
-                    <th className="py-3 px-4 text-center">Terminadas</th>
-                    <th className="py-3 px-4 text-center">Faltantes</th>
-                    <th className="py-3 px-4 text-center">Horas Pendientes</th>
-                    <th className="py-3 px-4 text-center">% Avance</th>
-                    <th className="py-3 px-4 text-right">Sumar +1 Pieza</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#FDE8EF]">
+            {campanaActiva.items.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center space-y-3 font-quicksand">
+                <div className="w-14 h-14 rounded-2xl bg-pink-50 text-[#EE6B8D] flex items-center justify-center mx-auto border border-pink-100">
+                  <Package size={26} />
+                </div>
+                <div>
+                  <h5 className="font-fredoka text-base font-bold text-gray-800">
+                    Aún no hay diseños agregados a esta campaña
+                  </h5>
+                  <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
+                    Asigna los modelos o productos que vas a confeccionar para fijar tus metas de producción y llevar el avance pieza por pieza.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={abrirModalAsignarDiseno}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#EE6B8D] hover:bg-[#C04267] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  >
+                    <Plus size={15} />
+                    <span>Agregar Primer Diseño</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Vista Móvil y Tablet Vertical (< lg): Tarjetas completas por producto (sin scroll horizontal) */}
+                <div className="lg:hidden divide-y divide-[#FDE8EF]">
                   {campanaActiva.items.map((it) => {
                     const prod = it.producto || productos.find((p) => p.id === it.producto_id);
                     const faltantes = Math.max(0, it.cantidad_meta - it.cantidad_terminada);
@@ -561,98 +534,240 @@ export default function CampanasFeriasTab({
                     const completado = faltantes === 0;
 
                     return (
-                      <tr key={it.id} className="hover:bg-pink-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-semibold text-gray-800">
-                          <div>{prod?.nombre || "Producto"}</div>
-                          <div className="text-[11px] text-gray-400 font-normal">
-                            {prod?.categoria} • {tProd}h por pieza
-                          </div>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center font-bold text-gray-800">
-                          {it.cantidad_meta}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`font-bold text-sm ${
-                              completado ? "text-emerald-600" : "text-[#C04267]"
-                            }`}
-                          >
-                            {it.cantidad_terminada}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          {completado ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs">
-                              <CheckCircle2 size={13} />
-                              Completado
-                            </span>
-                          ) : (
-                            <span className="font-bold text-gray-700">{faltantes}</span>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center text-gray-600 font-semibold">
-                          {horasRest} hrs
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="w-16 bg-gray-100 h-2 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${
-                                  completado ? "bg-emerald-500" : "bg-[#EE6B8D]"
-                                }`}
-                                style={{ width: `${avance}%` }}
-                              />
+                      <div key={it.id} className="p-4 space-y-3 font-quicksand">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-gray-800 text-sm truncate">{prod?.nombre || "Producto"}</div>
+                            <div className="text-[11px] text-gray-400 mt-0.5">
+                              {prod?.categoria} • {tProd}h por pieza
                             </div>
-                            <span className="text-[11px] font-bold text-gray-600">{avance}%</span>
                           </div>
-                        </td>
 
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {completado ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-bold text-xs shrink-0">
+                                <CheckCircle2 size={13} />
+                                Completado
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-[#C04267] bg-pink-50 border border-pink-100 px-2.5 py-0.5 rounded-full shrink-0">
+                                {avance}%
+                              </span>
+                            )}
+
                             <button
                               type="button"
-                              onClick={() =>
-                                onActualizarMeta(
-                                  campanaActiva.id,
-                                  it.producto_id,
-                                  undefined,
-                                  Math.max(0, it.cantidad_terminada - 1)
-                                )
-                              }
-                              disabled={it.cantidad_terminada <= 0}
-                              className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold disabled:opacity-30"
-                              title="Restar 1 pieza"
+                              onClick={() => handleQuitarItemDeCampana(it.producto_id)}
+                              className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Quitar diseño de la campaña"
                             >
-                              -1
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onActualizarMeta(
-                                  campanaActiva.id,
-                                  it.producto_id,
-                                  undefined,
-                                  it.cantidad_terminada + 1
-                                )
-                              }
-                              className="px-2.5 py-1 rounded-lg bg-pink-100 hover:bg-[#EE6B8D] hover:text-white text-[#C04267] font-bold text-xs transition-all shadow-xs"
-                              title="Sumar 1 pieza terminada"
-                            >
-                              +1 Terminada
+                              <Trash2 size={14} />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+
+                        {/* Barra de Progreso */}
+                        <div>
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-500">Avance de producción:</span>
+                            <span className="font-bold text-gray-800">
+                              {it.cantidad_terminada} / {it.cantidad_meta} hechas
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                completado ? "bg-emerald-500" : "bg-[#EE6B8D]"
+                              }`}
+                              style={{ width: `${avance}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Faltantes y Horas */}
+                        <div className="grid grid-cols-2 gap-2 bg-[#FDF4F7] p-2.5 rounded-2xl text-xs">
+                          <div>
+                            <div className="text-[10px] text-gray-400 uppercase font-semibold">Faltan tejer</div>
+                            <div className="font-bold text-gray-700 mt-0.5">
+                              {completado ? "0 piezas" : `${faltantes} piezas`}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-gray-400 uppercase font-semibold">Horas pendientes</div>
+                            <div className="font-bold text-gray-700 mt-0.5">
+                              {completado ? "0 hrs" : `${horasRest} hrs`}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Botones de acción directos */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onActualizarMeta(
+                                campanaActiva.id,
+                                it.producto_id,
+                                undefined,
+                                Math.max(0, it.cantidad_terminada - 1)
+                              )
+                            }
+                            disabled={it.cantidad_terminada <= 0}
+                            className="w-10 h-10 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-bold disabled:opacity-30 flex items-center justify-center shrink-0 cursor-pointer"
+                            title="Restar 1 pieza"
+                          >
+                            -1
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onActualizarMeta(
+                                campanaActiva.id,
+                                it.producto_id,
+                                undefined,
+                                it.cantidad_terminada + 1
+                              )
+                            }
+                            className="flex-1 py-2.5 px-3 rounded-xl bg-pink-100 hover:bg-[#EE6B8D] hover:text-white text-[#C04267] font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                          >
+                            <span>+1 Pieza Terminada</span>
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+                </div>
+
+                {/* Vista Desktop / Tablet Horizontal (>= lg): Tabla completa */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full text-left text-xs sm:text-sm font-quicksand min-w-full">
+                    <thead className="bg-[#FDF4F7] text-[#C04267] font-fredoka font-semibold border-b border-[#FDE8EF]">
+                      <tr>
+                        <th className="py-3 px-4">Modelo / Producto</th>
+                        <th className="py-3 px-4 text-center">Meta Planificada</th>
+                        <th className="py-3 px-4 text-center">Terminadas</th>
+                        <th className="py-3 px-4 text-center">Faltantes</th>
+                        <th className="py-3 px-4 text-center">Horas Pendientes</th>
+                        <th className="py-3 px-4 text-center">% Avance</th>
+                        <th className="py-3 px-4 text-right">Sumar / Quitar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#FDE8EF]">
+                      {campanaActiva.items.map((it) => {
+                        const prod = it.producto || productos.find((p) => p.id === it.producto_id);
+                        const faltantes = Math.max(0, it.cantidad_meta - it.cantidad_terminada);
+                        const tProd = prod?.tiempo_produccion || 1;
+                        const horasRest = Number((faltantes * tProd).toFixed(1));
+                        const avance =
+                          it.cantidad_meta > 0
+                            ? Math.min(100, Math.round((it.cantidad_terminada / it.cantidad_meta) * 100))
+                            : 100;
+                        const completado = faltantes === 0;
+
+                        return (
+                          <tr key={it.id} className="hover:bg-pink-50/40 transition-colors">
+                            <td className="py-3.5 px-4 font-semibold text-gray-800">
+                              <div>{prod?.nombre || "Producto"}</div>
+                              <div className="text-[11px] text-gray-400 font-normal">
+                                {prod?.categoria} • {tProd}h por pieza
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center font-bold text-gray-800">
+                              {it.cantidad_meta}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <span
+                                className={`font-bold text-sm ${
+                                  completado ? "text-emerald-600" : "text-[#C04267]"
+                                }`}
+                              >
+                                {it.cantidad_terminada}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              {completado ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs">
+                                  <CheckCircle2 size={13} />
+                                  Completado
+                                </span>
+                              ) : (
+                                <span className="font-bold text-gray-700">{faltantes}</span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center text-gray-600 font-semibold">
+                              {horasRest} hrs
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="w-16 bg-gray-100 h-2 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      completado ? "bg-emerald-500" : "bg-[#EE6B8D]"
+                                    }`}
+                                    style={{ width: `${avance}%` }}
+                                  />
+                                </div>
+                                <span className="text-[11px] font-bold text-gray-600">{avance}%</span>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onActualizarMeta(
+                                      campanaActiva.id,
+                                      it.producto_id,
+                                      undefined,
+                                      Math.max(0, it.cantidad_terminada - 1)
+                                    )
+                                  }
+                                  disabled={it.cantidad_terminada <= 0}
+                                  className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold disabled:opacity-30 cursor-pointer"
+                                  title="Restar 1 pieza"
+                                >
+                                  -1
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onActualizarMeta(
+                                      campanaActiva.id,
+                                      it.producto_id,
+                                      undefined,
+                                      it.cantidad_terminada + 1
+                                    )
+                                  }
+                                  className="px-2.5 py-1 rounded-lg bg-pink-100 hover:bg-[#EE6B8D] hover:text-white text-[#C04267] font-bold text-xs transition-all shadow-xs cursor-pointer"
+                                  title="Sumar 1 pieza terminada"
+                                >
+                                  +1
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuitarItemDeCampana(it.producto_id)}
+                                  className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer ml-1"
+                                  title="Quitar diseño de la campaña"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -754,60 +869,66 @@ export default function CampanasFeriasTab({
                 ) : (
                   <div className="space-y-2">
                     {formItems.map((it, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
-                        <select
-                          value={it.producto_id}
-                          onChange={(e) => {
-                            const copy = [...formItems];
-                            copy[idx].producto_id = e.target.value;
-                            setFormItems(copy);
-                          }}
-                          className="flex-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white font-semibold focus:border-[#EE6B8D] focus:outline-none truncate"
-                        >
-                          {productos.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.nombre} ({p.tiempo_produccion}h)
-                            </option>
-                          ))}
-                        </select>
-
-                        <div className="flex items-center gap-1">
-                          <label className="text-[10px] text-gray-500">Meta:</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={it.cantidad_meta}
+                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-100 min-w-0">
+                        <div className="flex-1 min-w-0 w-full">
+                          <select
+                            value={it.producto_id}
                             onChange={(e) => {
                               const copy = [...formItems];
-                              copy[idx].cantidad_meta = parseInt(e.target.value) || 0;
+                              copy[idx].producto_id = e.target.value;
                               setFormItems(copy);
                             }}
-                            className="w-16 px-2 py-1 rounded-lg border border-gray-200 bg-white text-center font-bold"
-                          />
+                            className="w-full min-w-0 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white font-semibold text-xs sm:text-sm focus:border-[#EE6B8D] focus:outline-none truncate"
+                          >
+                            {productos.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nombre} ({p.tiempo_produccion}h)
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
-                        <div className="flex items-center gap-1">
-                          <label className="text-[10px] text-gray-500">Term.:</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={it.cantidad_terminada}
-                            onChange={(e) => {
-                              const copy = [...formItems];
-                              copy[idx].cantidad_terminada = parseInt(e.target.value) || 0;
-                              setFormItems(copy);
-                            }}
-                            className="w-16 px-2 py-1 rounded-lg border border-gray-200 bg-white text-center font-bold text-[#C04267]"
-                          />
-                        </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                          <div className="flex items-center gap-1">
+                            <label className="text-[10px] text-gray-500 font-medium">Meta:</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={it.cantidad_meta}
+                              onChange={(e) => {
+                                const copy = [...formItems];
+                                copy[idx].cantidad_meta = parseInt(e.target.value) || 0;
+                                setFormItems(copy);
+                              }}
+                              className="w-16 px-2 py-1 rounded-lg border border-gray-200 bg-white text-center font-bold text-xs"
+                            />
+                          </div>
 
-                        <button
-                          type="button"
-                          onClick={() => eliminarFilaProducto(idx)}
-                          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50"
-                        >
-                          ✕
-                        </button>
+                          <div className="flex items-center gap-1">
+                            <label className="text-[10px] text-gray-500 font-medium">Hechas:</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={it.cantidad_terminada}
+                              onChange={(e) => {
+                                const copy = [...formItems];
+                                copy[idx].cantidad_terminada = parseInt(e.target.value) || 0;
+                                setFormItems(copy);
+                              }}
+                              className="w-16 px-2 py-1 rounded-lg border border-gray-200 bg-white text-center font-bold text-xs text-[#C04267]"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => eliminarFilaProducto(idx)}
+                            className="w-7 h-7 rounded-lg bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-700 flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
+                            title="Quitar modelo"
+                            aria-label="Quitar modelo"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -828,6 +949,116 @@ export default function CampanasFeriasTab({
                   className="px-5 py-2 rounded-xl bg-[#EE6B8D] hover:bg-[#C04267] text-white font-bold transition-all disabled:opacity-50"
                 >
                   {guardando ? "Guardando..." : editando ? "Actualizar Campaña" : "Crear Campaña"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Directo: Asignar Diseño / Modelo a la Campaña Activa */}
+      {modalAsignarDisenoAbierto && campanaActiva && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-[#FDE8EF] shadow-2xl animate-in fade-in my-8 font-quicksand">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div>
+                <h4 className="font-fredoka text-lg font-bold text-[#C04267]">
+                  Agregar Diseño a la Campaña
+                </h4>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Campaña: <strong className="text-gray-700">{campanaActiva.nombre}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalAsignarDisenoAbierto(false)}
+                className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarAsignarDiseno} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Selecciona el Modelo / Diseño *
+                </label>
+                {productos.length === 0 ? (
+                  <p className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                    No tienes productos o diseños registrados en producción todavía. Ve a la pestaña &quot;Diseños y Costos&quot; para crear uno.
+                  </p>
+                ) : (
+                  <select
+                    value={asignarProductoId}
+                    onChange={(e) => setAsignarProductoId(e.target.value)}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white font-semibold text-xs sm:text-sm focus:border-[#EE6B8D] focus:outline-none"
+                  >
+                    {productos.map((p) => {
+                      const yaAsignado = campanaActiva.items.some((it) => it.producto_id === p.id);
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} ({p.categoria} • {p.tiempo_produccion}h) {yaAsignado ? "(Ya en campaña)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Meta Planificada *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={asignarMeta}
+                      onChange={(e) => setAsignarMeta(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full px-3 py-2 pr-12 rounded-xl border border-gray-200 bg-white text-xs sm:text-sm font-bold text-gray-800 focus:border-[#EE6B8D] focus:outline-none"
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-[11px] font-bold text-gray-400 pointer-events-none">
+                      piezas
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Ya Terminadas
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      value={asignarTerminadas}
+                      onChange={(e) => setAsignarTerminadas(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full px-3 py-2 pr-12 rounded-xl border border-gray-200 bg-white text-xs sm:text-sm font-bold text-[#C04267] focus:border-[#EE6B8D] focus:outline-none"
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-[11px] font-bold text-gray-400 pointer-events-none">
+                      hechas
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setModalAsignarDisenoAbierto(false)}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 font-semibold text-xs hover:bg-gray-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={asignandoGuardando || productos.length === 0}
+                  className="px-5 py-2 rounded-xl bg-[#EE6B8D] hover:bg-[#C04267] text-white font-bold text-xs transition-all disabled:opacity-50 cursor-pointer shadow-xs active:scale-98"
+                >
+                  {asignandoGuardando ? "Guardando..." : "Asignar a la Campaña"}
                 </button>
               </div>
             </form>

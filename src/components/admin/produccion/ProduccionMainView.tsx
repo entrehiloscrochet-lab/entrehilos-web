@@ -439,39 +439,54 @@ export default function ProduccionMainView({
 
   return (
     <div className="space-y-6">
-      {/* Selector de Sub-Pestañas Superior con Scroll Suave para Tablets y Móviles */}
-      <div className="flex items-center gap-1.5 sm:gap-2 bg-white p-2 rounded-2xl border border-[#FDE8EF] shadow-xs overflow-x-auto scrollbar-none">
-        {SUBTABS_NAV.map((st) => {
-          const Icon = st.icon;
-          const isActive = activeTab === st.id;
-          return (
-            <button
-              key={st.id}
-              type="button"
-              onClick={() => handleTabSelect(st.id)}
-              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl font-quicksand text-xs sm:text-sm font-semibold transition-all shrink-0 whitespace-nowrap ${
-                isActive
-                  ? "bg-[#EE6B8D] text-white shadow-sm font-bold scale-101"
-                  : "text-gray-600 hover:text-[#C04267] hover:bg-[#FDF4F7]"
-              }`}
-            >
-              <Icon size={16} strokeWidth={isActive ? 2.5 : 1.7} />
-              <span className="hidden md:inline">{st.label}</span>
-              <span className="md:hidden">{st.shortLabel}</span>
-            </button>
-          );
-        })}
-
-        <div className="ml-auto flex items-center pr-1 shrink-0">
+      {/* Selector de Sub-Pestañas Superior sin scroll: Cuadrícula responsiva para móvil, tablet y desktop */}
+      <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-[#FDE8EF] shadow-xs">
+        <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-[#FDE8EF]/60">
+          <div className="flex items-center gap-1.5 text-[#C04267] font-fredoka font-bold text-xs sm:text-sm">
+            {(() => {
+              const current = SUBTABS_NAV.find((s) => s.id === activeTab);
+              const CurrentIcon = current?.icon || LayoutDashboard;
+              return (
+                <>
+                  <CurrentIcon size={16} className="text-[#EE6B8D]" />
+                  <span>Módulo: {current?.label}</span>
+                </>
+              );
+            })()}
+          </div>
           <button
             type="button"
             onClick={fetchData}
             disabled={loading}
-            className="p-2 rounded-xl text-gray-400 hover:text-[#C04267] hover:bg-pink-50 transition-colors"
-            title="Refrescar datos"
+            className="p-1.5 px-2.5 rounded-xl text-gray-500 hover:text-[#C04267] hover:bg-pink-50 transition-colors flex items-center gap-1.5 text-xs font-quicksand font-bold cursor-pointer"
+            title="Refrescar datos de producción"
           >
-            <RefreshCw size={15} className={loading ? "animate-spin text-[#EE6B8D]" : ""} />
+            <RefreshCw size={13} className={loading ? "animate-spin text-[#EE6B8D]" : ""} />
+            <span className="hidden sm:inline">Actualizar datos</span>
           </button>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
+          {SUBTABS_NAV.map((st) => {
+            const Icon = st.icon;
+            const isActive = activeTab === st.id;
+            return (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => handleTabSelect(st.id)}
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 px-2 py-2 sm:py-2.5 rounded-xl font-quicksand text-[11px] sm:text-xs lg:text-sm font-semibold transition-all text-center cursor-pointer ${
+                  isActive
+                    ? "bg-[#EE6B8D] text-white shadow-sm font-bold scale-[1.01]"
+                    : "text-gray-600 hover:text-[#C04267] hover:bg-[#FDF4F7] bg-pink-50/30 sm:bg-transparent"
+                }`}
+              >
+                <Icon size={15} strokeWidth={isActive ? 2.5 : 1.7} className="shrink-0" />
+                <span className="truncate max-w-full hidden xl:inline">{st.label}</span>
+                <span className="truncate max-w-full xl:hidden">{st.shortLabel}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

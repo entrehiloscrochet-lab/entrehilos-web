@@ -165,7 +165,7 @@ export default function ProduccionDashboardTab({
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#EE6B8D] text-white hover:bg-[#C04267] font-quicksand text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-95"
           >
             <Smartphone size={15} />
-            <span>Abrir Bitácora Móvil</span>
+            <span>Abrir Bitácora</span>
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fredoka, Quicksand, Caveat } from "next/font/google";
+import { Fredoka, Quicksand } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
@@ -21,13 +21,6 @@ const quicksand = Quicksand({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-// Acento manuscrito — SOLO para detalles puntuales (ver .tag-manuscrita en globals.css)
-const caveat = Caveat({
-  variable: "--font-caveat",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
 export const metadata: Metadata = {
   title: "Entre Hilos - Crochet hecho con amor",
   description: "Creaciones únicas de crochet. Ramos, amigurumis y diseños personalizados tejidos a mano.",
@@ -44,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${fredoka.variable} ${quicksand.variable} ${caveat.variable} antialiased`}
+        className={`${fredoka.variable} ${quicksand.variable} antialiased`}
       >
         <AuthProvider>
           <ToastProvider>
