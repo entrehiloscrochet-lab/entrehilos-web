@@ -469,14 +469,14 @@ export default function BitacoraTejidoTab({
         </div>
 
         {/* Selector de Campana */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="font-quicksand text-xs font-bold text-gray-600 shrink-0">
             Campaña activa:
           </div>
           <select
             value={campanaSeleccionadaId}
             onChange={(e) => setCampanaSeleccionadaId(e.target.value)}
-            className="px-3 py-2 rounded-2xl border border-pink-200 bg-pink-50/60 font-quicksand text-xs font-bold text-[#C04267] focus:border-[#EE6B8D] focus:outline-none"
+            className="px-3 py-2 rounded-2xl border border-pink-200 bg-pink-50/60 font-quicksand text-xs font-bold text-[#C04267] focus:border-[#EE6B8D] focus:outline-none max-w-full"
           >
             <option value="">Sin campaña (Stock libre del taller)</option>
             {campanas.map((c) => (
@@ -746,7 +746,7 @@ export default function BitacoraTejidoTab({
                 3. O registra la sesión con horas exactas dedicadas:
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
                   <label className="block text-gray-500 mb-1 text-[11px]">Fecha:</label>
                   <input

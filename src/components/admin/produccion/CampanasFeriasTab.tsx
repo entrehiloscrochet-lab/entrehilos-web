@@ -426,7 +426,116 @@ export default function CampanasFeriasTab({
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Vista Móvil (< md): Tarjetas completas por producto (sin scroll horizontal) */}
+            <div className="md:hidden divide-y divide-[#FDE8EF]">
+              {campanaActiva.items.map((it) => {
+                const prod = it.producto || productos.find((p) => p.id === it.producto_id);
+                const faltantes = Math.max(0, it.cantidad_meta - it.cantidad_terminada);
+                const tProd = prod?.tiempo_produccion || 1;
+                const horasRest = Number((faltantes * tProd).toFixed(1));
+                const avance =
+                  it.cantidad_meta > 0
+                    ? Math.min(100, Math.round((it.cantidad_terminada / it.cantidad_meta) * 100))
+                    : 100;
+                const completado = faltantes === 0;
+
+                return (
+                  <div key={it.id} className="p-4 space-y-3 font-quicksand">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-gray-800 text-sm truncate">{prod?.nombre || "Producto"}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">
+                          {prod?.categoria} • {tProd}h por pieza
+                        </div>
+                      </div>
+
+                      {completado ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-bold text-xs shrink-0">
+                          <CheckCircle2 size={13} />
+                          Completado
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-[#C04267] bg-pink-50 border border-pink-100 px-2.5 py-0.5 rounded-full shrink-0">
+                          {avance}%
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Barra de Progreso */}
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-gray-500">Avance de producción:</span>
+                        <span className="font-bold text-gray-800">
+                          {it.cantidad_terminada} / {it.cantidad_meta} hechas
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            completado ? "bg-emerald-500" : "bg-[#EE6B8D]"
+                          }`}
+                          style={{ width: `${avance}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Faltantes y Horas */}
+                    <div className="grid grid-cols-2 gap-2 bg-[#FDF4F7] p-2.5 rounded-2xl text-xs">
+                      <div>
+                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Faltan tejer</div>
+                        <div className="font-bold text-gray-700 mt-0.5">
+                          {completado ? "0 piezas" : `${faltantes} piezas`}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-400 uppercase font-semibold">Horas pendientes</div>
+                        <div className="font-bold text-gray-700 mt-0.5">
+                          {completado ? "0 hrs" : `${horasRest} hrs`}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Botones de acción directos */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onActualizarMeta(
+                            campanaActiva.id,
+                            it.producto_id,
+                            undefined,
+                            Math.max(0, it.cantidad_terminada - 1)
+                          )
+                        }
+                        disabled={it.cantidad_terminada <= 0}
+                        className="w-10 h-10 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-bold disabled:opacity-30 flex items-center justify-center shrink-0 cursor-pointer"
+                        title="Restar 1 pieza"
+                      >
+                        -1
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onActualizarMeta(
+                            campanaActiva.id,
+                            it.producto_id,
+                            undefined,
+                            it.cantidad_terminada + 1
+                          )
+                        }
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-pink-100 hover:bg-[#EE6B8D] hover:text-white text-[#C04267] font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                      >
+                        <span>+1 Pieza Terminada</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Vista Desktop / Tablet (>= md): Tabla completa */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm font-quicksand min-w-[700px]">
                 <thead className="bg-[#FDF4F7] text-[#C04267] font-fredoka font-semibold border-b border-[#FDE8EF]">
                   <tr>

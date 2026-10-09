@@ -1788,7 +1788,7 @@ export default function AdminPage() {
           <button
             onClick={() => setInstallModalOpen(true)}
             className="w-11 h-11 rounded-xl bg-pink-50 text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
-            title="Instalar App Admin (Lenovo / PC)"
+            title="Instalar App Admin (Celular / Tablet / PC)"
             aria-label="Instalar App Admin"
           >
             <Download size={19} strokeWidth={2.2} />
@@ -1832,7 +1832,7 @@ export default function AdminPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-xs truncate leading-tight">Instalar App Admin</div>
-              <div className="text-[10px] text-gray-500 truncate">Lenovo Idea Tab / PC</div>
+              <div className="text-[10px] text-gray-500 truncate">Celular, Tablet o PC</div>
             </div>
           </button>
 
@@ -1971,15 +1971,9 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab !== "dashboard" && loading && (
+        {mainTab !== "dashboard" && mainTab !== "produccion" && loading && (
           <div className="flex items-center justify-center py-20">
             <Loader2 size={24} className="animate-spin text-[#EE6B8D]" />
-          </div>
-        )}
-
-        {mainTab !== "dashboard" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && !loading && data.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-2xl border border-[#FDE8EF]">
-            <p className="font-quicksand text-gray-400">No hay datos en esta sección</p>
           </div>
         )}
 
@@ -5633,90 +5627,231 @@ export default function AdminPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                <table className="w-full text-left text-sm min-w-[720px]">
-                  <thead>
-                    <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Precio Ventify</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Pequeño (10–15 cm)</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Mediano (16–25 cm)</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Grande (26 cm a más)</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Guardar</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {amiguProducts.map((p) => {
-                      const draft = preciosDraft[p.sku];
-                      const saved = preciosRows[p.sku];
-                      const hasChanges = (() => {
-                        if (!saved) return false;
-                        const eq = (a: unknown, b: string) => {
-                          if (b.trim() === "") return a == null;
-                          return Number(a) === parseFloat(b);
-                        };
-                        return !(
-                          eq(saved.precio_pequeno, draft?.pequeno || "") &&
-                          eq(saved.precio_mediano, draft?.mediano || "") &&
-                          eq(saved.precio_grande, draft?.grande || "")
-                        );
-                      })();
-                      return (
-                        <tr key={p.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/50 transition-colors">
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-3">
-                              {p.imagen && <img src={p.imagen} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 flex-shrink-0" />}
-                              <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[200px] truncate" title={p.nombre}>{p.nombre}</p>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3 font-quicksand text-[11px] text-gray-500">{p.sku}</td>
-                          <td className="px-3 py-3 font-quicksand text-xs text-gray-500 whitespace-nowrap">S/ {p.precio?.toFixed(2)}</td>
-                          {(["pequeno", "mediano", "grande"] as const).map((key) => (
-                            <td key={key} className="px-3 py-3">
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={draft?.[key] ?? ""}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setPreciosDraft((prev) => {
-                                    const current = prev[p.sku] || { pequeno: "", mediano: "", grande: "" };
-                                    return { ...prev, [p.sku]: { ...current, [key]: v } };
-                                  });
-                                }}
-                                placeholder="—"
-                                className="w-24 px-2.5 py-2 border border-gray-200 rounded-lg font-quicksand text-xs focus:outline-none focus:ring-2 focus:ring-[#EE6B8D]"
-                              />
-                            </td>
-                          ))}
-                          <td className="px-3 py-3 text-right">
-                            <button
-                              onClick={() => handleGuardarPrecios(p.sku)}
-                              disabled={preciosSaving === p.sku}
-                              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg font-quicksand text-xs font-semibold transition-colors ${
-                                preciosSaving === p.sku
-                                  ? "bg-gray-100 text-gray-400"
-                                  : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-sm"
-                              }`}
-                            >
-                              {preciosSaving === p.sku ? (
-                                <Loader2 size={14} className="animate-spin" />
-                              ) : saved ? (
-                                <Save size={14} />
-                              ) : null}
-                              {preciosSaving === p.sku ? "Guardando..." : saved ? "Guardado" : "Guardar"}
-                            </button>
-                            {saved && hasChanges && (
-                              <p className="font-quicksand text-[10px] text-amber-600 mt-1">Sin guardar</p>
-                            )}
-                          </td>
-                        </tr>
+              <div>
+                {/* 1. VISTA TARJETAS PARA CELULARES (md:hidden) */}
+                <div className="md:hidden space-y-3">
+                  {amiguProducts.map((p) => {
+                    const draft = preciosDraft[p.sku];
+                    const saved = preciosRows[p.sku];
+                    const hasChanges = (() => {
+                      if (!saved) return false;
+                      const eq = (a: unknown, b: string) => {
+                        if (b.trim() === "") return a == null;
+                        return Number(a) === parseFloat(b);
+                      };
+                      return !(
+                        eq(saved.precio_pequeno, draft?.pequeno || "") &&
+                        eq(saved.precio_mediano, draft?.mediano || "") &&
+                        eq(saved.precio_grande, draft?.grande || "")
                       );
-                    })}
-                  </tbody>
-                </table>
+                    })();
+
+                    return (
+                      <div
+                        key={p.id}
+                        className="bg-white rounded-2xl border border-[#FDE8EF] p-4 shadow-xs space-y-3 font-quicksand"
+                      >
+                        <div className="flex items-start gap-3">
+                          {p.imagen && (
+                            <img
+                              src={p.imagen}
+                              alt=""
+                              className="w-12 h-12 rounded-xl object-cover bg-gray-100 shrink-0 border border-pink-100"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-gray-800 text-xs sm:text-sm line-clamp-2">
+                              {p.nombre}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
+                              <span className="font-mono">{p.sku}</span>
+                              <span>•</span>
+                              <span>Base: S/ {p.precio?.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+                          <div>
+                            <label className="block text-[10px] text-gray-500 mb-1 font-semibold">
+                              Pequeño (10–15cm)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={draft?.pequeno ?? ""}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setPreciosDraft((prev) => {
+                                  const current = prev[p.sku] || { pequeno: "", mediano: "", grande: "" };
+                                  return { ...prev, [p.sku]: { ...current, pequeno: v } };
+                                });
+                              }}
+                              placeholder="S/ —"
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded-xl text-xs font-bold text-center focus:outline-none focus:ring-1 focus:ring-[#EE6B8D]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-gray-500 mb-1 font-semibold">
+                              Mediano (16–25cm)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={draft?.mediano ?? ""}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setPreciosDraft((prev) => {
+                                  const current = prev[p.sku] || { pequeno: "", mediano: "", grande: "" };
+                                  return { ...prev, [p.sku]: { ...current, mediano: v } };
+                                });
+                              }}
+                              placeholder="S/ —"
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded-xl text-xs font-bold text-center focus:outline-none focus:ring-1 focus:ring-[#EE6B8D]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-gray-500 mb-1 font-semibold">
+                              Grande (26cm+)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={draft?.grande ?? ""}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setPreciosDraft((prev) => {
+                                  const current = prev[p.sku] || { pequeno: "", mediano: "", grande: "" };
+                                  return { ...prev, [p.sku]: { ...current, grande: v } };
+                                });
+                              }}
+                              placeholder="S/ —"
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded-xl text-xs font-bold text-center focus:outline-none focus:ring-1 focus:ring-[#EE6B8D]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div>
+                            {saved && hasChanges && (
+                              <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                                Sin guardar
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleGuardarPrecios(p.sku)}
+                            disabled={preciosSaving === p.sku}
+                            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                              preciosSaving === p.sku
+                                ? "bg-gray-100 text-gray-400"
+                                : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
+                            }`}
+                          >
+                            {preciosSaving === p.sku ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : saved ? (
+                              <Save size={13} />
+                            ) : null}
+                            {preciosSaving === p.sku ? "Guardando..." : saved ? "Guardado" : "Guardar precios"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
+                <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-[720px]">
+                    <thead>
+                      <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Precio Ventify</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Pequeño (10–15 cm)</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Mediano (16–25 cm)</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Grande (26 cm a más)</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap text-right">Guardar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {amiguProducts.map((p) => {
+                        const draft = preciosDraft[p.sku];
+                        const saved = preciosRows[p.sku];
+                        const hasChanges = (() => {
+                          if (!saved) return false;
+                          const eq = (a: unknown, b: string) => {
+                            if (b.trim() === "") return a == null;
+                            return Number(a) === parseFloat(b);
+                          };
+                          return !(
+                            eq(saved.precio_pequeno, draft?.pequeno || "") &&
+                            eq(saved.precio_mediano, draft?.mediano || "") &&
+                            eq(saved.precio_grande, draft?.grande || "")
+                          );
+                        })();
+                        return (
+                          <tr key={p.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/50 transition-colors">
+                            <td className="px-3 py-3">
+                              <div className="flex items-center gap-3">
+                                {p.imagen && <img src={p.imagen} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 flex-shrink-0" />}
+                                <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[200px] truncate" title={p.nombre}>{p.nombre}</p>
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 font-quicksand text-[11px] text-gray-500">{p.sku}</td>
+                            <td className="px-3 py-3 font-quicksand text-xs text-gray-500 whitespace-nowrap">S/ {p.precio?.toFixed(2)}</td>
+                            {(["pequeno", "mediano", "grande"] as const).map((key) => (
+                              <td key={key} className="px-3 py-3">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={draft?.[key] ?? ""}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setPreciosDraft((prev) => {
+                                      const current = prev[p.sku] || { pequeno: "", mediano: "", grande: "" };
+                                      return { ...prev, [p.sku]: { ...current, [key]: v } };
+                                    });
+                                  }}
+                                  placeholder="—"
+                                  className="w-24 px-2.5 py-2 border border-gray-200 rounded-lg font-quicksand text-xs focus:outline-none focus:ring-2 focus:ring-[#EE6B8D]"
+                                />
+                              </td>
+                            ))}
+                            <td className="px-3 py-3 text-right">
+                              <button
+                                onClick={() => handleGuardarPrecios(p.sku)}
+                                disabled={preciosSaving === p.sku}
+                                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg font-quicksand text-xs font-semibold transition-colors ${
+                                  preciosSaving === p.sku
+                                    ? "bg-gray-100 text-gray-400"
+                                    : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-sm"
+                                }`}
+                              >
+                                {preciosSaving === p.sku ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : saved ? (
+                                  <Save size={14} />
+                                ) : null}
+                                {preciosSaving === p.sku ? "Guardando..." : saved ? "Guardado" : "Guardar"}
+                              </button>
+                              {saved && hasChanges && (
+                                <p className="font-quicksand text-[10px] text-amber-600 mt-1">Sin guardar</p>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -5852,80 +5987,168 @@ export default function AdminPage() {
             )}
 
             {data.length > 0 && (
-              <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
-                <table className="w-full text-left text-sm min-w-[720px]">
-                  <thead>
-                    <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Cliente</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Calificación</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Comentario</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha</th>
-                      <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.map((row) => (
-                      <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/50 transition-colors">
-                        <td className="px-3 py-3">
-                          <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[220px] truncate" title={row.producto_nombre || ""}>
-                            {row.producto_nombre || "—"}
-                          </p>
-                          <p className="font-quicksand text-[10px] text-gray-400">{row.producto_sku || ""}</p>
-                        </td>
-                        <td className="px-3 py-3 font-quicksand text-xs text-gray-700">{row.nombre_cliente}</td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-1">
-                            <div className="flex items-center gap-0.5">
-                              {[1, 2, 3, 4, 5].map((i) => (
-                                <Star key={i} size={12} className={i <= (row.calificacion ?? 0) ? "text-[#F5A623]" : "text-gray-200"} fill={i <= (row.calificacion ?? 0) ? "#F5A623" : "none"} />
-                              ))}
-                            </div>
-                            <span className="font-quicksand text-xs text-gray-500 ml-1">{row.calificacion}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 font-quicksand text-xs text-gray-500 max-w-[260px]">
-                          <p className="truncate" title={row.comentario || ""}>{row.comentario || "—"}</p>
-                          {row.es_manual && (
-                            <span className="text-[10px] uppercase tracking-wider text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">Manual</span>
+              <div>
+                {/* 1. VISTA TARJETAS PARA CELULARES (md:hidden) */}
+                <div className="md:hidden space-y-3">
+                  {data.map((row) => (
+                    <div
+                      key={row.id}
+                      className="bg-white rounded-2xl border border-[#FDE8EF] p-4 shadow-xs space-y-3 font-quicksand"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-gray-800 text-xs sm:text-sm truncate" title={row.producto_nombre || ""}>
+                            {row.producto_nombre || "Producto general"}
+                          </h4>
+                          {row.producto_sku && (
+                            <span className="text-[10px] text-gray-400 font-mono">
+                              SKU: {row.producto_sku}
+                            </span>
                           )}
-                        </td>
-                        <td className="px-3 py-3">
-                          <span className={`font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            row.aprobado ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                          }`}>
-                            {row.aprobado ? "Aprobada" : "Pendiente"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 font-quicksand text-xs text-gray-500 whitespace-nowrap">{formatDate(row.created_at)}</td>
-                        <td className="px-3 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {!row.aprobado && (
-                              <button onClick={() => handleAprobarResena(row.id, true)}
-                                className="flex items-center gap-1 text-xs text-[#EE6B8D] hover:text-[#C04267] font-quicksand font-medium"
-                              >
-                                <Check size={14} /> Aprobar
-                              </button>
-                            )}
-                            {row.aprobado && (
-                              <button onClick={() => handleAprobarResena(row.id, false)}
-                                className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-quicksand font-medium"
-                              >
-                                <Eye size={14} /> Ocultar
-                              </button>
-                            )}
-                            <button onClick={() => handleEliminarResena(row.id)}
-                              className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-quicksand font-medium"
-                            >
-                              <Trash2 size={14} /> Eliminar
-                            </button>
+                        </div>
+                        <span className={`shrink-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                          row.aprobado ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {row.aprobado ? "Aprobada" : "Pendiente"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-gray-700">{row.nombre_cliente}</span>
+                        <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <Star
+                                key={i}
+                                size={12}
+                                className={i <= (row.calificacion ?? 0) ? "text-[#F5A623]" : "text-gray-200"}
+                                fill={i <= (row.calificacion ?? 0) ? "#F5A623" : "none"}
+                              />
+                            ))}
                           </div>
-                        </td>
+                          <span className="text-gray-500 font-bold text-xs ml-1">{row.calificacion}/5</span>
+                        </div>
+                      </div>
+
+                      {row.comentario && (
+                        <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-xs text-gray-600 italic">
+                          &quot;{row.comentario}&quot;
+                          {row.es_manual && (
+                            <span className="not-italic ml-2 text-[10px] uppercase tracking-wider text-purple-600 bg-purple-50 px-1.5 py-0.2 rounded-md font-bold">
+                              Manual
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                        <span className="text-[11px] text-gray-400">{formatDate(row.created_at)}</span>
+                        <div className="flex items-center gap-2">
+                          {!row.aprobado && (
+                            <button
+                              onClick={() => handleAprobarResena(row.id, true)}
+                              className="flex items-center gap-1 text-xs text-white bg-[#EE6B8D] hover:bg-[#C04267] font-bold px-3 py-1.5 rounded-xl transition-all shadow-2xs"
+                            >
+                              <Check size={13} /> Aprobar
+                            </button>
+                          )}
+                          {row.aprobado && (
+                            <button
+                              onClick={() => handleAprobarResena(row.id, false)}
+                              className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold px-2.5 py-1.5 rounded-xl transition-all border border-amber-200"
+                            >
+                              <Eye size={13} /> Ocultar
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleEliminarResena(row.id)}
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                            title="Eliminar reseña"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
+                <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-[720px]">
+                    <thead>
+                      <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Producto</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Cliente</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Calificación</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Comentario</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Estado</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha</th>
+                        <th className="px-3 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider whitespace-nowrap">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {data.map((row) => (
+                        <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/50 transition-colors">
+                          <td className="px-3 py-3">
+                            <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[220px] truncate" title={row.producto_nombre || ""}>
+                              {row.producto_nombre || "—"}
+                            </p>
+                            <p className="font-quicksand text-[10px] text-gray-400">{row.producto_sku || ""}</p>
+                          </td>
+                          <td className="px-3 py-3 font-quicksand text-xs text-gray-700">{row.nombre_cliente}</td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                  <Star key={i} size={12} className={i <= (row.calificacion ?? 0) ? "text-[#F5A623]" : "text-gray-200"} fill={i <= (row.calificacion ?? 0) ? "#F5A623" : "none"} />
+                                ))}
+                              </div>
+                              <span className="font-quicksand text-xs text-gray-500 ml-1">{row.calificacion}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 font-quicksand text-xs text-gray-500 max-w-[260px]">
+                            <p className="truncate" title={row.comentario || ""}>{row.comentario || "—"}</p>
+                            {row.es_manual && (
+                              <span className="text-[10px] uppercase tracking-wider text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">Manual</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className={`font-quicksand text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                              row.aprobado ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                            }`}>
+                              {row.aprobado ? "Aprobada" : "Pendiente"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 font-quicksand text-xs text-gray-500 whitespace-nowrap">{formatDate(row.created_at)}</td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {!row.aprobado && (
+                                <button onClick={() => handleAprobarResena(row.id, true)}
+                                  className="flex items-center gap-1 text-xs text-[#EE6B8D] hover:text-[#C04267] font-quicksand font-medium"
+                                >
+                                  <Check size={14} /> Aprobar
+                                </button>
+                              )}
+                              {row.aprobado && (
+                                <button onClick={() => handleAprobarResena(row.id, false)}
+                                  className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-quicksand font-medium"
+                                >
+                                  <Eye size={14} /> Ocultar
+                                </button>
+                              )}
+                              <button onClick={() => handleEliminarResena(row.id)}
+                                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 font-quicksand font-medium"
+                              >
+                                <Trash2 size={14} /> Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -5968,17 +6191,110 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab !== "dashboard" && mainTab !== "produccion" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && !loading && data.length > 0 && (
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-              <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
-                {SUBTABS_BY_MAIN[mainTab]?.find(m => m.id === subTab)?.label || subTab}
-              </h2>
-              <span className="font-quicksand text-xs font-semibold text-gray-500 bg-white border border-[#FDE8EF] px-3 py-1 rounded-full shadow-xs self-start sm:self-auto">
-                {data.length} {data.length === 1 ? "registro" : "registros"}
-              </span>
+        {mainTab !== "dashboard" && mainTab !== "produccion" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && !loading && (
+          data.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-[#FDE8EF]">
+              <p className="font-quicksand text-xs text-gray-400">No hay registros en esta sección todavía.</p>
             </div>
-            <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+          ) : (
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
+                  {SUBTABS_BY_MAIN[mainTab]?.find(m => m.id === subTab)?.label || subTab}
+                </h2>
+                <span className="font-quicksand text-xs font-semibold text-gray-500 bg-white border border-[#FDE8EF] px-3 py-1 rounded-full shadow-xs self-start sm:self-auto">
+                  {data.length} {data.length === 1 ? "registro" : "registros"}
+                </span>
+              </div>
+            {/* 1. VISTA TARJETAS PARA CELULARES (md:hidden) */}
+            <div className="md:hidden space-y-3">
+              {data.map((row) => {
+                const cols = getColumns(data);
+                return (
+                  <div
+                    key={row.id}
+                    className="bg-white rounded-2xl border border-[#FDE8EF] p-4 shadow-xs space-y-2.5 font-quicksand text-xs"
+                  >
+                    <div className="space-y-2">
+                      {cols.map((key) => {
+                        const value = row[key];
+
+                        if (key === "estado" && subTab === "personalizados") {
+                          return (
+                            <div key={key} className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                {key.replace(/_/g, " ")}:
+                              </span>
+                              <select
+                                value={String(value || "pendiente")}
+                                onChange={(e) => handlePersonalizadoEstado(row.id, e.target.value)}
+                                className="font-quicksand text-xs px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#EE6B8D]"
+                              >
+                                <option value="pendiente">Pendiente</option>
+                                <option value="confirmado">Confirmado</option>
+                                <option value="en_produccion">En producción</option>
+                                <option value="listo">Listo</option>
+                                <option value="entregado">Entregado</option>
+                                <option value="cancelado">Cancelado</option>
+                              </select>
+                            </div>
+                          );
+                        }
+
+                        if ((key.includes("imagen") || key.includes("image")) && value && typeof value === "string") {
+                          return (
+                            <div key={key} className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                {key.replace(/_/g, " ")}:
+                              </span>
+                              <img src={value} alt="" className="w-12 h-12 rounded-xl object-cover border border-pink-100" />
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={key} className="flex items-start justify-between gap-2">
+                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider shrink-0">
+                              {key.replace(/_/g, " ")}:
+                            </span>
+                            <span className="font-semibold text-gray-800 text-right truncate max-w-[200px]" title={String(value ?? "-")}>
+                              {formatValue(key, value)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {(subTab === "mensajes" || subTab === "personalizados") && (
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
+                        {subTab === "mensajes" && !row.leido && (
+                          <button
+                            onClick={() => handleMarcarLeido(row.id)}
+                            className="flex items-center gap-1 text-xs text-[#EE6B8D] hover:text-[#C04267] font-bold px-3 py-1.5 rounded-xl bg-pink-50 border border-pink-200"
+                          >
+                            <Eye size={13} /> Marcar Leído
+                          </button>
+                        )}
+
+                        {subTab === "personalizados" && (
+                          <a
+                            href={whatsappLink(row)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-white bg-[#25D366] hover:bg-[#20BA5A] font-bold px-3.5 py-1.5 rounded-xl shadow-xs"
+                          >
+                            <ExternalLink size={13} /> Contactar por WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 2. TABLA COMPLETA PARA TABLETS Y COMPUTADORAS (hidden md:block) */}
+            <div className="hidden md:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
               <table className="w-full text-left text-sm min-w-[800px]">
                 <thead>
                   <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
@@ -6057,7 +6373,7 @@ export default function AdminPage() {
               </table>
             </div>
           </div>
-        )}
+        ) )}
       </main>
 
       {/* Modal para instalar la App de Administración (exclusivo para rol admin) */}

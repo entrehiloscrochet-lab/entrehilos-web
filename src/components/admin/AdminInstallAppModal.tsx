@@ -34,7 +34,16 @@ export default function AdminInstallAppModal({
   onPromptInstall,
   isInstalled,
 }: AdminInstallAppModalProps) {
-  const [deviceTab, setDeviceTab] = useState<"tablet" | "pc" | "ios">("tablet");
+  const [deviceTab, setDeviceTab] = useState<"movil" | "tablet" | "pc" | "ios">(() => {
+    if (typeof window !== "undefined") {
+      const ua = navigator.userAgent.toLowerCase();
+      if (/iphone|ipod/.test(ua)) return "ios";
+      if (/android.*mobile/.test(ua) || (window.innerWidth < 640 && /android/.test(ua))) return "movil";
+      if (/ipad|tablet|android/.test(ua)) return "tablet";
+      return window.innerWidth < 768 ? "movil" : "pc";
+    }
+    return "movil";
+  });
 
   if (!isOpen) return null;
 
@@ -55,7 +64,7 @@ export default function AdminInstallAppModal({
                 Instalar App de Administración
               </h2>
               <p className="font-quicksand text-xs text-gray-500">
-                Panel de taller y gestión en pantalla completa
+                Para Celular, Tablet y PC a pantalla completa
               </p>
             </div>
           </div>
@@ -69,7 +78,7 @@ export default function AdminInstallAppModal({
         </div>
 
         {/* Contenido scrolleable */}
-        <div className="p-5 space-y-4 overflow-y-auto">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto">
           {/* Aviso de exclusividad Admin */}
           <div className="p-3 rounded-2xl bg-pink-50/70 border border-pink-200 flex items-start gap-2.5 text-xs text-gray-600">
             <Lock size={15} className="text-[#EE6B8D] shrink-0 mt-0.5" />
@@ -104,50 +113,88 @@ export default function AdminInstallAppModal({
           {/* Selector de Dispositivos */}
           <div>
             <div className="text-xs font-bold text-gray-700 mb-2">
-              Instrucciones paso a paso según tu dispositivo:
+              Elige tu dispositivo para ver cómo instalarla:
             </div>
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-100 rounded-2xl">
+            <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 rounded-2xl text-[11px]">
+              <button
+                type="button"
+                onClick={() => setDeviceTab("movil")}
+                className={`py-2 px-1 font-bold rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
+                  deviceTab === "movil"
+                    ? "bg-white text-[#C04267] shadow-xs"
+                    : "text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                <Smartphone size={14} />
+                <span>Celular</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setDeviceTab("tablet")}
-                className={`py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-1 font-bold rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
                   deviceTab === "tablet"
                     ? "bg-white text-[#C04267] shadow-xs"
                     : "text-gray-500 hover:text-gray-800"
                 }`}
               >
                 <Tablet size={14} />
-                <span>Lenovo / Tablet</span>
+                <span>Tablet</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDeviceTab("pc")}
-                className={`py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-1 font-bold rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
                   deviceTab === "pc"
                     ? "bg-white text-[#C04267] shadow-xs"
                     : "text-gray-500 hover:text-gray-800"
                 }`}
               >
                 <Laptop size={14} />
-                <span>PC / Laptop</span>
+                <span>PC</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDeviceTab("ios")}
-                className={`py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 px-1 font-bold rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
                   deviceTab === "ios"
                     ? "bg-white text-[#C04267] shadow-xs"
                     : "text-gray-500 hover:text-gray-800"
                 }`}
               >
                 <Smartphone size={14} />
-                <span>iPad / iPhone</span>
+                <span>iPhone</span>
               </button>
             </div>
           </div>
 
           {/* Pasos según pestaña elegida */}
           <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 text-xs text-gray-700 space-y-2.5">
+            {deviceTab === "movil" && (
+              <>
+                <div className="font-bold text-[#C04267] flex items-center gap-1.5 text-xs sm:text-sm">
+                  <Smartphone size={16} />
+                  En tu Celular Android:
+                </div>
+                <ol className="space-y-2 list-decimal list-inside text-gray-600 leading-relaxed">
+                  <li>
+                    Abre <strong>Google Chrome</strong> en tu celular con esta página del admin.
+                  </li>
+                  <li>
+                    Toca los <strong>tres puntos verticales (⋮)</strong> en la esquina superior derecha de Chrome.
+                  </li>
+                  <li>
+                    Toca la opción <strong>&quot;Instalar aplicación&quot;</strong> o <strong>&quot;Agregar a la pantalla principal&quot;</strong>.
+                  </li>
+                  <li>
+                    Confirma pulsando <strong>Instalar</strong>.
+                  </li>
+                </ol>
+                <p className="text-[11px] text-gray-500 pt-1 border-t border-gray-200">
+                  Aparecerá el ícono de Entre Hilos en la pantalla de tu celular y se abrirá en pantalla completa como una app normal.
+                </p>
+              </>
+            )}
+
             {deviceTab === "tablet" && (
               <>
                 <div className="font-bold text-[#C04267] flex items-center gap-1.5 text-xs sm:text-sm">
@@ -201,22 +248,25 @@ export default function AdminInstallAppModal({
               <>
                 <div className="font-bold text-[#C04267] flex items-center gap-1.5 text-xs sm:text-sm">
                   <Smartphone size={16} />
-                  En Safari (iPad o iPhone):
+                  En Safari (iPhone o iPad):
                 </div>
                 <ol className="space-y-2 list-decimal list-inside text-gray-600 leading-relaxed">
                   <li>
-                    Abre el panel en <strong>Safari</strong>.
+                    Abre el panel en <strong>Safari</strong> desde tu iPhone.
                   </li>
                   <li>
-                    Toca el botón <strong>Compartir</strong> (cuadrado con flecha hacia arriba).
+                    Toca el botón <strong>Compartir</strong> (icono de cuadrado con flecha hacia arriba en la parte inferior).
                   </li>
                   <li>
-                    Baja en el menú y selecciona <strong>&quot;Agregar al inicio&quot;</strong>.
+                    Baja en la lista y selecciona <strong>&quot;Agregar al inicio&quot;</strong>.
                   </li>
                   <li>
                     Toca <strong>Agregar</strong> en la esquina superior derecha.
                   </li>
                 </ol>
+                <p className="text-[11px] text-gray-500 pt-1 border-t border-gray-200">
+                  Tendrás el ícono en la pantalla de inicio de tu iPhone y abrirá a pantalla completa.
+                </p>
               </>
             )}
           </div>

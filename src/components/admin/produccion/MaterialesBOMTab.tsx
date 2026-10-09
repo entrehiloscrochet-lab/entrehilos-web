@@ -212,8 +212,79 @@ export default function MaterialesBOMTab({
       </div>
 
       {/* Tabla de Materiales */}
+      {/* Lista de Materiales: Vista de Tarjetas en Móvil (sin scroll horizontal) y Tabla en Desktop/Tablet */}
       <div className="bg-white rounded-3xl border border-[#FDE8EF] shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Vista Móvil (< md): Tarjetas compactas 100% legibles sin scroll horizontal */}
+        <div className="md:hidden divide-y divide-gray-100">
+          {materialesFiltrados.length === 0 ? (
+            <div className="py-12 text-center text-gray-400 font-quicksand text-xs">
+              No se encontraron materiales registrados.
+            </div>
+          ) : (
+            materialesFiltrados.map((m) => (
+              <div key={m.id} className="p-3.5 space-y-2.5 hover:bg-pink-50/20 transition-colors font-quicksand">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-gray-800 text-sm truncate">{m.nombre}</div>
+                    <span className="inline-block mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-pink-50 text-[#C04267] border border-pink-100">
+                      {m.categoria}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => abrirModalEditar(m)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#EE6B8D] hover:bg-pink-50 transition-colors cursor-pointer"
+                      title="Editar material"
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`¿Deseas eliminar el material "${m.nombre}"?`)) {
+                          onEliminarMaterial(m.id);
+                        }
+                      }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                      title="Eliminar material"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 bg-[#FDF4F7] p-2.5 rounded-2xl text-xs">
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-semibold">Precio</div>
+                    <div className="font-bold text-gray-700 mt-0.5">S/ {m.precio_compra.toFixed(2)}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-semibold">Paquete</div>
+                    <div className="font-semibold text-gray-700 mt-0.5 truncate text-[11px]">
+                      {m.presentacion || `${m.cantidad_total} ${m.unidad_medida}`}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-[10px] text-[#C04267] uppercase font-bold">Costo Unit.</div>
+                    <div className="font-bold text-[#C04267] mt-0.5">
+                      S/ {m.costo_unitario < 0.01 ? m.costo_unitario.toFixed(4) : m.costo_unitario.toFixed(2)}
+                    </div>
+                    <div className="text-[9px] text-gray-400">
+                      /{m.unidad_medida === "unidades" ? "u" : m.unidad_medida === "pares" ? "par" : "u"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Vista Desktop / Tablet (>= md): Tabla completa */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left font-quicksand text-xs sm:text-sm">
             <thead className="bg-[#FDF4F7] text-[#C04267] font-fredoka font-bold text-xs uppercase border-b border-pink-100">
               <tr>
