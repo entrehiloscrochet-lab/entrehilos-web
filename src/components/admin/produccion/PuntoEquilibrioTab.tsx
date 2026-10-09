@@ -375,7 +375,7 @@ export default function PuntoEquilibrioTab({
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  step="0.5"
+                  step="any"
                   min="0"
                   required
                   value={montoInput}

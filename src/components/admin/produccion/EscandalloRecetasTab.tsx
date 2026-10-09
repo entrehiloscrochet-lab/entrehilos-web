@@ -26,6 +26,7 @@ import {
 } from "@/types/produccion";
 import { exportarReporteCostos } from "./exportUtils";
 import ImagePasteUploader from "./ImagePasteUploader";
+import MaterialCombobox from "./MaterialCombobox";
 
 export interface ProductoPayload {
   id?: string;
@@ -43,7 +44,20 @@ export interface ProductoPayload {
     modo_uso?: string;
     rendimiento_piezas?: number;
     costo_calculado?: number;
+    monto_directo?: number;
   }>;
+}
+
+function getModoDefaultMaterial(mat?: MaterialItem): {
+  esPrecio: boolean;
+  modo: "rendimiento" | "unidades" | "gramos" | "precio";
+} {
+  if (!mat) return { esPrecio: false, modo: "unidades" };
+  const esPrecio = mat.unidad_medida === "precio" || mat.unidad_medida === "soles";
+  return {
+    esPrecio,
+    modo: esPrecio ? "precio" : "unidades",
+  };
 }
 
 interface EscandalloRecetasTabProps {
@@ -107,9 +121,10 @@ export default function EscandalloRecetasTab({
   const [formNotas, setFormNotas] = useState("");
   interface FormRecetaRow {
     material_id: string;
-    modo: "rendimiento" | "unidades" | "gramos";
+    modo: "rendimiento" | "unidades" | "gramos" | "precio";
     rendimiento_piezas: number; // ej. 4 (1 ovillo rinde 4 piezas)
-    cantidad: number;
+    cantidad: string; // Guardado como string para permitir escribir libremente decimales (ej: "0.5", "0.2", "0.9")
+    monto_directo?: string; // Guardado como string para escribir decimales en soles (ej: "0.50", "0.20")
   }
 
   const [formItemsReceta, setFormItemsReceta] = useState<FormRecetaRow[]>([]);
@@ -133,13 +148,14 @@ export default function EscandalloRecetasTab({
     setNuevaCategoriaInput("");
     if (materiales.length > 0) {
       const mat = materiales[0];
-      const esHilo = mat.categoria === "Hilos" || mat.categoria === "Relleno";
+      const { modo } = getModoDefaultMaterial(mat);
       setFormItemsReceta([
         {
           material_id: mat.id,
-          modo: esHilo ? "rendimiento" : "unidades",
+          modo,
           rendimiento_piezas: 4,
-          cantidad: 1,
+          cantidad: "1",
+          monto_directo: modo === "precio" ? "1" : undefined,
         },
       ]);
     } else {
@@ -166,14 +182,15 @@ export default function EscandalloRecetasTab({
     setFormItemsReceta(
       (prod.items_receta || []).map((r) => {
         const mat = materiales.find((m) => m.id === r.material_id);
-        const esHilo = mat?.categoria === "Hilos" || mat?.categoria === "Relleno";
-        const rend = r.rendimiento_piezas || (esHilo && r.cantidad > 0 && mat ? Math.max(1, Math.round(mat.cantidad_total / r.cantidad)) : 4);
-        const modo = r.modo_uso || (esHilo ? "rendimiento" : "unidades");
+        const { esPrecio } = getModoDefaultMaterial(mat);
+        const modo = esPrecio ? "precio" : "unidades";
+        const montoDirecto = modo === "precio" ? String(r.monto_directo ?? r.costo_calculado ?? 1) : undefined;
         return {
           material_id: r.material_id,
-          modo: (modo === "rendimiento" ? "rendimiento" : modo === "unidades" ? "unidades" : "gramos") as "rendimiento" | "unidades" | "gramos",
-          rendimiento_piezas: rend || 4,
-          cantidad: r.cantidad || 1,
+          modo,
+          rendimiento_piezas: 4,
+          cantidad: String(r.cantidad || 1),
+          monto_directo: montoDirecto,
         };
       })
     );
@@ -184,14 +201,15 @@ export default function EscandalloRecetasTab({
     if (materiales.length === 0) return;
     const yaUsados = new Set(formItemsReceta.map((it) => it.material_id));
     const mat = materiales.find((m) => !yaUsados.has(m.id)) || materiales[0];
-    const esHilo = mat.categoria === "Hilos" || mat.categoria === "Relleno";
+    const { modo } = getModoDefaultMaterial(mat);
     setFormItemsReceta((prev) => [
       ...prev,
       {
         material_id: mat.id,
-        modo: esHilo ? "rendimiento" : "unidades",
+        modo,
         rendimiento_piezas: 4,
-        cantidad: 1,
+        cantidad: "1",
+        monto_directo: modo === "precio" ? "1" : undefined,
       },
     ]);
 
@@ -222,16 +240,20 @@ export default function EscandalloRecetasTab({
       if (campo === "material_id") {
         const mat = materiales.find((m) => m.id === valor);
         if (mat) {
-          const esHilo = mat.categoria === "Hilos" || mat.categoria === "Relleno";
-          copy[index].modo = esHilo ? "rendimiento" : "unidades";
-          if (esHilo && !copy[index].rendimiento_piezas) copy[index].rendimiento_piezas = 4;
+          const { esPrecio, modo: nuevoModo } = getModoDefaultMaterial(mat);
+          copy[index].modo = nuevoModo;
+          if (esPrecio) {
+            if (!copy[index].monto_directo) copy[index].monto_directo = "1";
+          } else {
+            if (!copy[index].cantidad) copy[index].cantidad = "1";
+          }
         }
       }
       return copy;
     });
   };
 
-  // Cálculos en vivo simplificados basados en rendimiento por ovillo o unidades
+  // Cálculos en vivo basados en cantidad o monto directo
   const calculosModal = useMemo(() => {
     const tHoras = parseFloat(formTiempoHoras) || 0;
     const tMin = parseFloat(formTiempoMinutos) || 0;
@@ -248,17 +270,14 @@ export default function EscandalloRecetasTab({
 
       if (!mat) {
         costoItem = 0;
-      } else if (item.modo === "rendimiento") {
-        const rend = Math.max(0.1, Number(item.rendimiento_piezas) || 1);
-        costoItem = mat.precio_compra / rend;
-        cantidadGuardar = Number((mat.cantidad_total / rend).toFixed(2));
-      } else if (item.modo === "unidades") {
-        const cant = Math.max(0, Number(item.cantidad) || 0);
-        costoItem = cant * (mat.costo_unitario || (mat.precio_compra / Math.max(1, mat.cantidad_total)));
-        cantidadGuardar = cant;
+      } else if (item.modo === "precio" || mat.unidad_medida === "precio" || mat.unidad_medida === "soles") {
+        const monto = Math.max(0, parseFloat(String(item.monto_directo !== undefined ? item.monto_directo : item.cantidad)) || 0);
+        costoItem = monto;
+        cantidadGuardar = mat.precio_compra > 0 ? Number(((monto / mat.precio_compra) * mat.cantidad_total).toFixed(4)) : monto;
       } else {
-        const cant = Math.max(0, Number(item.cantidad) || 0);
-        costoItem = cant * (mat.costo_unitario || 0);
+        const cant = Math.max(0, parseFloat(String(item.cantidad)) || 0);
+        const unitCost = mat.costo_unitario || (mat.precio_compra / Math.max(1, mat.cantidad_total));
+        costoItem = Number((cant * unitCost).toFixed(4));
         cantidadGuardar = cant;
       }
 
@@ -317,8 +336,9 @@ export default function EscandalloRecetasTab({
         material_id: r.material_id,
         cantidad: r.cantidadGuardar,
         modo_uso: r.modo,
-        rendimiento_piezas: r.modo === "rendimiento" ? r.rendimiento_piezas : undefined,
+        rendimiento_piezas: undefined,
         costo_calculado: Number(r.costoItem.toFixed(2)),
+        monto_directo: r.modo === "precio" ? (parseFloat(String(r.monto_directo !== undefined ? r.monto_directo : r.cantidad)) || 0) : undefined,
       })),
     };
 
@@ -881,28 +901,22 @@ export default function EscandalloRecetasTab({
                     ) : (
                       <div
                         ref={insumosListRef}
-                        className="space-y-2.5 max-h-[300px] overflow-y-auto overflow-x-hidden pr-1 scroll-smooth"
+                        className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1 scroll-smooth"
                       >
                         {formItemsReceta.map((row, idx) => {
                           const mat = materiales.find((m) => m.id === row.material_id);
-                          const esHilo = mat?.categoria === "Hilos" || mat?.categoria === "Relleno";
+                          const { esPrecio } = getModoDefaultMaterial(mat);
                           const subtotal = calculosModal.detallesInsumos[idx]?.costoItem || 0;
 
                           return (
-                            <div key={idx} className="bg-[#FDF4F7] p-2.5 rounded-2xl border border-pink-100/80 space-y-2 text-xs overflow-hidden">
+                            <div key={idx} className="bg-[#FDF4F7] p-2.5 rounded-2xl border border-pink-100/80 space-y-2 text-xs">
                               <div className="flex items-center gap-2 w-full min-w-0">
                                 <div className="flex-1 min-w-0">
-                                  <select
-                                    value={row.material_id}
-                                    onChange={(e) => actualizarFilaMaterial(idx, "material_id", e.target.value)}
-                                    className="w-full min-w-0 px-2.5 py-2 rounded-xl border border-pink-200 bg-white text-xs font-semibold focus:border-[#EE6B8D] focus:outline-none truncate cursor-pointer"
-                                  >
-                                    {materiales.map((m) => (
-                                      <option key={m.id} value={m.id}>
-                                        {m.nombre} (S/ {m.precio_compra.toFixed(2)} por {m.presentacion || `${m.cantidad_total} ${m.unidad_medida}`})
-                                      </option>
-                                    ))}
-                                  </select>
+                                  <MaterialCombobox
+                                    materiales={materiales}
+                                    selectedId={row.material_id}
+                                    onChange={(newId) => actualizarFilaMaterial(idx, "material_id", newId)}
+                                  />
                                 </div>
 
                                 <button
@@ -916,54 +930,46 @@ export default function EscandalloRecetasTab({
                                 </button>
                               </div>
 
-                              {/* Selector amigable de modo de uso */}
-                              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-pink-200/50">
-                                {row.modo === "rendimiento" ? (
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-gray-600 text-[11px] font-medium">
-                                      1 ovillo rinde para:
-                                    </span>
+                              {/* Control directo de consumo según la unidad de medida, permitiendo escribir cualquier decimal (0.5, 0.2, 0.9, etc.) */}
+                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-pink-200/50">
+                                {esPrecio ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-600 text-[11px] font-medium">Usar en dinero:</span>
                                     <div className="flex items-center gap-1">
+                                      <span className="text-xs font-bold text-[#C04267]">S/</span>
                                       <input
-                                        type="number"
-                                        step="any"
-                                        min="0.1"
-                                        value={row.rendimiento_piezas || 4}
-                                        onChange={(e) => actualizarFilaMaterial(idx, "rendimiento_piezas", parseFloat(e.target.value) || 1)}
-                                        className="w-16 px-2 py-1 rounded-lg border border-pink-200 bg-white text-xs text-center font-bold text-[#C04267] focus:outline-none focus:border-[#EE6B8D]"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={row.monto_directo !== undefined ? row.monto_directo : row.cantidad}
+                                        onChange={(e) => {
+                                          const val = e.target.value.replace(",", ".");
+                                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                            actualizarFilaMaterial(idx, "monto_directo", val);
+                                          }
+                                        }}
+                                        placeholder="0.00"
+                                        className="w-24 px-2.5 py-1 rounded-lg border border-pink-200 bg-white text-xs text-center font-bold text-[#C04267] focus:outline-none focus:border-[#EE6B8D]"
                                       />
-                                      <span className="text-[11px] text-gray-500 font-semibold">piezas</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      {[2, 3, 4, 5, 6].map((p) => (
-                                        <button
-                                          key={p}
-                                          type="button"
-                                          onClick={() => actualizarFilaMaterial(idx, "rendimiento_piezas", p)}
-                                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
-                                            row.rendimiento_piezas === p
-                                              ? "bg-[#C04267] text-white"
-                                              : "bg-white text-gray-600 hover:bg-pink-100"
-                                          }`}
-                                        >
-                                          1/{p}
-                                        </button>
-                                      ))}
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-gray-600 text-[11px] font-medium">Usa:</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-600 text-[11px] font-medium">Cantidad a usar:</span>
                                     <input
-                                      type="number"
-                                      step="any"
-                                      min="0.01"
+                                      type="text"
+                                      inputMode="decimal"
                                       value={row.cantidad}
-                                      onChange={(e) => actualizarFilaMaterial(idx, "cantidad", parseFloat(e.target.value) || 0)}
-                                      className="w-18 px-2 py-1 rounded-lg border border-pink-200 bg-white text-xs text-center font-bold text-[#C04267] focus:outline-none focus:border-[#EE6B8D]"
+                                      onChange={(e) => {
+                                        const val = e.target.value.replace(",", ".");
+                                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                          actualizarFilaMaterial(idx, "cantidad", val);
+                                        }
+                                      }}
+                                      placeholder="0"
+                                      className="w-24 px-2.5 py-1 rounded-lg border border-pink-200 bg-white text-xs text-center font-bold text-[#C04267] focus:outline-none focus:border-[#EE6B8D]"
                                     />
-                                    <span className="text-[11px] text-gray-500 font-semibold">
-                                      {mat?.unidad_medida || "u"}
+                                    <span className="text-[11px] text-gray-600 font-semibold">
+                                      {mat?.unidad_medida || "unidades"}
                                     </span>
                                   </div>
                                 )}
@@ -1118,8 +1124,8 @@ export default function EscandalloRecetasTab({
                 </label>
                 <input
                   type="number"
-                  step="0.5"
-                  min="1"
+                  step="any"
+                  min="0.01"
                   required
                   value={tarifaHoraInput}
                   onChange={(e) => setTarifaHoraInput(e.target.value)}
@@ -1137,9 +1143,9 @@ export default function EscandalloRecetasTab({
                 </label>
                 <input
                   type="number"
-                  step="1"
-                  min="5"
-                  max="90"
+                  step="any"
+                  min="1"
+                  max="99"
                   required
                   value={margenDefaultInput}
                   onChange={(e) => setMargenDefaultInput(e.target.value)}

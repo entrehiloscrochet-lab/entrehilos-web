@@ -6,9 +6,9 @@ export interface ProduccionConfig {
   updated_at?: string;
 }
 
-export type CategoriaMaterial = "Hilos" | "Relleno" | "Fornituras" | "Packaging" | "Contenido Box" | "Accesorios" | "Otros";
+export type CategoriaMaterial = string;
 
-export type UnidadMedida = "gramos" | "pares" | "unidades" | "metros" | "pliegos" | "conos";
+export type UnidadMedida = "gramos" | "pares" | "unidades" | "metros" | "pliegos" | "conos" | "precio" | "soles";
 
 export type TipoPresentacionMayor =
   | "ciento" // 100 unidades
@@ -34,16 +34,17 @@ export interface MaterialItem {
   created_at?: string;
 }
 
-export type ModoUsoMaterial = "rendimiento" | "unidades" | "fraccion" | "cantidad";
+export type ModoUsoMaterial = "rendimiento" | "unidades" | "fraccion" | "cantidad" | "precio";
 
 export interface RecetaItem {
   id: string;
   producto_id: string;
   material_id: string;
   cantidad: number; // Cantidad consumida (ej. 25 gramos, 1 par de ojos)
-  modo_uso?: ModoUsoMaterial; // "rendimiento" (1 ovillo rinde X) | "unidades" | "cantidad"
+  modo_uso?: ModoUsoMaterial; // "rendimiento" (1 ovillo rinde X) | "unidades" | "cantidad" | "precio"
   rendimiento_piezas?: number; // Cuántas piezas salen de 1 ovillo/paquete (ej. 4)
-  costo_calculado?: number; // cantidad * material.costo_unitario o precio_compra / rendimiento
+  monto_directo?: number; // Monto directo en soles asignado
+  costo_calculado?: number; // cantidad * material.costo_unitario o precio_compra / rendimiento o monto_directo
   material?: MaterialItem;
 }
 

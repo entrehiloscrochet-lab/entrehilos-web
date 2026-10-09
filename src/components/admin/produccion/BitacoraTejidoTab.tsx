@@ -23,7 +23,9 @@ import {
   Search,
   Minus,
   RotateCcw,
+  Calculator,
 } from "lucide-react";
+import SimuladorMaterialesModal from "./SimuladorMaterialesModal";
 import {
   BitacoraRegistro,
   ProductoProduccion,
@@ -101,6 +103,7 @@ export default function BitacoraTejidoTab({
   const [guardando, setGuardando] = useState(false);
   const [exitoAnim, setExitoAnim] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState<string>("todos");
+  const [modalSimuladorAbierto, setModalSimuladorAbierto] = useState(false);
 
   const tarifaHora = config?.tarifa_hora || 8.0;
 
@@ -283,7 +286,12 @@ export default function BitacoraTejidoTab({
             let reqTerminadas = 0;
             let reqFaltantes = 0;
 
-            if (modo === "rendimiento") {
+            if (modo === "precio" || unidad === "precio" || unidad === "soles") {
+              const montoUnit = rec.monto_directo !== undefined ? rec.monto_directo : (rec.costo_calculado || 1);
+              reqMeta = meta * montoUnit;
+              reqTerminadas = terminadas * montoUnit;
+              reqFaltantes = faltantes * montoUnit;
+            } else if (modo === "rendimiento") {
               // 1 ovillo rinde para X piezas => por cada pieza se usa 1 / rendimiento ovillos
               reqMeta = meta / rendimiento;
               reqTerminadas = terminadas / rendimiento;
@@ -335,14 +343,20 @@ export default function BitacoraTejidoTab({
     insumosMap.forEach((val) => {
       let unidadesAComprar = 0;
       let textoDetalle = "";
+      let costoEstimadoCompra = 0;
 
-      if (val.modoUso === "rendimiento") {
+      if (val.modoUso === "precio" || val.unidadMedida === "precio" || val.unidadMedida === "soles") {
+        unidadesAComprar = 1;
+        textoDetalle = `S/ ${val.exactoRequerido.toFixed(2)} requeridos (${val.exactoFaltante > 0 ? `S/ ${val.exactoFaltante.toFixed(2)} faltan` : "completado"})`;
+        costoEstimadoCompra = Number(val.exactoFaltante.toFixed(2));
+      } else if (val.modoUso === "rendimiento") {
         // Fraccion de ovillos necesaria -> redondear al ovillo superior entero
         unidadesAComprar = Math.ceil(val.exactoFaltante);
         textoDetalle = `${val.exactoRequerido.toFixed(1)} ovillo(s) total (${val.rendimientoPiezas} pz por ovillo)`;
         if (val.categoria === "Hilos") {
           totalOvillosAComprar += unidadesAComprar;
         }
+        costoEstimadoCompra = Number((unidadesAComprar * val.precioCompra).toFixed(2));
       } else if (val.unidadMedida === "gramos") {
         const pesoPaquete = val.unidadesPresentacion > 0 ? val.unidadesPresentacion : 100;
         unidadesAComprar = Math.ceil(val.exactoFaltante / pesoPaquete);
@@ -350,6 +364,7 @@ export default function BitacoraTejidoTab({
         if (val.categoria === "Hilos") {
           totalOvillosAComprar += unidadesAComprar;
         }
+        costoEstimadoCompra = Number((unidadesAComprar * val.precioCompra).toFixed(2));
       } else {
         // Paquetes o piezas sueltas
         if (val.unidadesPresentacion > 1) {
@@ -359,9 +374,9 @@ export default function BitacoraTejidoTab({
           unidadesAComprar = Math.ceil(val.exactoFaltante);
           textoDetalle = `${Math.round(val.exactoRequerido)} ${val.unidadMedida}`;
         }
+        costoEstimadoCompra = Number((unidadesAComprar * val.precioCompra).toFixed(2));
       }
 
-      const costoEstimadoCompra = Number((unidadesAComprar * val.precioCompra).toFixed(2));
       presupuestoTotalInsumos += costoEstimadoCompra;
 
       listaInsumos.push({
@@ -468,23 +483,35 @@ export default function BitacoraTejidoTab({
           </p>
         </div>
 
-        {/* Selector de Campana */}
+        {/* Selector de Campana y Botón Simulador */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="font-quicksand text-xs font-bold text-gray-600 shrink-0">
-            Campaña activa:
-          </div>
-          <select
-            value={campanaSeleccionadaId}
-            onChange={(e) => setCampanaSeleccionadaId(e.target.value)}
-            className="px-3 py-2 rounded-2xl border border-pink-200 bg-pink-50/60 font-quicksand text-xs font-bold text-[#C04267] focus:border-[#EE6B8D] focus:outline-none max-w-full"
+          <button
+            type="button"
+            onClick={() => setModalSimuladorAbierto(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-[#EE6B8D] to-[#C04267] text-white text-xs font-bold hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all cursor-pointer shadow-xs shrink-0"
+            title="Simular y calcular insumos requeridos según la cantidad de diseños a tejer"
           >
-            <option value="">Sin campaña (Stock libre del taller)</option>
-            {campanas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre} {c.activa ? "(Activa)" : ""}
-              </option>
-            ))}
-          </select>
+            <Calculator size={15} />
+            <span>Calcular Insumos por Diseños</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="font-quicksand text-xs font-bold text-gray-600 shrink-0">
+              Campaña activa:
+            </div>
+            <select
+              value={campanaSeleccionadaId}
+              onChange={(e) => setCampanaSeleccionadaId(e.target.value)}
+              className="px-3 py-2 rounded-2xl border border-pink-200 bg-pink-50/60 font-quicksand text-xs font-bold text-[#C04267] focus:border-[#EE6B8D] focus:outline-none max-w-full"
+            >
+              <option value="">Sin campaña (Stock libre del taller)</option>
+              {campanas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre} {c.activa ? "(Activa)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {exitoAnim && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-quicksand font-bold animate-in fade-in">
@@ -1093,6 +1120,14 @@ export default function BitacoraTejidoTab({
           </div>
         </div>
       </div>
+
+      {/* Modal Simulador de Insumos */}
+      <SimuladorMaterialesModal
+        abierto={modalSimuladorAbierto}
+        onCerrar={() => setModalSimuladorAbierto(false)}
+        productos={productos}
+        materiales={materiales}
+      />
     </div>
   );
 }

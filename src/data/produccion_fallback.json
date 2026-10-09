@@ -1,11 +1,23 @@
 {
   "config": {
     "id": "default",
-    "tarifa_hora": 8,
-    "margen_deseado_default": 40,
+    "tarifa_hora": 5.13,
+    "margen_deseado_default": 50,
     "limite_horas_dia_alerta": 4.5
   },
   "materiales": [
+    {
+      "id": "mat-1791580877716",
+      "nombre": "Hilo de Algodón NEGRO",
+      "categoria": "Hilos",
+      "presentacion": "Ovillo por precio",
+      "precio_compra": 7,
+      "cantidad_total": 1,
+      "unidad_medida": "precio",
+      "costo_unitario": 7,
+      "stock_actual": 0,
+      "created_at": "2026-10-09T21:21:17.86244+00:00"
+    },
     {
       "id": "mat-1791528957634",
       "nombre": "Cascabeles dorados",
@@ -56,12 +68,12 @@
     },
     {
       "id": "mat-1",
-      "nombre": "Hilo de Algodón",
+      "nombre": "Hilo de Algodón BLANCO",
       "categoria": "Hilos",
-      "presentacion": "Ovillo 100g",
+      "presentacion": "Ovillo por precio",
       "precio_compra": 7,
       "cantidad_total": 1,
-      "unidad_medida": "unidades",
+      "unidad_medida": "precio",
       "costo_unitario": 7,
       "stock_actual": 450,
       "created_at": "2026-10-09T06:16:12.638963+00:00"
@@ -69,44 +81,250 @@
   ],
   "productos": [
     {
-      "id": "prod-oso-amigurumi",
+      "id": "prod-1791577748415",
       "producto_tienda_id": null,
-      "nombre": "Oso Amigurumi Clásico",
-      "categoria": "Amigurumis",
-      "tiempo_produccion": 2.5,
-      "precio_venta_real": 45,
-      "margen_deseado": 40,
-      "costo_materiales": 8,
-      "costo_mano_obra": 20,
-      "costo_total": 28,
-      "precio_sugerido": 47,
-      "notas": "Algodón 100g, relleno siliconado y ojitos de seguridad",
-      "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1775578987352-qag7q9wo59j.jpg?alt=media&token=d5415ae0-f2ce-4bb2-95bf-a896f11097fe",
+      "nombre": "Conejitas c/ overol",
+      "categoria": "Llaveros",
+      "tiempo_produccion": 1.83,
+      "precio_venta_real": 18,
+      "margen_deseado": 50,
+      "costo_materiales": 0.3,
+      "costo_mano_obra": 10.07,
+      "costo_total": 10.37,
+      "precio_sugerido": 21,
+      "notas": "",
+      "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/produccion-1791577679799-9piykq.webp",
       "items_receta": [
         {
-          "id": "rec-1",
-          "producto_id": "prod-oso-amigurumi",
-          "material_id": "mat-1",
+          "id": "rec-1791577748129-0",
+          "producto_id": "prod-1791577748415",
+          "material_id": "mat-1791528957634",
           "cantidad": 1,
-          "costo_calculado": 7,
+          "costo_calculado": 0.3,
+          "material": {
+            "id": "mat-1791528957634",
+            "nombre": "Cascabeles dorados",
+            "categoria": "Fornituras",
+            "presentacion": "Bolsa 50u",
+            "precio_compra": 15,
+            "cantidad_total": 50,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.3,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:55:57.723028+00:00"
+          }
+        }
+      ],
+      "created_at": "2026-10-09T20:29:08.596208+00:00"
+    },
+    {
+      "id": "prod-1791577608798",
+      "producto_tienda_id": null,
+      "nombre": "Pochacco",
+      "categoria": "Llaveros",
+      "tiempo_produccion": 1,
+      "precio_venta_real": 15,
+      "margen_deseado": 50,
+      "costo_materiales": 2.05,
+      "costo_mano_obra": 8,
+      "costo_total": 10.05,
+      "precio_sugerido": 20,
+      "notas": "",
+      "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/produccion-1791577405570-qnp0wy.webp",
+      "items_receta": [
+        {
+          "id": "rec-1791577606944-0",
+          "producto_id": "prod-1791577608798",
+          "material_id": "mat-1",
+          "cantidad": 0.25,
+          "costo_calculado": 1.75,
           "material": {
             "id": "mat-1",
-            "nombre": "Hilo de Algodón",
+            "nombre": "Hilo de Algodón BLANCO",
             "categoria": "Hilos",
-            "presentacion": "Ovillo 100g",
+            "presentacion": "Ovillo por precio",
             "precio_compra": 7,
             "cantidad_total": 1,
-            "unidad_medida": "unidades",
+            "unidad_medida": "precio",
             "costo_unitario": 7,
             "stock_actual": 450,
             "created_at": "2026-10-09T06:16:12.638963+00:00"
           }
         },
         {
-          "id": "rec-2",
+          "id": "rec-1791577606944-1",
+          "producto_id": "prod-1791577608798",
+          "material_id": "mat-1791526889536",
+          "cantidad": 1,
+          "costo_calculado": 0.3,
+          "material": {
+            "id": "mat-1791526889536",
+            "nombre": "Llavero",
+            "categoria": "Accesorios",
+            "presentacion": "centena",
+            "precio_compra": 30,
+            "cantidad_total": 100,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.3,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:21:29.617558+00:00"
+          }
+        }
+      ],
+      "created_at": "2026-10-09T20:26:49.206733+00:00"
+    },
+    {
+      "id": "prod-1791577137003",
+      "producto_tienda_id": null,
+      "nombre": "Snoopy arbolito",
+      "categoria": "Llaveros",
+      "tiempo_produccion": 1,
+      "precio_venta_real": 15,
+      "margen_deseado": 50,
+      "costo_materiales": 1.5,
+      "costo_mano_obra": 5.13,
+      "costo_total": 6.63,
+      "precio_sugerido": 13,
+      "notas": "",
+      "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/produccion-1791576149062-10wok.webp",
+      "items_receta": [
+        {
+          "id": "rec-1791580892687-0",
+          "producto_id": "prod-1791577137003",
+          "material_id": "mat-1",
+          "cantidad": 0.1,
+          "costo_calculado": 0.7,
+          "material": {
+            "id": "mat-1",
+            "nombre": "Hilo de Algodón BLANCO",
+            "categoria": "Hilos",
+            "presentacion": "Ovillo por precio",
+            "precio_compra": 7,
+            "cantidad_total": 1,
+            "unidad_medida": "precio",
+            "costo_unitario": 7,
+            "stock_actual": 450,
+            "created_at": "2026-10-09T06:16:12.638963+00:00"
+          }
+        },
+        {
+          "id": "rec-1791580892687-1",
+          "producto_id": "prod-1791577137003",
+          "material_id": "mat-1791526967741",
+          "cantidad": 1,
+          "costo_calculado": 0.5,
+          "material": {
+            "id": "mat-1791526967741",
+            "nombre": "Ojitos",
+            "categoria": "Accesorios",
+            "presentacion": "cada uno",
+            "precio_compra": 1,
+            "cantidad_total": 2,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.5,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:22:47.883551+00:00"
+          }
+        },
+        {
+          "id": "rec-1791580892687-2",
+          "producto_id": "prod-1791577137003",
+          "material_id": "mat-1791526889536",
+          "cantidad": 1,
+          "costo_calculado": 0.3,
+          "material": {
+            "id": "mat-1791526889536",
+            "nombre": "Llavero",
+            "categoria": "Accesorios",
+            "presentacion": "centena",
+            "precio_compra": 30,
+            "cantidad_total": 100,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.3,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:21:29.617558+00:00"
+          }
+        }
+      ],
+      "created_at": "2026-10-09T20:18:57.386413+00:00"
+    },
+    {
+      "id": "prod-oso-amigurumi",
+      "producto_tienda_id": null,
+      "nombre": "Oso con chalona UNIDAD",
+      "categoria": "Llaveros",
+      "tiempo_produccion": 1.5,
+      "precio_venta_real": 15,
+      "margen_deseado": 40,
+      "costo_materiales": 1.7,
+      "costo_mano_obra": 12,
+      "costo_total": 13.7,
+      "precio_sugerido": 23,
+      "notas": "Algodón 100g, relleno siliconado y ojitos de seguridad",
+      "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/produccion-1791538175027-e6givf.webp",
+      "items_receta": [
+        {
+          "id": "rec-1791538238306-0",
           "producto_id": "prod-oso-amigurumi",
+          "material_id": "mat-1",
+          "cantidad": 0.2,
+          "costo_calculado": 1.4,
+          "material": {
+            "id": "mat-1",
+            "nombre": "Hilo de Algodón BLANCO",
+            "categoria": "Hilos",
+            "presentacion": "Ovillo por precio",
+            "precio_compra": 7,
+            "cantidad_total": 1,
+            "unidad_medida": "precio",
+            "costo_unitario": 7,
+            "stock_actual": 450,
+            "created_at": "2026-10-09T06:16:12.638963+00:00"
+          }
+        },
+        {
+          "id": "rec-1791538238306-1",
+          "producto_id": "prod-oso-amigurumi",
+          "material_id": "mat-1791526889536",
+          "cantidad": 1,
+          "costo_calculado": 0.3,
+          "material": {
+            "id": "mat-1791526889536",
+            "nombre": "Llavero",
+            "categoria": "Accesorios",
+            "presentacion": "centena",
+            "precio_compra": 30,
+            "cantidad_total": 100,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.3,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:21:29.617558+00:00"
+          }
+        }
+      ],
+      "created_at": "2026-10-09T09:30:40.51544+00:00"
+    },
+    {
+      "id": "prod-1791538167107",
+      "producto_tienda_id": null,
+      "nombre": "Snoopy Besucón PAR",
+      "categoria": "Llaveros",
+      "tiempo_produccion": 1.5,
+      "precio_venta_real": 32,
+      "margen_deseado": 50,
+      "costo_materiales": 4.9,
+      "costo_mano_obra": 7.7,
+      "costo_total": 12.6,
+      "precio_sugerido": 25,
+      "notas": "",
+      "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/produccion-1791538161705-tbdjpe.webp",
+      "items_receta": [
+        {
+          "id": "rec-1791581002533-0",
+          "producto_id": "prod-1791538167107",
           "material_id": "mat-1791526967741",
           "cantidad": 2,
+          "modo_uso": "unidades",
           "costo_calculado": 1,
           "material": {
             "id": "mat-1791526967741",
@@ -120,9 +338,89 @@
             "stock_actual": 0,
             "created_at": "2026-10-09T06:22:47.883551+00:00"
           }
+        },
+        {
+          "id": "rec-1791581002533-1",
+          "producto_id": "prod-1791538167107",
+          "material_id": "mat-1791526889536",
+          "cantidad": 2,
+          "modo_uso": "unidades",
+          "costo_calculado": 0.6,
+          "material": {
+            "id": "mat-1791526889536",
+            "nombre": "Llavero",
+            "categoria": "Accesorios",
+            "presentacion": "centena",
+            "precio_compra": 30,
+            "cantidad_total": 100,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.3,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:21:29.617558+00:00"
+          }
+        },
+        {
+          "id": "rec-1791581002533-2",
+          "producto_id": "prod-1791538167107",
+          "material_id": "mat-1",
+          "cantidad": 0.2,
+          "modo_uso": "precio",
+          "costo_calculado": 1.4,
+          "material": {
+            "id": "mat-1",
+            "nombre": "Hilo de Algodón BLANCO",
+            "categoria": "Hilos",
+            "presentacion": "Ovillo por precio",
+            "precio_compra": 7,
+            "cantidad_total": 1,
+            "unidad_medida": "precio",
+            "costo_unitario": 7,
+            "stock_actual": 450,
+            "created_at": "2026-10-09T06:16:12.638963+00:00"
+          }
+        },
+        {
+          "id": "rec-1791581002533-3",
+          "producto_id": "prod-1791538167107",
+          "material_id": "mat-1791527053977",
+          "cantidad": 2,
+          "modo_uso": "unidades",
+          "costo_calculado": 1,
+          "material": {
+            "id": "mat-1791527053977",
+            "nombre": "Imanes",
+            "categoria": "Accesorios",
+            "presentacion": "par",
+            "precio_compra": 1,
+            "cantidad_total": 2,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.5,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:24:14.087474+00:00"
+          }
+        },
+        {
+          "id": "rec-1791581002533-4",
+          "producto_id": "prod-1791538167107",
+          "material_id": "mat-1791580877716",
+          "cantidad": 0.1286,
+          "modo_uso": "precio",
+          "costo_calculado": 0.9,
+          "material": {
+            "id": "mat-1791580877716",
+            "nombre": "Hilo de Algodón NEGRO",
+            "categoria": "Hilos",
+            "presentacion": "Ovillo por precio",
+            "precio_compra": 7,
+            "cantidad_total": 1,
+            "unidad_medida": "precio",
+            "costo_unitario": 7,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T21:21:17.86244+00:00"
+          }
         }
       ],
-      "created_at": "2026-10-09T06:00:00.000Z"
+      "created_at": "2026-10-09T21:23:24.056Z"
     }
   ],
   "campanas": [
@@ -131,7 +429,7 @@
       "nombre": "Feria Campaña Diciembre (PISCO)",
       "descripcion": "Plazuela Belén",
       "fecha_inicio": "2026-12-15",
-      "fecha_fin": "2026-10-19",
+      "fecha_fin": "2026-12-19",
       "activa": true,
       "items": [],
       "gastos": [],

@@ -27,7 +27,7 @@ interface MaterialesBOMTabProps {
   onEliminarMaterial: (id: string) => Promise<boolean>;
 }
 
-const CATEGORIAS: CategoriaMaterial[] = [
+const CATEGORIAS_BASE: string[] = [
   "Hilos",
   "Relleno",
   "Fornituras",
@@ -37,13 +37,14 @@ const CATEGORIAS: CategoriaMaterial[] = [
   "Otros",
 ];
 
-const UNIDADES: UnidadMedida[] = [
-  "unidades",
-  "gramos",
-  "pares",
-  "metros",
-  "pliegos",
-  "conos",
+const UNIDADES: { valor: UnidadMedida; label: string }[] = [
+  { valor: "unidades", label: "unidades" },
+  { valor: "precio", label: "precio / soles (S/)" },
+  { valor: "gramos", label: "gramos" },
+  { valor: "metros", label: "metros" },
+  { valor: "pares", label: "pares" },
+  { valor: "pliegos", label: "pliegos" },
+  { valor: "conos", label: "conos" },
 ];
 
 export default function MaterialesBOMTab({
@@ -56,9 +57,23 @@ export default function MaterialesBOMTab({
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<MaterialItem | null>(null);
 
+  // Categorías dinámicas y creación de nuevas categorías
+  const [categoriasCustom, setCategoriasCustom] = useState<string[]>([]);
+  const [modoNuevaCategoria, setModoNuevaCategoria] = useState(false);
+  const [nuevaCategoriaInput, setNuevaCategoriaInput] = useState("");
+
+  const todasCategorias = useMemo(() => {
+    const set = new Set<string>([
+      ...CATEGORIAS_BASE,
+      ...categoriasCustom,
+      ...materiales.map((m) => m.categoria).filter(Boolean),
+    ]);
+    return Array.from(set);
+  }, [categoriasCustom, materiales]);
+
   // Form state
   const [formNombre, setFormNombre] = useState("");
-  const [formCategoria, setFormCategoria] = useState<CategoriaMaterial>("Fornituras");
+  const [formCategoria, setFormCategoria] = useState<string>("Fornituras");
   const [formPresentacion, setFormPresentacion] = useState("");
   const [formPrecioCompra, setFormPrecioCompra] = useState<string>("");
   const [formCantidadTotal, setFormCantidadTotal] = useState<string>("100");
@@ -68,7 +83,9 @@ export default function MaterialesBOMTab({
   const abrirModalNuevo = () => {
     setEditando(null);
     setFormNombre("");
-    setFormCategoria("Fornituras");
+    setFormCategoria(todasCategorias[0] || "Fornituras");
+    setModoNuevaCategoria(false);
+    setNuevaCategoriaInput("");
     setFormPresentacion("");
     setFormPrecioCompra("");
     setFormCantidadTotal("100");
@@ -80,6 +97,8 @@ export default function MaterialesBOMTab({
     setEditando(mat);
     setFormNombre(mat.nombre);
     setFormCategoria(mat.categoria);
+    setModoNuevaCategoria(false);
+    setNuevaCategoriaInput("");
     setFormPresentacion(mat.presentacion || "");
     setFormPrecioCompra(String(mat.precio_compra));
     setFormCantidadTotal(String(mat.cantidad_total));
@@ -90,22 +109,33 @@ export default function MaterialesBOMTab({
   const costoUnitarioCalculado = useMemo(() => {
     const precio = parseFloat(formPrecioCompra) || 0;
     const cant = parseFloat(formCantidadTotal) || 0;
+    if (formUnidadMedida === "precio" || formUnidadMedida === "soles") {
+      return 1;
+    }
     if (cant <= 0) return 0;
     return precio / cant;
-  }, [formPrecioCompra, formCantidadTotal]);
+  }, [formPrecioCompra, formCantidadTotal, formUnidadMedida]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNombre.trim()) return;
 
+    const categoriaFinal = (modoNuevaCategoria ? nuevaCategoriaInput.trim() : formCategoria.trim()) || "Otros";
+    if (modoNuevaCategoria && nuevaCategoriaInput.trim()) {
+      setCategoriasCustom((prev) => Array.from(new Set([...prev, nuevaCategoriaInput.trim()])));
+    }
+
     setGuardando(true);
     const pCompra = parseFloat(formPrecioCompra) || 0;
-    const cTotal = parseFloat(formCantidadTotal) || 1;
+    const esPorPrecio = formUnidadMedida === "precio" || formUnidadMedida === "soles";
+    const cTotal = esPorPrecio
+      ? (parseFloat(formCantidadTotal) || pCompra || 1)
+      : (parseFloat(formCantidadTotal) || 1);
 
     const data: Partial<MaterialItem> = {
       id: editando ? editando.id : undefined,
       nombre: formNombre.trim(),
-      categoria: formCategoria,
+      categoria: categoriaFinal,
       presentacion: formPresentacion.trim() || undefined,
       precio_compra: pCompra,
       cantidad_total: cTotal,
@@ -190,7 +220,7 @@ export default function MaterialesBOMTab({
           >
             Todas ({materiales.length})
           </button>
-          {CATEGORIAS.map((cat) => {
+          {todasCategorias.map((cat) => {
             const count = materiales.filter((m) => m.categoria === cat).length;
             if (count === 0) return null;
             return (
@@ -263,17 +293,21 @@ export default function MaterialesBOMTab({
                   <div>
                     <div className="text-[10px] text-gray-400 uppercase font-semibold">Paquete</div>
                     <div className="font-semibold text-gray-700 mt-0.5 truncate text-[11px]">
-                      {m.presentacion || `${m.cantidad_total} ${m.unidad_medida}`}
+                      {m.presentacion || (m.unidad_medida === "precio" || m.unidad_medida === "soles" ? `S/ ${m.precio_compra.toFixed(2)} (en soles)` : `${m.cantidad_total} ${m.unidad_medida}`)}
                     </div>
                   </div>
 
                   <div className="text-right">
                     <div className="text-[10px] text-[#C04267] uppercase font-bold">Costo Unit.</div>
                     <div className="font-bold text-[#C04267] mt-0.5">
-                      S/ {m.costo_unitario < 0.01 ? m.costo_unitario.toFixed(4) : m.costo_unitario.toFixed(2)}
+                      {m.unidad_medida === "precio" || m.unidad_medida === "soles"
+                        ? "Por precio"
+                        : `S/ ${m.costo_unitario < 0.01 ? m.costo_unitario.toFixed(4) : m.costo_unitario.toFixed(2)}`}
                     </div>
                     <div className="text-[9px] text-gray-400">
-                      /{m.unidad_medida === "unidades" ? "u" : m.unidad_medida === "pares" ? "par" : "u"}
+                      {m.unidad_medida === "precio" || m.unidad_medida === "soles"
+                        ? "(Soles S/)"
+                        : `/${m.unidad_medida === "unidades" ? "u" : m.unidad_medida === "pares" ? "par" : "u"}`}
                     </div>
                   </div>
                 </div>
@@ -318,15 +352,19 @@ export default function MaterialesBOMTab({
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="font-bold text-[#C04267]">
-                        S/ {m.costo_unitario < 0.01 ? m.costo_unitario.toFixed(4) : m.costo_unitario.toFixed(2)}
+                        {m.unidad_medida === "precio" || m.unidad_medida === "soles"
+                          ? "S/ 1.00"
+                          : `S/ ${m.costo_unitario < 0.01 ? m.costo_unitario.toFixed(4) : m.costo_unitario.toFixed(2)}`}
                       </div>
                       <div className="text-[10px] text-gray-400">
-                        por 1 {m.unidad_medida === "unidades" ? "unidad" : m.unidad_medida === "pares" ? "par" : m.unidad_medida.slice(0, -1)}
+                        {m.unidad_medida === "precio" || m.unidad_medida === "soles"
+                          ? "por 1 sol (gasto directo S/)"
+                          : `por 1 ${m.unidad_medida === "unidades" ? "unidad" : m.unidad_medida === "pares" ? "par" : m.unidad_medida.slice(0, -1)}`}
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <span className="font-semibold text-gray-700 bg-pink-50/60 text-[#C04267] px-2.5 py-1 rounded-full border border-pink-100 text-xs">
-                        {m.presentacion || `${m.cantidad_total} ${m.unidad_medida}`}
+                        {m.presentacion || (m.unidad_medida === "precio" || m.unidad_medida === "soles" ? `S/ ${m.precio_compra.toFixed(2)} (en soles)` : `${m.cantidad_total} ${m.unidad_medida}`)}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -394,20 +432,58 @@ export default function MaterialesBOMTab({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Categoría
-                </label>
-                <select
-                  value={formCategoria}
-                  onChange={(e) => setFormCategoria(e.target.value as CategoriaMaterial)}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-gray-200 text-sm focus:border-[#EE6B8D] focus:outline-none"
-                >
-                  {CATEGORIAS.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-700">
+                    Categoría *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoNuevaCategoria(!modoNuevaCategoria);
+                      if (!modoNuevaCategoria) setNuevaCategoriaInput("");
+                    }}
+                    className="text-[11px] font-bold text-[#C04267] hover:underline cursor-pointer"
+                  >
+                    {modoNuevaCategoria ? "Elegir existente" : "+ Crear nueva"}
+                  </button>
+                </div>
+
+                {modoNuevaCategoria ? (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      required
+                      value={nuevaCategoriaInput}
+                      onChange={(e) => setNuevaCategoriaInput(e.target.value)}
+                      placeholder="Escribe la nueva categoría (ej. Cintas, Ojos, Bordados)..."
+                      className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#EE6B8D] text-xs sm:text-sm focus:border-[#C04267] focus:outline-none bg-white font-semibold text-[#C04267]"
+                      autoFocus
+                    />
+                    <p className="text-[10px] text-gray-500">
+                      Esta categoría se guardará y quedará disponible para tus próximos materiales.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    value={formCategoria}
+                    onChange={(e) => {
+                      if (e.target.value === "__nueva__") {
+                        setModoNuevaCategoria(true);
+                        setNuevaCategoriaInput("");
+                      } else {
+                        setFormCategoria(e.target.value);
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 rounded-2xl border border-gray-200 text-sm focus:border-[#EE6B8D] focus:outline-none"
+                  >
+                    {todasCategorias.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="__nueva__">+ Crear nueva categoría...</option>
+                  </select>
+                )}
               </div>
 
               {/* Caja de cálculo del costo unitario */}
@@ -458,8 +534,8 @@ export default function MaterialesBOMTab({
                       className="w-full px-3.5 py-2 rounded-xl border border-pink-200 bg-white text-sm focus:border-[#EE6B8D] focus:outline-none"
                     >
                       {UNIDADES.map((u) => (
-                        <option key={u} value={u}>
-                          {u}
+                        <option key={u.valor} value={u.valor}>
+                          {u.label}
                         </option>
                       ))}
                     </select>
@@ -483,16 +559,22 @@ export default function MaterialesBOMTab({
                 <div className="pt-2 border-t border-pink-200/60 text-xs space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">
-                      Costo unitario por cada 1 {formUnidadMedida === "unidades" ? "unidad" : formUnidadMedida === "pares" ? "par" : formUnidadMedida.slice(0, -1)}:
+                      {formUnidadMedida === "precio" || formUnidadMedida === "soles"
+                        ? "Uso en recetas:"
+                        : `Costo unitario por cada 1 ${formUnidadMedida === "unidades" ? "unidad" : formUnidadMedida === "pares" ? "par" : formUnidadMedida.slice(0, -1)}:`}
                     </span>
                     <span className="font-bold text-[#C04267] text-base font-fredoka">
-                      S/ {costoUnitarioCalculado < 0.01 ? costoUnitarioCalculado.toFixed(4) : costoUnitarioCalculado.toFixed(2)}
+                      {formUnidadMedida === "precio" || formUnidadMedida === "soles"
+                        ? "Directo por dinero (S/)"
+                        : `S/ ${costoUnitarioCalculado < 0.01 ? costoUnitarioCalculado.toFixed(4) : costoUnitarioCalculado.toFixed(2)}`}
                     </span>
                   </div>
 
-                  {parseFloat(formPrecioCompra) > 0 && parseFloat(formCantidadTotal) > 0 && (
+                  {parseFloat(formPrecioCompra) > 0 && (
                     <div className="p-2 rounded-xl bg-pink-100/70 text-[#C04267] text-[11px] font-semibold">
-                      Compraste {formPresentacion || `${formCantidadTotal} ${formUnidadMedida}`} a S/ {parseFloat(formPrecioCompra).toFixed(2)} ➔ Cada unidad te cuesta S/ {costoUnitarioCalculado < 0.01 ? costoUnitarioCalculado.toFixed(4) : costoUnitarioCalculado.toFixed(2)}
+                      {formUnidadMedida === "precio" || formUnidadMedida === "soles"
+                        ? `Compraste a S/ ${parseFloat(formPrecioCompra).toFixed(2)}. En recetas podrás asignar porciones en dinero como S/ 1.00, S/ 0.20, S/ 0.50, etc.`
+                        : `Compraste ${formPresentacion || `${formCantidadTotal} ${formUnidadMedida}`} a S/ ${parseFloat(formPrecioCompra).toFixed(2)} ➔ Cada unidad te cuesta S/ ${costoUnitarioCalculado < 0.01 ? costoUnitarioCalculado.toFixed(4) : costoUnitarioCalculado.toFixed(2)}`}
                     </div>
                   )}
                 </div>
