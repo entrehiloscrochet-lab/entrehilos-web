@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { X, Search, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/lib/ventify";
@@ -13,18 +13,13 @@ interface SearchModalProps {
 
 export default function SearchModal({ isOpen, onClose, products, onProductClick }: SearchModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState<Product[]>([]);
 
-  useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setResults([]);
-      return;
-    }
-    const filtered = products.filter((p) =>
+  const results = useMemo(() => {
+    if (searchTerm.trim() === "") return [];
+    return products.filter((p) =>
       p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setResults(filtered);
   }, [searchTerm, products]);
 
   useEffect(() => {

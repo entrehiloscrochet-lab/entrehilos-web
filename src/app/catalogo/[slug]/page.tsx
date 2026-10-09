@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { getVentifyProducts } from "@/lib/ventify";
+import { getVentifyProducts, type Product } from "@/lib/ventify";
 import { notFound } from "next/navigation";
 import { loadExtras } from "@/lib/extras-cache";
 import { isProductInSlug } from "@/lib/catalogos";
@@ -49,10 +49,10 @@ const eventDescriptions: Record<string, string> = {
 };
 
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
-  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [currentSlug, setCurrentSlug] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('Ver Todo');
   const [isEvent, setIsEvent] = useState(false);
 
@@ -60,7 +60,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
     loadExtras(() => {});
   }, []);
 
-  const handleQuickView = (producto: any) => {
+  const handleQuickView = (producto: Product) => {
     setSelectedProduct(producto);
   };
 
@@ -92,7 +92,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
   const filterByCatalogSlug = (slug: string) => {
     const target = slug.toLowerCase();
-    const matches = allProducts.filter((p: any) => {
+    const matches = allProducts.filter((p) => {
       if (Array.isArray(p.catalogos) && p.catalogos.length > 0) {
         return p.catalogos.includes(target);
       }
@@ -100,7 +100,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       return isProductInSlug(p, target);
     });
     if (['san-valentin', 'dia-de-la-novia', 'ramos'].includes(target)) {
-      return matches.sort((a: any, b: any) => b.stock - a.stock);
+      return matches.sort((a, b) => b.stock - a.stock);
     }
     return matches;
   };

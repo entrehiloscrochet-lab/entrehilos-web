@@ -201,7 +201,7 @@ export function isProductInSlug(
  */
 export function getSlugBadgeInfo(
   slug: string,
-  allEventos: any[] = []
+  allEventos: Array<{ slug?: string; nombre?: string; label?: string }> = []
 ): { label: string; colorClass: string; isEvent: boolean } {
   const normalized = slug.toLowerCase().trim();
 

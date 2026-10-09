@@ -8,7 +8,7 @@ import {
   UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Sparkles, Camera,
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
   FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil, Menu,
-  PanelLeft, PanelLeftClose,
+  PanelLeft, PanelLeftClose, Calculator, Boxes, type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -23,13 +23,122 @@ import {
 import ProductFormModal from "@/components/admin/ProductFormModal";
 import AgendarPedidoModal from "@/components/admin/AgendarPedidoModal";
 import PedidosView from "@/components/admin/PedidosView";
+import ProduccionMainView from "@/components/admin/produccion/ProduccionMainView";
+import AdminInstallAppModal from "@/components/admin/AdminInstallAppModal";
+import type { Product } from "@/lib/ventify";
 
-type MainTab = "dashboard" | "pedidos" | "catalogo" | "diseno" | "eventos" | "atencion" | "clientes";
+type CampanaFoto = { url: string; titulo?: string; etiqueta?: string };
 
-type SubTab = "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores" | "catalogos";
+type CatalogImage = {
+  id: string;
+  title: string;
+  price: number | null;
+  image: string;
+  categoria: string;
+};
 
-const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; desc: string }[]> = {
+interface SectionItem {
+  pregunta?: string;
+  respuesta?: string;
+  titulo?: string;
+  descripcion?: string;
+  imagen?: string | null;
+  sku?: string;
+  [key: string]: unknown;
+}
+
+interface SectionItems {
+  badge?: string | null;
+  titulo_linea1?: string | null;
+  titulo_linea2?: string | null;
+  boton_primario?: string | null;
+  boton_primario_logged?: string | null;
+  boton_secundario?: string | null;
+  estadistica?: string | null;
+  etiqueta_precio?: string | null;
+  valor_precio?: string | null;
+  [key: string]: unknown;
+}
+
+interface AdminProduct extends Product {
+  title?: string | null;
+  image?: string | null;
+  price?: number | null;
+}
+
+interface EventoRotondaConfig {
+  evento_slug?: string;
+  limite?: number;
+  [key: string]: unknown;
+}
+
+interface PrecioRow {
+  sku?: string;
+  precio_pequeno?: number | null;
+  precio_mediano?: number | null;
+  precio_grande?: number | null;
+}
+
+interface AdminRow {
+  id: number | string;
+  clave?: string;
+  imagen_url?: string | null;
+  imagen_url_mobile?: string | null;
+  titulo?: string | null;
+  subtitulo?: string | null;
+  descripcion?: string | null;
+  badge?: string | null;
+  precio?: number | null;
+  producto_sku?: string | null;
+  tipo?: string | null;
+  link_url?: string | null;
+  link_text?: string | null;
+  sku?: string;
+  precio_pequeno?: number | null;
+  precio_mediano?: number | null;
+  precio_grande?: number | null;
+  section_key?: string | null;
+  activo?: boolean | null;
+  items?: SectionItems | null;
+  nombre?: string;
+  slug?: string;
+  label?: string;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  mostrar_en_hero?: boolean | null;
+  featured?: boolean | null;
+  catalogo_url?: string | null;
+  destacado_rotonda?: boolean | null;
+  fotos_campana?: (CampanaFoto | string)[] | null;
+  leido?: boolean | null;
+  aprobado?: boolean | null;
+  estado?: string | null;
+  cliente_nombre?: string | null;
+  cliente_telefono?: string | null;
+  total?: number | null;
+  created_at?: string | null;
+  producto_nombre?: string | null;
+  nombre_cliente?: string | null;
+  calificacion?: number | null;
+  comentario?: string | null;
+  es_manual?: boolean | null;
+  [key: string]: unknown;
+}
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+type MainTab = "dashboard" | "pedidos" | "catalogo" | "diseno" | "eventos" | "atencion" | "clientes" | "produccion";
+
+type SubTab = "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores" | "catalogos" | "produccion_panel";
+
+const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: LucideIcon; desc: string }[]> = {
   dashboard: [],
+  produccion: [
+    { id: "produccion_panel", label: "Gestión de Producción y Costos", icon: Calculator, desc: "BOM, escandallo, recetas, campañas y punto de equilibrio" },
+  ],
   pedidos: [
     { id: "pedidos", label: "Pedidos de Tienda", icon: ShoppingBag, desc: "Pedidos recibidos desde el carrito" },
     { id: "personalizados", label: "Pedidos Personalizados", icon: Mail, desc: "Solicitudes de cotización a medida" },
@@ -58,8 +167,9 @@ const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: any; d
   ],
 };
 
-const menuGroups: { id: MainTab; label: string; icon: any; desc: string; defaultSubTab: SubTab }[] = [
+const menuGroups: { id: MainTab; label: string; icon: LucideIcon; desc: string; defaultSubTab: SubTab }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, desc: "Vista general y accesos rápidos", defaultSubTab: "pedidos" },
+  { id: "produccion", label: "Producción y Costos", icon: Calculator, desc: "Costeo unitario, BOM, ferias y break-even", defaultSubTab: "produccion_panel" },
   { id: "pedidos", label: "Pedidos", icon: ShoppingBag, desc: "Pedidos de tienda y personalizados", defaultSubTab: "pedidos" },
   { id: "catalogo", label: "Catálogo", icon: Package, desc: "Productos activos y precios por tamaño", defaultSubTab: "productos" },
   { id: "diseno", label: "Banners y Diseño", icon: ImageIcon, desc: "Banners hero y secciones de inicio", defaultSubTab: "heroes" },
@@ -96,9 +206,9 @@ function formatDate(v: string | null | undefined) {
   });
 }
 
-function formatValue(key: string, value: any) {
+function formatValue(key: string, value: unknown) {
   if (value === null || value === undefined) return "-";
-  if (key === "created_at" || key === "updated_at") return formatDate(value);
+  if (key === "created_at" || key === "updated_at") return formatDate(value as string | null | undefined);
   if (key === "leido") return value ? "Sí" : "No";
   if (key === "activo") return value ? "Activo" : "Inactivo";
   if (typeof value === "object") {
@@ -108,7 +218,7 @@ function formatValue(key: string, value: any) {
   return String(value);
 }
 
-function getColumns(data: any[]): string[] {
+function getColumns(data: AdminRow[]): string[] {
   if (data.length === 0) return [];
   return Object.keys(data[0]).filter((k) => k !== "id");
 }
@@ -133,11 +243,11 @@ const EVENTO_FILTERS: { key: string; label: string }[] = [
   { key: "evento-personalizados", label: "Personalizados" },
 ];
 
-function filterByEventSlug(products: any[], slug: string, assignments: ProductoCatalogoAssignment[] = []): any[] {
+function filterByEventSlug(products: AdminProduct[], slug: string, assignments: ProductoCatalogoAssignment[] = []): AdminProduct[] {
   return products.filter((p) => isProductInSlug(p, slug, assignments));
 }
 
-async function fetchVentifyData(): Promise<{ all: any[]; active: any[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> {
+async function fetchVentifyData(): Promise<{ all: AdminProduct[]; active: AdminProduct[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> {
   try {
     const res = await fetch("/api/ventify/products", { cache: "no-store" });
     if (!res.ok) return { all: [], active: [], inactiveIds: [], assignments: [] };
@@ -147,7 +257,7 @@ async function fetchVentifyData(): Promise<{ all: any[]; active: any[]; inactive
   }
 }
 
-function filterProductos(products: any[], filter: string, assignments: ProductoCatalogoAssignment[] = []): any[] {
+function filterProductos(products: AdminProduct[], filter: string, assignments: ProductoCatalogoAssignment[] = []): AdminProduct[] {
   if (filter.startsWith("evento-")) {
     const slug = filter.replace("evento-", "");
     return filterByEventSlug(products, slug, assignments);
@@ -172,9 +282,87 @@ function filterProductos(products: any[], filter: string, assignments: ProductoC
 export default function AdminPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
-  const [mainTab, setMainTab] = useState<MainTab>("dashboard");
-  const [subTab, setSubTab] = useState<SubTab>("pedidos");
-  const [data, setData] = useState<any[]>([]);
+
+  // Inicializar leyendo URL (seccion o tab) y localStorage
+  const [mainTab, setMainTab] = useState<MainTab>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabQ = urlParams.get("seccion") || urlParams.get("tab");
+      const validTabs: MainTab[] = ["dashboard", "produccion", "pedidos", "catalogo", "diseno", "eventos", "atencion", "clientes"];
+      if (tabQ && validTabs.includes(tabQ as MainTab)) return tabQ as MainTab;
+      try {
+        const saved = localStorage.getItem("admin_active_seccion");
+        if (saved && validTabs.includes(saved as MainTab)) return saved as MainTab;
+      } catch {}
+    }
+    return "dashboard";
+  });
+
+  const [subTab, setSubTab] = useState<SubTab>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const subQ = urlParams.get("sub") || urlParams.get("subtab");
+      if (subQ) return subQ as SubTab;
+      try {
+        const saved = localStorage.getItem("admin_active_subtab");
+        if (saved) return saved as SubTab;
+      } catch {}
+    }
+    return "pedidos";
+  });
+
+  // Estados para Instalación de App PWA (solo visible para admin)
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  // Función para cambiar de sección con sincronización en URL y localStorage
+  const cambiarSeccion = useCallback((newMain: MainTab, newSub?: SubTab) => {
+    setMainTab(newMain);
+    const group = menuGroups.find((g) => g.id === newMain);
+    const targetSub = newSub || group?.defaultSubTab || ("pedidos" as SubTab);
+    setSubTab(targetSub);
+    setSidebarOpen(false);
+
+    try {
+      localStorage.setItem("admin_active_seccion", newMain);
+      if (targetSub) localStorage.setItem("admin_active_subtab", targetSub);
+
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        params.set("seccion", newMain);
+        if (newMain === "produccion") {
+          // Mantener o recuperar subtab de produccion
+          const prodSub = localStorage.getItem("admin_produccion_subtab") || "resumen";
+          params.set("sub", prodSub);
+        } else if (targetSub && targetSub !== group?.defaultSubTab) {
+          params.set("sub", targetSub);
+        } else {
+          params.delete("sub");
+        }
+        window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Función para cambiar subpestaña horizontal con sincronización
+  const cambiarSubTab = useCallback((newSub: SubTab) => {
+    setSubTab(newSub);
+    try {
+      localStorage.setItem("admin_active_subtab", newSub);
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        params.set("seccion", mainTab);
+        params.set("sub", newSub);
+        window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      }
+    } catch {
+      // ignore
+    }
+  }, [mainTab]);
+  const [data, setData] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -193,28 +381,28 @@ export default function AdminPage() {
   const [editProductoSku, setEditProductoSku] = useState("");
   const [editTipo, setEditTipo] = useState("flyer");
   const [editLinkUrl, setEditLinkUrl] = useState("");
-  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [pickingProductFor, setPickingProductFor] = useState<number | null>(null);
-  const [rawProducts, setRawProducts] = useState<any[]>([]);
+  const [rawProducts, setRawProducts] = useState<AdminProduct[]>([]);
   const [inactiveIds, setInactiveIds] = useState<Set<string>>(new Set());
   const [productosSearch, setProductosSearch] = useState("");
   const [productosFilter, setProductosFilter] = useState("ver-todo");
-  const [eventos, setEventos] = useState<any[]>([]);
+  const [eventos, setEventos] = useState<AdminRow[]>([]);
   const [assignments, setAssignments] = useState<ProductoCatalogoAssignment[]>([]);
   const [productModalOpen, setProductModalOpen] = useState(false);
-  const [editingProductItem, setEditingProductItem] = useState<any | null>(null);
+  const [editingProductItem, setEditingProductItem] = useState<AdminProduct | null>(null);
   const [agendarModalOpen, setAgendarModalOpen] = useState(false);
-  const [editingProductoCatalogos, setEditingProductoCatalogos] = useState<any | null>(null);
+  const [editingProductoCatalogos, setEditingProductoCatalogos] = useState<AdminProduct | null>(null);
   const [selectedSlugsForProducto, setSelectedSlugsForProducto] = useState<string[]>([]);
   const [savingCatalogos, setSavingCatalogos] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkTargetSlug, setBulkTargetSlug] = useState("ramos");
   const [bulkSaving, setBulkSaving] = useState(false);
-  const [amiguProducts, setAmiguProducts] = useState<any[]>([]);
-  const [preciosRows, setPreciosRows] = useState<Record<string, any>>({});
+  const [amiguProducts, setAmiguProducts] = useState<AdminProduct[]>([]);
+  const [preciosRows, setPreciosRows] = useState<Record<string, PrecioRow>>({});
   const [preciosDraft, setPreciosDraft] = useState<Record<string, { pequeno: string; mediano: string; grande: string }>>({});
   const [preciosSaving, setPreciosSaving] = useState<string | null>(null);
   const tempFileRef = useRef<HTMLInputElement | null>(null);
@@ -226,7 +414,7 @@ export default function AdminPage() {
   // Estados para Catálogo de Portada (Elegir productos y subir imágenes)
   const [portadaEventoSlug, setPortadaEventoSlug] = useState<string>("auto");
   const [portadaSelectedIds, setPortadaSelectedIds] = useState<Set<string>>(new Set());
-  const [portadaCustomImages, setPortadaCustomImages] = useState<any[]>([]);
+  const [portadaCustomImages, setPortadaCustomImages] = useState<CatalogImage[]>([]);
   const [portadaSaving, setPortadaSaving] = useState(false);
   const [portadaTab, setPortadaTab] = useState<"productos" | "imagenes">("productos");
   const [portadaProductSearch, setPortadaProductSearch] = useState("");
@@ -239,7 +427,7 @@ export default function AdminPage() {
   const [portadaActivo, setPortadaActivo] = useState(true);
   const [portadaSectionId, setPortadaSectionId] = useState<number | null>(null);
 
-  const [editingEvento, setEditingEvento] = useState<any | null>(null);
+  const [editingEvento, setEditingEvento] = useState<AdminRow | null>(null);
   const [editEventoNombre, setEditEventoNombre] = useState("");
   const [editEventoSlug, setEditEventoSlug] = useState("");
   const [editEventoDescripcion, setEditEventoDescripcion] = useState("");
@@ -257,7 +445,7 @@ export default function AdminPage() {
   const [isNewEvento, setIsNewEvento] = useState(false);
   const eventoImgMobileRef = useRef<HTMLInputElement | null>(null);
   const [eventoImgMobileUploading, setEventoImgMobileUploading] = useState(false);
-  const [editEventoFotosCampana, setEditEventoFotosCampana] = useState<any[]>([]);
+  const [editEventoFotosCampana, setEditEventoFotosCampana] = useState<(CampanaFoto | string)[]>([]);
   const [uploadingCampanaIdx, setUploadingCampanaIdx] = useState<number | null>(null);
   const [uploadingCollageEventoId, setUploadingCollageEventoId] = useState<string | number | null>(null);
   const [editEventoCatalogoUrl, setEditEventoCatalogoUrl] = useState("");
@@ -266,12 +454,12 @@ export default function AdminPage() {
 
   const [showResenaForm, setShowResenaForm] = useState(false);
   const [resenaSearch, setResenaSearch] = useState("");
-  const [resenaProducto, setResenaProducto] = useState<any | null>(null);
+  const [resenaProducto, setResenaProducto] = useState<AdminProduct | null>(null);
   const [resenaNombre, setResenaNombre] = useState("");
   const [resenaCalificacion, setResenaCalificacion] = useState(0);
   const [resenaComentario, setResenaComentario] = useState("");
 
-  const [editingSection, setEditingSection] = useState<any | null>(null);
+  const [editingSection, setEditingSection] = useState<AdminRow | null>(null);
   const [sectionTitulo, setSectionTitulo] = useState("");
   const [sectionSubtitulo, setSectionSubtitulo] = useState("");
   const [sectionDescripcion, setSectionDescripcion] = useState("");
@@ -291,7 +479,7 @@ export default function AdminPage() {
   const [persValorPrecio, setPersValorPrecio] = useState("");
 
   const selectedClave = editingHero?.clave ?? "";
-  const existingHero = data.find((h: any) => h.clave === selectedClave);
+  const existingHero = data.find((h) => h.clave === selectedClave);
   const isNewHero = !existingHero;
 
   function esUrlImagen(text: string): boolean {
@@ -398,7 +586,7 @@ export default function AdminPage() {
     finally { setUploadingCampanaIdx(null); }
   }
 
-  function updateFotoCampana(index: number, patch: Record<string, any>) {
+  function updateFotoCampana(index: number, patch: Partial<CampanaFoto>) {
     setEditEventoFotosCampana((prev) => {
       const arr = [...(prev || [])];
       while (arr.length <= index) arr.push({ url: "", titulo: "", etiqueta: "" });
@@ -445,7 +633,7 @@ export default function AdminPage() {
       const validFotos = results.filter(Boolean);
 
       if (validFotos.length > 0) {
-        const currentEvento = data.find((e: any) => e.id === eventoId);
+        const currentEvento = data.find((e) => e.id === eventoId);
         const existingFotos = Array.isArray(currentEvento?.fotos_campana) ? currentEvento.fotos_campana : [];
         const mergedFotos = [...existingFotos, ...validFotos];
 
@@ -562,7 +750,7 @@ export default function AdminPage() {
     }
   }
 
-  function openEditEvento(evento: any) {
+  function openEditEvento(evento: AdminRow) {
     setIsNewEvento(false);
     setEditEventoNombre(evento.nombre || "");
     setEditEventoSlug(evento.slug || "");
@@ -591,8 +779,8 @@ export default function AdminPage() {
     setEditEventoMesFin(mesF);
 
     const prec = getPrecedingEvents(evento.id, data);
-    const matched = prec.find((p: any) => {
-      const pf = new Date(p.fecha_fin);
+    const matched = prec.find((p) => {
+      const pf = new Date(p.fecha_fin as string);
       return String(pf.getDate()) === diaIni && String(pf.getMonth() + 1) === mesIni;
     });
 
@@ -613,7 +801,7 @@ export default function AdminPage() {
       }
     } else {
       setEditEventoModoInicio(prec.length > 0 && !diaIni ? "auto" : "manual");
-      setSelectedPrevEventoId(matched ? matched.id : null);
+      setSelectedPrevEventoId(null);
     }
 
     setEditEventoMostrarEnHero(evento.mostrar_en_hero !== false);
@@ -622,7 +810,7 @@ export default function AdminPage() {
     setEditEventoCatalogoUrl(evento.catalogo_url || "");
     setEditEventoDestacadoRotonda(evento.destacado_rotonda || false);
     const fotos = Array.isArray(evento.fotos_campana)
-      ? evento.fotos_campana.map((f: any) => typeof f === "string" ? { url: f } : f)
+      ? evento.fotos_campana.map((f) => typeof f === "string" ? { url: f } : f)
       : [];
     setEditEventoFotosCampana(fotos);
     setEditingEvento(evento);
@@ -653,13 +841,13 @@ export default function AdminPage() {
     });
   }
 
-  function getPrecedingEvents(currentId: any, eventsList: any[]) {
+  function getPrecedingEvents(currentId: number | string | null, eventsList: AdminRow[]) {
     const currentYear = new Date().getFullYear();
     return (eventsList || [])
-      .filter((e: any) => e.id !== currentId && e.fecha_fin)
-      .sort((a: any, b: any) => {
-        const aDate = new Date(a.fecha_fin);
-        const bDate = new Date(b.fecha_fin);
+      .filter((e) => e.id !== currentId && e.fecha_fin)
+      .sort((a, b) => {
+        const aDate = new Date(a.fecha_fin as string);
+        const bDate = new Date(b.fecha_fin as string);
         const aVal = new Date(currentYear, aDate.getMonth(), aDate.getDate(), 23, 59, 59).getTime();
         const bVal = new Date(currentYear, bDate.getMonth(), bDate.getDate(), 23, 59, 59).getTime();
         return aVal - bVal;
@@ -667,10 +855,10 @@ export default function AdminPage() {
   }
 
   function getClosestPrecedingEvent(
-    currentId: any,
+    currentId: number | string | null,
     targetMesFin: string | number | null,
     targetDiaFin: string | number | null,
-    eventsList: any[]
+    eventsList: AdminRow[]
   ) {
     const preceding = getPrecedingEvents(currentId, eventsList);
     if (preceding.length === 0) return null;
@@ -679,8 +867,8 @@ export default function AdminPage() {
 
     if (targetMesFin && targetDiaFin) {
       const thisFin = new Date(currentYear, Number(targetMesFin) - 1, Number(targetDiaFin), 23, 59, 59).getTime();
-      const beforeThis = preceding.filter((e: any) => {
-        const d = new Date(e.fecha_fin);
+      const beforeThis = preceding.filter((e) => {
+        const d = new Date(e.fecha_fin as string);
         const eFin = new Date(currentYear, d.getMonth(), d.getDate(), 23, 59, 59).getTime();
         return eFin <= thisFin;
       });
@@ -692,7 +880,7 @@ export default function AdminPage() {
     return preceding[preceding.length - 1];
   }
 
-  function getEventoStatus(evento: { activo?: boolean; fecha_inicio?: string | null; fecha_fin?: string | null }) {
+  function getEventoStatus(evento: Pick<AdminRow, "activo" | "fecha_inicio" | "fecha_fin">) {
     if (evento.activo === false) {
       return { status: "inactivo", label: "Inactivo", color: "bg-gray-100 text-gray-500 border-gray-200" };
     }
@@ -727,7 +915,7 @@ export default function AdminPage() {
       });
       if (res.ok) { fetchData(); setEditingHero(undefined); }
     } else {
-      const ok = await apiPatch({ action: "actualizar-hero", id: existingHero.id, ...heroData });
+      const ok = await apiPatch({ action: "actualizar-hero", id: existingHero!.id, ...heroData });
       if (ok) { fetchData(); setEditingHero(undefined); }
     }
   }
@@ -748,6 +936,7 @@ export default function AdminPage() {
     })();
   }, [router]);
 
+  // Sincronización de URL, popstate y restauración de estado
   useEffect(() => {
     try {
       const saved = localStorage.getItem("admin_sidebar_collapsed");
@@ -760,13 +949,117 @@ export default function AdminPage() {
       // ignore
     }
 
+    // Escuchar navegación del navegador (Atrás / Adelante)
+    const handlePopState = () => {
+      if (typeof window === "undefined") return;
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabQ = urlParams.get("seccion") || urlParams.get("tab");
+      const subQ = urlParams.get("sub") || urlParams.get("subtab");
+      const validTabs: MainTab[] = ["dashboard", "produccion", "pedidos", "catalogo", "diseno", "eventos", "atencion", "clientes"];
+      if (tabQ && validTabs.includes(tabQ as MainTab)) {
+        setMainTab(tabQ as MainTab);
+      }
+      if (subQ) {
+        setSubTab(subQ as SubTab);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
     handleResize();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
+
+  // Asegurar que la URL siempre tenga la sección activa actual (evita salir de la sección al recargar)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const currentSeccion = params.get("seccion") || params.get("tab");
+      if (!currentSeccion || currentSeccion !== mainTab) {
+        params.set("seccion", mainTab);
+        if (mainTab === "produccion") {
+          const prodSub = localStorage.getItem("admin_produccion_subtab") || "resumen";
+          params.set("sub", prodSub);
+        } else if (subTab && subTab !== "pedidos" && subTab !== "produccion_panel") {
+          params.set("sub", subTab);
+        }
+        window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      }
+    }
+  }, [mainTab, subTab]);
+
+  // Manejo de PWA (Manifest y Service Worker) exclusivo para administradores
+  useEffect(() => {
+    if (!authorized) return;
+
+    // Inyectar el manifest SOLO para administradores
+    let manifestLink = document.getElementById("admin-pwa-manifest") as HTMLLinkElement | null;
+    if (!manifestLink) {
+      manifestLink = document.createElement("link");
+      manifestLink.id = "admin-pwa-manifest";
+      manifestLink.rel = "manifest";
+      manifestLink.href = "/manifest-admin.json";
+      document.head.appendChild(manifestLink);
+    }
+
+    // Registrar service worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw-admin.js").catch(() => {});
+    }
+
+    // Detectar si ya está corriendo en modo standalone
+    if (typeof window !== "undefined") {
+      const isStandalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as Navigator & { standalone?: boolean }).standalone;
+      if (isStandalone) {
+        setIsAppInstalled(true);
+      }
+    }
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setInstallPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+      if (manifestLink && manifestLink.parentNode) {
+        manifestLink.parentNode.removeChild(manifestLink);
+      }
+    };
+  }, [authorized]);
+
+  const handlePromptInstall = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === "accepted") {
+        setIsAppInstalled(true);
+        setInstallModalOpen(false);
+      }
+      setInstallPrompt(null);
+    } else {
+      setInstallModalOpen(true);
+    }
+  };
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -781,7 +1074,7 @@ export default function AdminPage() {
   };
 
   const fetchData = useCallback(async () => {
-    if (mainTab === "dashboard") { setLoading(false); return; }
+    if (mainTab === "dashboard" || mainTab === "produccion") { setLoading(false); return; }
     setLoading(true);
     try {
       const res = await fetch(`/api/admin?tab=${subTab}`);
@@ -830,12 +1123,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (subTab !== "precios") return;
-    const map: Record<string, any> = {};
-    (Array.isArray(data) ? data : []).forEach((r: any) => { if (r.sku) map[r.sku] = r; });
+    const map: Record<string, PrecioRow> = {};
+    (Array.isArray(data) ? data : []).forEach((r) => { if (r.sku) map[r.sku] = r; });
     setPreciosRows(map);
     setPreciosDraft((prev) => {
       const next = { ...prev };
-      (Array.isArray(data) ? data : []).forEach((r: any) => {
+      (Array.isArray(data) ? data : []).forEach((r) => {
         if (!r.sku) return;
         const current = next[r.sku] || { pequeno: "", mediano: "", grande: "" };
         next[r.sku] = {
@@ -844,7 +1137,7 @@ export default function AdminPage() {
           grande: current.grande !== "" ? current.grande : (r.precio_grande != null ? String(r.precio_grande) : ""),
         };
       });
-      amiguProducts.forEach((p: any) => {
+      amiguProducts.forEach((p) => {
         if (!next[p.sku]) {
           next[p.sku] = {
             pequeno: "",
@@ -863,7 +1156,7 @@ export default function AdminPage() {
         .then((r) => r.json())
         .then((sections) => {
           if (Array.isArray(sections)) {
-            const sec = sections.find((s: any) => s.section_key === "evento_productos_rotonda");
+            const sec = sections.find((s) => s.section_key === "evento_productos_rotonda");
             if (sec) {
               setPortadaSectionId(sec.id);
               if (typeof sec.activo === "boolean") {
@@ -902,7 +1195,7 @@ export default function AdminPage() {
   }, [subTab, rawProducts.length]);
 
   const handleSavePortadaConfig = async (
-    customImgs?: any[],
+    customImgs?: CatalogImage[],
     selectedIds?: Set<string>,
     evSlug?: string,
     activoVal?: boolean
@@ -941,7 +1234,7 @@ export default function AdminPage() {
     await handleSavePortadaConfig(undefined, undefined, undefined, newVal);
   };
 
-  const handleSetMainEvent = async (eventoItem: any) => {
+  const handleSetMainEvent = async (eventoItem: AdminRow) => {
     try {
       await apiPatch({
         action: "actualizar-evento",
@@ -973,9 +1266,9 @@ export default function AdminPage() {
       if (pub?.publicUrl) {
         setNewCatalogImgUrl(pub.publicUrl);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      alert("Error al subir imagen: " + (err.message || "Error desconocido"));
+      alert("Error al subir imagen: " + ((err as Error).message || "Error desconocido"));
     } finally {
       setUploadingPortadaImg(false);
     }
@@ -1038,7 +1331,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (editingHero) {
-      const hero = data.find((h: any) => h.clave === editingHero.clave);
+      const hero = data.find((h) => h.clave === editingHero.clave);
       setEditUrl(hero?.imagen_url || "");
       setEditUrlMobile(hero?.imagen_url_mobile || "");
       setEditTitulo(hero?.titulo || editingHero.label);
@@ -1081,7 +1374,7 @@ export default function AdminPage() {
 
   async function handleSectionSave() {
     if (!editingSection) return;
-    const updateData: Record<string, any> = {
+                    const updateData: Record<string, unknown> = {
       titulo: sectionTitulo,
       subtitulo: sectionSubtitulo || null,
       descripcion: sectionDescripcion || null,
@@ -1119,7 +1412,7 @@ export default function AdminPage() {
     if (ok) { fetchData(); setEditingSection(null); }
   }
 
-  async function apiPatch(body: Record<string, any>) {
+  async function apiPatch(body: Record<string, unknown>) {
     const res = await fetch("/api/admin", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1128,32 +1421,32 @@ export default function AdminPage() {
     return res.ok;
   }
 
-  const handleMarcarLeido = async (id: number) => {
+  const handleMarcarLeido = async (id: number | string) => {
     const ok = await apiPatch({ action: "marcar-leido", id });
-    if (ok) setData((prev) => prev.map((item: any) => item.id === id ? { ...item, leido: true } : item));
+    if (ok) setData((prev) => prev.map((item) => item.id === id ? { ...item, leido: true } : item));
   };
 
   const handleCambiarEstado = async (id: number | string, estado: string) => {
     const ok = await apiPatch({ action: "cambiar-estado", id, estado });
-    if (ok) setData((prev) => prev.map((item: any) => item.id === id ? { ...item, estado } : item));
+    if (ok) setData((prev) => prev.map((item) => item.id === id ? { ...item, estado } : item));
   };
 
-  const handlePersonalizadoEstado = async (id: number, estado: string) => {
+  const handlePersonalizadoEstado = async (id: number | string, estado: string) => {
     const ok = await apiPatch({ action: "personalizado-estado", id, estado });
     if (ok) fetchData();
   };
 
-  const handleAprobarResena = async (id: number, aprobado: boolean) => {
+  const handleAprobarResena = async (id: number | string, aprobado: boolean) => {
     const ok = await apiPatch({ action: "aprobar-resena", id, aprobado });
-    if (ok) setData((prev) => prev.map((item: any) => item.id === id ? { ...item, aprobado } : item));
+    if (ok) setData((prev) => prev.map((item) => item.id === id ? { ...item, aprobado } : item));
   };
 
-  const handleEliminarResena = async (id: number) => {
+  const handleEliminarResena = async (id: number | string) => {
     const ok = await apiPatch({ action: "eliminar-resena", id });
-    if (ok) setData((prev) => prev.filter((item: any) => item.id !== id));
+    if (ok) setData((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleToggleProducto = async (producto: any, activo: boolean) => {
+  const handleToggleProducto = async (producto: AdminProduct, activo: boolean) => {
     const ok = await apiPatch({ action: "set-producto-activo", producto_id: producto.id, activo });
     if (ok) {
       setInactiveIds((prev) => {
@@ -1165,7 +1458,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleOpenAssignModal = (producto: any) => {
+  const handleOpenAssignModal = (producto: AdminProduct) => {
     setEditingProductoCatalogos(producto);
     const active = getProductActiveSlugs(producto, assignments);
     setSelectedSlugsForProducto(active);
@@ -1229,7 +1522,7 @@ export default function AdminPage() {
       });
 
       // Actualizar inmediatamente los catalogos de este producto en el estado local de productos
-      setRawProducts((prev: any[]) =>
+      setRawProducts((prev) =>
         prev.map((p) => {
           if (p.id === editingProductoCatalogos.id || (editingProductoCatalogos.sku && p.sku === editingProductoCatalogos.sku)) {
             return { ...p, catalogos: slugs_incluidos };
@@ -1237,7 +1530,7 @@ export default function AdminPage() {
           return p;
         })
       );
-      setAllProducts((prev: any[]) =>
+      setAllProducts((prev) =>
         prev.map((p) => {
           if (p.id === editingProductoCatalogos.id || (editingProductoCatalogos.sku && p.sku === editingProductoCatalogos.sku)) {
             return { ...p, catalogos: slugs_incluidos };
@@ -1247,8 +1540,8 @@ export default function AdminPage() {
       );
 
       setEditingProductoCatalogos(null);
-    } catch (err: any) {
-      alert("Error al guardar: " + err.message);
+    } catch (err) {
+      alert("Error al guardar: " + (err as Error).message);
     } finally {
       setSavingCatalogos(false);
     }
@@ -1263,7 +1556,7 @@ export default function AdminPage() {
     });
   };
 
-  const toggleSelectAllVisible = (visibleProducts: any[]) => {
+  const toggleSelectAllVisible = (visibleProducts: AdminProduct[]) => {
     setSelectedProductIds((prev) => {
       const allSelected = visibleProducts.length > 0 && visibleProducts.every((p) => prev.has(p.id));
       if (allSelected) {
@@ -1312,8 +1605,8 @@ export default function AdminPage() {
 
       setSelectedProductIds(new Set());
       setBulkModalOpen(false);
-    } catch (err: any) {
-      alert("Error: " + err.message);
+    } catch (err) {
+      alert("Error: " + (err as Error).message);
     } finally {
       setBulkSaving(false);
     }
@@ -1360,7 +1653,7 @@ export default function AdminPage() {
     router.push("/");
   }
 
-  function whatsappLink(row: any) {
+  function whatsappLink(row: AdminRow) {
     const text = encodeURIComponent(
       `*Pedido #${row.id}*\nCliente: ${row.cliente_nombre || "-"}\nTel: ${row.cliente_telefono || "-"}\nTotal: S/ ${row.total || "0"}\nEstado: ${row.estado || "pendiente"}`
     );
@@ -1454,12 +1747,8 @@ export default function AdminPage() {
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  setMainTab(item.id);
-                  setSubTab(item.defaultSubTab);
-                  setSidebarOpen(false);
-                }}
-                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all relative group ${
+                onClick={() => cambiarSeccion(item.id)}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all relative group cursor-pointer ${
                   active
                     ? "bg-[#FDF4F7] text-[#EE6B8D] border-2 border-[#EE6B8D]/40 shadow-xs font-bold ring-2 ring-pink-100/50"
                     : "text-gray-400 hover:text-gray-700 hover:bg-gray-100/80"
@@ -1478,12 +1767,8 @@ export default function AdminPage() {
           return (
             <button
               key={item.id}
-              onClick={() => {
-                setMainTab(item.id);
-                setSubTab(item.defaultSubTab);
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold transition-all text-left ${
+              onClick={() => cambiarSeccion(item.id)}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold transition-all text-left cursor-pointer ${
                 active
                   ? "bg-[#FDF4F7] text-[#EE6B8D] shadow-xs font-bold border border-[#FDE8EF]"
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
@@ -1499,6 +1784,19 @@ export default function AdminPage() {
       {/* Pie del sidebar */}
       {effectiveCollapsed ? (
         <div className="py-3 px-2 border-t border-[#FDE8EF] flex flex-col items-center gap-2">
+          {/* Botón de Descargar App Admin */}
+          <button
+            onClick={() => setInstallModalOpen(true)}
+            className="w-11 h-11 rounded-xl bg-pink-50 text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
+            title="Instalar App Admin (Lenovo / PC)"
+            aria-label="Instalar App Admin"
+          >
+            <Download size={19} strokeWidth={2.2} />
+            <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+              Instalar App Admin
+            </span>
+          </button>
+
           <Link
             href="/"
             className="w-11 h-11 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all relative group"
@@ -1512,7 +1810,7 @@ export default function AdminPage() {
           </Link>
           <button
             onClick={handleSignOut}
-            className="w-11 h-11 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 border border-red-200/60 flex items-center justify-center transition-all relative group"
+            className="w-11 h-11 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 border border-red-200/60 flex items-center justify-center transition-all relative group cursor-pointer"
             title="Cerrar sesión"
             aria-label="Cerrar sesión"
           >
@@ -1523,7 +1821,21 @@ export default function AdminPage() {
           </button>
         </div>
       ) : (
-        <div className="p-3 border-t border-[#FDE8EF] space-y-1">
+        <div className="p-3 border-t border-[#FDE8EF] space-y-1.5">
+          {/* Botón de Descargar App Admin */}
+          <button
+            onClick={() => setInstallModalOpen(true)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200 text-[#C04267] hover:border-[#EE6B8D] hover:shadow-xs transition-all text-left group cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-lg bg-white border border-pink-200/80 flex items-center justify-center text-[#EE6B8D] shrink-0 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all">
+              <Download size={15} strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-xs truncate leading-tight">Instalar App Admin</div>
+              <div className="text-[10px] text-gray-500 truncate">Lenovo Idea Tab / PC</div>
+            </div>
+          </button>
+
           <Link
             href="/"
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all"
@@ -1533,7 +1845,7 @@ export default function AdminPage() {
           </Link>
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-red-400 hover:bg-red-50 hover:text-red-500 transition-all"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-red-400 hover:bg-red-50 hover:text-red-500 transition-all cursor-pointer"
           >
             <LogOut size={18} strokeWidth={1.5} />
             <span>Cerrar sesión</span>
@@ -1605,11 +1917,8 @@ export default function AdminPage() {
                 return (
                   <button
                     key={group.id}
-                    onClick={() => {
-                      setMainTab(group.id);
-                      setSubTab(group.defaultSubTab);
-                    }}
-                    className="group bg-white rounded-2xl border border-[#FDE8EF] p-5 text-left hover:border-[#EE6B8D] hover:shadow-md transition-all flex flex-col justify-between"
+                    onClick={() => cambiarSeccion(group.id)}
+                    className="group bg-white rounded-2xl border border-[#FDE8EF] p-5 text-left hover:border-[#EE6B8D] hover:shadow-md transition-all flex flex-col justify-between cursor-pointer"
                   >
                     <div>
                       <div className="w-11 h-11 rounded-xl bg-[#FDF4F7] flex items-center justify-center text-[#EE6B8D] mb-3.5 group-hover:scale-110 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all shadow-xs">
@@ -1647,8 +1956,8 @@ export default function AdminPage() {
               return (
                 <button
                   key={st.id}
-                  onClick={() => setSubTab(st.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-quicksand text-xs sm:text-sm font-semibold transition-all ${
+                  onClick={() => cambiarSubTab(st.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-quicksand text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                     isSubActive
                       ? "bg-[#EE6B8D] text-white shadow-sm"
                       : "text-gray-600 hover:text-[#C04267] hover:bg-[#FDF4F7]"
@@ -1688,9 +1997,9 @@ export default function AdminPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {ALL_HERO_KEYS.map((hk) => {
-                const hero = data.find((h: any) => h.clave === hk.clave);
+                const hero = data.find((h) => h.clave === hk.clave);
                 const imgUrl = hero?.imagen_url;
-                const prodImg = hero?.producto_sku ? allProducts.find((p: any) => p.sku === hero.producto_sku)?.imagen : null;
+                const prodImg = hero?.producto_sku ? allProducts.find((p) => p.sku === hero.producto_sku)?.imagen : null;
                 const displayImg = imgUrl || prodImg;
                 return (
                   <button key={hk.clave}
@@ -1735,7 +2044,7 @@ export default function AdminPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.map((section: any) => (
+              {data.map((section) => (
                 <button key={section.id}
                   onClick={() => setEditingSection(section)}
                   className="group relative bg-white rounded-xl border-2 border-transparent hover:border-[#EE6B8D] transition-all p-5 text-left shadow-sm hover:shadow-md"
@@ -1808,7 +2117,7 @@ export default function AdminPage() {
                 setEditEventoCatalogoUrl("");
                 setEditEventoDestacadoRotonda(false);
                 setEditEventoFotosCampana([]);
-                setEditingEvento({ id: null, nombre: "", slug: "", descripcion: "", imagen_url: "", imagen_url_mobile: "" });
+                setEditingEvento({ id: null, nombre: "", slug: "", descripcion: "", imagen_url: "", imagen_url_mobile: "" } as unknown as AdminRow);
               }}
                 className="flex items-center gap-2 text-xs text-white bg-[#EE6B8D] hover:bg-[#C04267] px-4 py-2.5 rounded-lg font-quicksand font-semibold transition-colors shadow-sm self-start sm:self-auto"
               >
@@ -1818,7 +2127,7 @@ export default function AdminPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {data.map((evento: any) => {
+              {data.map((evento) => {
                 const statusInfo = getEventoStatus(evento);
                 const enHero = statusInfo.status === "activo" && evento.mostrar_en_hero !== false && (evento.imagen_url || evento.imagen_url_mobile);
 
@@ -1838,7 +2147,7 @@ export default function AdminPage() {
                       >
                         {evento.imagen_url || evento.imagen_url_mobile ? (
                           <img
-                            src={evento.imagen_url || evento.imagen_url_mobile}
+                            src={evento.imagen_url || evento.imagen_url_mobile || ""}
                             alt=""
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             onError={(e) => { (e.target as HTMLImageElement).src = "/logo.png"; }}
@@ -1945,7 +2254,7 @@ export default function AdminPage() {
 
                               {/* Miniaturas de todas las fotos con scroll horizontal si son muchas */}
                               <div className="flex items-center gap-1.5 mb-2 overflow-x-auto py-1 scrollbar-thin">
-                                {evento.fotos_campana.map((f: any, idx: number) => {
+                                {(evento.fotos_campana as (CampanaFoto | string)[]).map((f, idx: number) => {
                                   const src = typeof f === "string" ? f : f.url;
                                   return (
                                     <div key={idx} className="relative w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-pink-100 shadow-xs">
@@ -2316,11 +2625,11 @@ export default function AdminPage() {
                       </div>
                       <div className="max-h-60 overflow-y-auto divide-y divide-gray-100">
                         {allProducts
-                          .filter((p: any) =>
+                          .filter((p) =>
                             !productSearch || p.nombre?.toLowerCase().includes(productSearch.toLowerCase()) || p.sku?.toLowerCase().includes(productSearch.toLowerCase())
                           )
                           .slice(0, 50)
-                          .map((p: any) => (
+                          .map((p) => (
                             <button
                               key={p.id}
                               onClick={() => {
@@ -2662,13 +2971,13 @@ export default function AdminPage() {
                     <h4 className="font-quicksand text-sm font-bold text-gray-700">Preguntas y Respuestas</h4>
                   </div>
                   {(() => {
-                    const items = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
-                    return items.map((item: any, i: number) => (
+                    const items: SectionItem[] = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
+                    return items.map((item, i: number) => (
                       <div key={i} className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-quicksand text-xs font-bold text-gray-500">Pregunta {i + 1}</span>
                           <button onClick={() => {
-                            const updated = items.filter((_: any, idx: number) => idx !== i);
+                            const updated = items.filter((_, idx: number) => idx !== i);
                             setSectionItems(JSON.stringify(updated, null, 2));
                           }}
                             className="text-red-400 hover:text-red-600 transition-colors"
@@ -2697,7 +3006,7 @@ export default function AdminPage() {
                     ));
                   })()}
                   <button onClick={() => {
-                    const current = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
+                                const current: SectionItem[] = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
                     current.push({ pregunta: '', respuesta: '' });
                     setSectionItems(JSON.stringify(current, null, 2));
                   }}
@@ -2717,13 +3026,13 @@ export default function AdminPage() {
                     <h4 className="font-quicksand text-sm font-bold text-gray-700">Items del Showcase</h4>
                   </div>
                   {(() => {
-                    const items = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
-                    return items.map((item: any, i: number) => (
+                    const items: SectionItem[] = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
+                    return items.map((item, i: number) => (
                       <div key={i} className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-quicksand text-xs font-bold text-gray-500">Item {i + 1}{item.sku ? ` · ${item.sku}` : ''}</span>
                           <button onClick={() => {
-                            const updated = items.filter((_: any, idx: number) => idx !== i);
+                            const updated = items.filter((_, idx: number) => idx !== i);
                             setSectionItems(JSON.stringify(updated, null, 2));
                           }}
                             className="text-red-400 hover:text-red-600 transition-colors"
@@ -2771,12 +3080,12 @@ export default function AdminPage() {
                               />
                             </div>
                             <div className="max-h-48 overflow-y-auto divide-y divide-gray-100">
-                              {allProducts
-                                .filter((p: any) =>
-                                  !productSearch || p.nombre?.toLowerCase().includes(productSearch.toLowerCase()) || p.sku?.toLowerCase().includes(productSearch.toLowerCase())
-                                )
-                                .slice(0, 30)
-                                .map((p: any) => (
+                        {allProducts
+                          .filter((p) =>
+                            !productSearch || p.nombre?.toLowerCase().includes(productSearch.toLowerCase()) || p.sku?.toLowerCase().includes(productSearch.toLowerCase())
+                          )
+                          .slice(0, 50)
+                          .map((p) => (
                                   <button
                                     key={p.id}
                                     onClick={() => {
@@ -2831,16 +3140,16 @@ export default function AdminPage() {
                       </div>
                       <div className="max-h-60 overflow-y-auto divide-y divide-gray-100">
                         {allProducts
-                          .filter((p: any) =>
+                          .filter((p) =>
                             !productSearch || p.nombre?.toLowerCase().includes(productSearch.toLowerCase()) || p.sku?.toLowerCase().includes(productSearch.toLowerCase())
                           )
                           .slice(0, 50)
-                          .map((p: any) => (
+                          .map((p) => (
                             <button
                               key={p.id}
                               onClick={() => {
-                                const current = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
-                                const exists = current.some((i: any) => i.sku === p.sku);
+                    const current: SectionItem[] = (() => { try { return JSON.parse(sectionItems); } catch { return []; } })();
+                                const exists = current.some((i) => i.sku === p.sku);
                                 if (!exists) {
                                   current.push({ titulo: p.nombre, descripcion: p.descripcion || 'Producto artesanal tejido a mano', imagen: p.imagen || null, sku: p.sku });
                                   setSectionItems(JSON.stringify(current, null, 2));
@@ -2893,7 +3202,7 @@ export default function AdminPage() {
                       descripcion: "",
                     });
 
-                    const updateSlot = (idx: number, patch: any) => {
+                    const updateSlot = (idx: number, patch: Record<string, unknown>) => {
                       const updated = [...slots];
                       updated[idx] = { ...updated[idx], ...patch };
                       setSectionItems(JSON.stringify(updated, null, 2));
@@ -2901,7 +3210,7 @@ export default function AdminPage() {
 
                     return (
                       <div className="space-y-4">
-                        {slots.map((item: any, i: number) => (
+                        {slots.map((item, i: number) => (
                           <div key={i} className="p-4 bg-gray-50 rounded-2xl border border-gray-200">
                             <div className="flex items-center justify-between mb-3">
                               <span className="font-quicksand text-xs font-bold text-[#C04267] uppercase tracking-wider flex items-center gap-1.5">
@@ -3014,7 +3323,7 @@ export default function AdminPage() {
                   </p>
 
                   {(() => {
-                    let itemsConfig: any = { evento_slug: "auto", limite: 8 };
+                    let itemsConfig: EventoRotondaConfig = { evento_slug: "auto", limite: 8 };
                     try {
                       if (sectionItems) {
                         const parsed = JSON.parse(sectionItems);
@@ -3024,17 +3333,17 @@ export default function AdminPage() {
                       }
                     } catch {}
 
-                    const updateConfig = (patch: any) => {
+                    const updateConfig = (patch: Partial<EventoRotondaConfig>) => {
                       const next = { ...itemsConfig, ...patch };
                       setSectionItems(JSON.stringify(next, null, 2));
                     };
 
                     const selectedSlug = itemsConfig.evento_slug || "auto";
-                    const currentEvent = eventos.find((e: any) => e.activo !== false) || eventos[0];
+                    const currentEvent = eventos.find((e) => e.activo !== false) || eventos[0];
                     const activeEventSlug = selectedSlug === "auto" ? (currentEvent?.slug || "flores-amarillas") : selectedSlug;
-                    const matchedEvent = eventos.find((e: any) => e.slug?.toLowerCase() === activeEventSlug?.toLowerCase()) || currentEvent;
+                    const matchedEvent = eventos.find((e) => e.slug?.toLowerCase() === activeEventSlug?.toLowerCase()) || currentEvent;
 
-                    const eventProducts = (rawProducts || []).filter((p: any) => {
+                    const eventProducts = (rawProducts || []).filter((p) => {
                       if (inactiveIds.has(p.id)) return false;
                       if (Array.isArray(p.catalogos) && p.catalogos.includes(activeEventSlug)) return true;
                       return isProductInSlug(p, activeEventSlug, assignments);
@@ -3057,8 +3366,8 @@ export default function AdminPage() {
                               <option value="auto">
                                 Automático: Detectar evento activo actual ({currentEvent?.nombre || "Campaña vigente"})
                               </option>
-                              {eventos.map((ev: any) => (
-                                <option key={ev.slug || ev.id} value={ev.slug}>
+                              {eventos.map((ev) => (
+                                <option key={ev.slug || ev.id} value={ev.slug || ""}>
                                   Fijar: {ev.nombre} ({ev.slug})
                                 </option>
                               ))}
@@ -3103,7 +3412,7 @@ export default function AdminPage() {
 
                           {displayCount > 0 ? (
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 mt-3">
-                              {eventProducts.slice(0, itemsConfig.limite || 8).map((p: any, pIdx: number) => (
+                              {eventProducts.slice(0, itemsConfig.limite || 8).map((p, pIdx: number) => (
                                 <div key={p.id || pIdx} className="bg-white rounded-xl p-2 border border-pink-100 shadow-2xs flex flex-col items-center text-center">
                                   <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 mb-1.5 relative">
                                     <img src={p.imagen || "/logo.png"} alt="" className="w-full h-full object-cover" />
@@ -3245,7 +3554,7 @@ export default function AdminPage() {
               {(() => {
                 const precedingList = getPrecedingEvents(editingEvento?.id, data);
                 const currentPrevEvent =
-                  precedingList.find((p: any) => String(p.id) === String(selectedPrevEventoId)) ||
+                  precedingList.find((p) => String(p.id) === String(selectedPrevEventoId)) ||
                   getClosestPrecedingEvent(editingEvento?.id, editEventoMesFin, editEventoDiaFin, data);
 
                 const handleFechaFinChange = (newDia: string, newMes: string) => {
@@ -3309,7 +3618,7 @@ export default function AdminPage() {
                                 onChange={(e) => {
                                   const selId = e.target.value;
                                   setSelectedPrevEventoId(selId);
-                                  const ev = precedingList.find((p: any) => String(p.id) === String(selId));
+                                  const ev = precedingList.find((p) => String(p.id) === String(selId));
                                   if (ev && ev.fecha_fin) {
                                     const df = new Date(ev.fecha_fin);
                                     setEditEventoDiaInicio(String(df.getDate()));
@@ -3318,7 +3627,7 @@ export default function AdminPage() {
                                 }}
                                 className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded font-quicksand bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#EE6B8D]"
                               >
-                                {precedingList.map((p: any) => (
+                                {precedingList.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {p.nombre} (fin: {formatEventoFecha(p.fecha_fin)})
                                   </option>
@@ -3614,7 +3923,7 @@ export default function AdminPage() {
                       try {
                         const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
                         const supabase = getSupabaseBrowserClient();
-                        const uploadPromises = files.map(async (file, idx) => {
+                        const uploadPromises = files.map(async (file, idx): Promise<CampanaFoto | null> => {
                           const ext = file.name.split(".").pop() || "jpg";
                           const nombre = `campana-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}.${ext}`;
                           const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
@@ -3626,7 +3935,7 @@ export default function AdminPage() {
                             etiqueta: editEventoNombre || "Campaña",
                           };
                         });
-                        const uploaded = (await Promise.all(uploadPromises)).filter(Boolean);
+                        const uploaded = (await Promise.all(uploadPromises)).filter((f): f is CampanaFoto => f !== null);
                         setEditEventoFotosCampana((prev) => [...(prev || []), ...uploaded]);
                       } catch (err) {
                         console.error(err);
@@ -3656,7 +3965,7 @@ export default function AdminPage() {
                 {/* GALERÍA DE FOTOS SUBIDAS */}
                 {editEventoFotosCampana.length > 0 && (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 mb-3">
-                    {editEventoFotosCampana.map((foto: any, idx: number) => {
+                    {editEventoFotosCampana.map((foto, idx: number) => {
                       const src = typeof foto === "string" ? foto : foto?.url;
                       if (!src) return null;
                       return (
@@ -3738,7 +4047,7 @@ export default function AdminPage() {
                           }
                           const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
                           setEditEventoCatalogoUrl(pub.publicUrl);
-                        } catch (err: any) {
+                        } catch (err) {
                           alert("Error inesperado al subir catálogo");
                         } finally {
                           setUploadingCatalogo(false);
@@ -3882,8 +4191,8 @@ export default function AdminPage() {
                   }
 
                   const fotosLimpias = (editEventoFotosCampana || [])
-                    .map((f: any) => (typeof f === "string" ? { url: f } : f))
-                    .filter((f: any) => Boolean(f?.url && f.url.trim()));
+                    .map((f) => (typeof f === "string" ? { url: f } : f))
+                    .filter((f) => Boolean(f?.url && f.url.trim()));
 
                   if (isNewEvento) {
                     const res = await fetch("/api/admin", {
@@ -3907,7 +4216,7 @@ export default function AdminPage() {
                     });
                     if (res.ok) { fetchData(); setEditingEvento(null); }
                   } else {
-                    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
                       nombre: editEventoNombre,
                       slug: editEventoSlug,
                       descripcion: editEventoDescripcion || null,
@@ -3941,15 +4250,15 @@ export default function AdminPage() {
 
         {(mainTab === "catalogo" || mainTab === "eventos") && subTab === "catalogos" && !loading && (() => {
           // Eventos disponibles
-          const activeFeaturedEvent = eventos.find((e: any) => e.featured && e.activo !== false) || eventos.find((e: any) => e.activo !== false) || eventos[0];
+          const activeFeaturedEvent = eventos.find((e) => e.featured && e.activo !== false) || eventos.find((e) => e.activo !== false) || eventos[0];
           const resolvedCurrentEventSlug = portadaEventoSlug === "auto" ? (activeFeaturedEvent?.slug || "dia-del-novio") : portadaEventoSlug;
-          const currentEventObj = eventos.find((e: any) => e.slug === resolvedCurrentEventSlug) || activeFeaturedEvent;
+          const currentEventObj = eventos.find((e) => e.slug === resolvedCurrentEventSlug) || activeFeaturedEvent;
 
           // Productos del evento
-          const eventProducts = rawProducts.filter((p: any) => isProductInSlug(p, resolvedCurrentEventSlug, assignments));
+          const eventProducts = rawProducts.filter((p) => isProductInSlug(p, resolvedCurrentEventSlug, assignments));
 
           // Productos filtrados según categoría y búsqueda
-          const filteredRawProducts = rawProducts.filter((p: any) => {
+          const filteredRawProducts = rawProducts.filter((p) => {
             // Filtro por categoría o evento
             if (portadaCategoryFilter === "evento") {
               if (!isProductInSlug(p, resolvedCurrentEventSlug, assignments)) return false;
@@ -4090,7 +4399,7 @@ export default function AdminPage() {
                         const newSlug = e.target.value;
                         setPortadaEventoSlug(newSlug);
                         if (newSlug !== "auto") {
-                          const evTarget = eventos.find((ev: any) => ev.slug === newSlug);
+                          const evTarget = eventos.find((ev) => ev.slug === newSlug);
                           if (evTarget) {
                             handleSetMainEvent(evTarget);
                           }
@@ -4099,8 +4408,8 @@ export default function AdminPage() {
                       className="px-3 py-2 text-xs font-quicksand font-bold text-gray-700 bg-[#FDF4F7] border border-[#FDE8EF] rounded-xl focus:outline-none focus:border-[#EE6B8D]"
                     >
                       <option value="auto">Automático (Evento Principal Activo)</option>
-                      {eventos.map((ev: any) => (
-                        <option key={ev.id || ev.slug} value={ev.slug}>
+                      {eventos.map((ev) => (
+                        <option key={ev.id || ev.slug} value={ev.slug || ""}>
                           {ev.nombre} {ev.featured ? "★ (Principal)" : ""}
                         </option>
                       ))}
@@ -4277,7 +4586,7 @@ export default function AdminPage() {
                         type="button"
                         onClick={() => {
                           const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
-                          const top4Ids = pool.slice(0, 4).map((p: any) => String(p.id || p.sku));
+                          const top4Ids = pool.slice(0, 4).map((p) => String(p.id || p.sku));
                           setPortadaSelectedIds(new Set(top4Ids));
                         }}
                         className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-[#C04267] font-quicksand font-bold text-xs rounded-xl border border-pink-200 transition-colors cursor-pointer"
@@ -4289,7 +4598,7 @@ export default function AdminPage() {
                         type="button"
                         onClick={() => {
                           const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
-                          const top3Ids = pool.slice(0, 3).map((p: any) => String(p.id || p.sku));
+                          const top3Ids = pool.slice(0, 3).map((p) => String(p.id || p.sku));
                           setPortadaSelectedIds(new Set(top3Ids));
                         }}
                         className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-[#C04267] font-quicksand font-bold text-xs rounded-xl border border-pink-200 transition-colors cursor-pointer"
@@ -4311,7 +4620,7 @@ export default function AdminPage() {
 
                   {/* Grid de productos */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {filteredRawProducts.map((prod: any) => {
+                    {filteredRawProducts.map((prod) => {
                       const prodId = String(prod.id || prod.sku);
                       const isSelected = portadaSelectedIds.has(prodId);
                       const isFromActiveEvent = isProductInSlug(prod, resolvedCurrentEventSlug, assignments);
@@ -4513,7 +4822,7 @@ export default function AdminPage() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {portadaCustomImages.map((item: any, idx: number) => (
+                        {portadaCustomImages.map((item, idx: number) => (
                           <div
                             key={item.id || idx}
                             className="bg-white rounded-2xl border border-pink-100 shadow-sm overflow-hidden flex flex-col justify-between"
@@ -4566,7 +4875,7 @@ export default function AdminPage() {
           const allAvailableEvents = (() => {
             const map = new Map<string, string>();
             EVENTOS_BASE.forEach((e) => map.set(e.slug, e.label));
-            eventos.forEach((e: any) => {
+            eventos.forEach((e) => {
               if (e.slug && !map.has(e.slug)) {
                 map.set(e.slug, e.nombre || e.slug);
               }
@@ -4574,12 +4883,12 @@ export default function AdminPage() {
             return Array.from(map.entries()).map(([slug, label]) => ({ slug, label }));
           })();
 
-          const featuredEvent = eventos.find((e: any) => e.featured);
+          const featuredEvent = eventos.find((e) => e.featured);
           const featuredEventSlug = featuredEvent?.slug;
           const productosFiltrados = productosFilter === "evento-destacado"
             ? (featuredEventSlug ? filterByEventSlug(rawProducts, featuredEventSlug, assignments) : [])
             : filterProductos(rawProducts, productosFilter, assignments);
-          const productosVisibles = productosFiltrados.filter((p: any) =>
+          const productosVisibles = productosFiltrados.filter((p) =>
             !productosSearch ||
             p.nombre?.toLowerCase().includes(productosSearch.toLowerCase()) ||
             p.sku?.toLowerCase().includes(productosSearch.toLowerCase())
@@ -4600,7 +4909,7 @@ export default function AdminPage() {
 
           const allVisibleSelected =
             productosVisibles.length > 0 &&
-            productosVisibles.every((p: any) => selectedProductIds.has(p.id));
+            productosVisibles.every((p) => selectedProductIds.has(p.id));
 
           return (
           <div>
@@ -4738,7 +5047,7 @@ export default function AdminPage() {
               <>
                 {/* 1. VISTA DE TARJETAS PARA MÓVILES (md:hidden) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:hidden gap-3 mb-6">
-                  {productosVisibles.map((p: any) => {
+                      {productosVisibles.map((p) => {
                     const isActive = !inactiveIds.has(p.id);
                     const isSelected = selectedProductIds.has(p.id);
                     const activeSlugs = getProductActiveSlugs(p, assignments);
@@ -4879,7 +5188,7 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {productosVisibles.map((p: any) => {
+                  {productosVisibles.map((p) => {
                         const isActive = !inactiveIds.has(p.id);
                         const isSelected = selectedProductIds.has(p.id);
                         const activeSlugs = getProductActiveSlugs(p, assignments);
@@ -5000,7 +5309,7 @@ export default function AdminPage() {
               eventos={eventos}
               inactiveIds={inactiveIds}
               onSaveSuccess={(savedProduct, activeSlugs, isActive) => {
-                setRawProducts((prev: any[]) => {
+                setRawProducts((prev) => {
                   const idx = prev.findIndex((p) => p.id === savedProduct.id);
                   if (idx >= 0) {
                     const copy = [...prev];
@@ -5009,7 +5318,7 @@ export default function AdminPage() {
                   }
                   return [{ ...savedProduct, catalogos: activeSlugs }, ...prev];
                 });
-                setAllProducts((prev: any[]) => {
+                setAllProducts((prev) => {
                   const idx = prev.findIndex((p) => p.id === savedProduct.id);
                   if (idx >= 0) {
                     const copy = [...prev];
@@ -5343,7 +5652,7 @@ export default function AdminPage() {
                       const saved = preciosRows[p.sku];
                       const hasChanges = (() => {
                         if (!saved) return false;
-                        const eq = (a: any, b: string) => {
+                        const eq = (a: unknown, b: string) => {
                           if (b.trim() === "") return a == null;
                           return Number(a) === parseFloat(b);
                         };
@@ -5447,11 +5756,11 @@ export default function AdminPage() {
                     {resenaSearch && (
                       <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
                         {allProducts
-                          .filter((p: any) =>
+                          .filter((p) =>
                             !resenaSearch || p.nombre?.toLowerCase().includes(resenaSearch.toLowerCase()) || p.sku?.toLowerCase().includes(resenaSearch.toLowerCase())
                           )
                           .slice(0, 20)
-                          .map((p: any) => (
+                          .map((p) => (
                             <button
                               key={p.id}
                               onClick={() => { setResenaProducto(p); setResenaSearch(""); }}
@@ -5557,7 +5866,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.map((row: any) => (
+                    {data.map((row) => (
                       <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/50 transition-colors">
                         <td className="px-3 py-3">
                           <p className="font-quicksand text-xs font-semibold text-gray-800 max-w-[220px] truncate" title={row.producto_nombre || ""}>
@@ -5570,7 +5879,7 @@ export default function AdminPage() {
                           <div className="flex items-center gap-1">
                             <div className="flex items-center gap-0.5">
                               {[1, 2, 3, 4, 5].map((i) => (
-                                <Star key={i} size={12} className={i <= row.calificacion ? "text-[#F5A623]" : "text-gray-200"} fill={i <= row.calificacion ? "#F5A623" : "none"} />
+                                <Star key={i} size={12} className={i <= (row.calificacion ?? 0) ? "text-[#F5A623]" : "text-gray-200"} fill={i <= (row.calificacion ?? 0) ? "#F5A623" : "none"} />
                               ))}
                             </div>
                             <span className="font-quicksand text-xs text-gray-500 ml-1">{row.calificacion}</span>
@@ -5641,7 +5950,25 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab !== "dashboard" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && !loading && data.length > 0 && (
+        {mainTab === "produccion" && (
+          <div>
+            <ProduccionMainView
+              onSubTabChange={(subSlug) => {
+                try {
+                  const params = new URLSearchParams(window.location.search);
+                  params.set("seccion", "produccion");
+                  params.set("sub", subSlug);
+                  window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+                  localStorage.setItem("admin_produccion_subtab", subSlug);
+                } catch {
+                  // ignore
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {mainTab !== "dashboard" && mainTab !== "produccion" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && !loading && data.length > 0 && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
@@ -5664,7 +5991,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((row: any, rowIdx: number) => {
+                  {data.map((row, rowIdx: number) => {
                     const cols = getColumns(data);
                     return (
                       <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/50 transition-colors">
@@ -5674,7 +6001,7 @@ export default function AdminPage() {
                           if (key === "estado" && subTab === "personalizados") {
                             return (
                               <td key={key} className="px-3 py-3">
-                                <select value={value || "pendiente"}
+                                <select value={String(value || "pendiente")}
                                   onChange={(e) => handlePersonalizadoEstado(row.id, e.target.value)}
                                   className="font-quicksand text-xs px-2 py-1 rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#EE6B8D]"
                                 >
@@ -5732,6 +6059,15 @@ export default function AdminPage() {
           </div>
         )}
       </main>
+
+      {/* Modal para instalar la App de Administración (exclusivo para rol admin) */}
+      <AdminInstallAppModal
+        isOpen={installModalOpen}
+        onClose={() => setInstallModalOpen(false)}
+        deferredPrompt={installPrompt}
+        onPromptInstall={handlePromptInstall}
+        isInstalled={isAppInstalled}
+      />
     </div>
   );
 }

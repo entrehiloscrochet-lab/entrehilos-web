@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Search, Truck, Clock, Menu, X, ChevronDown, User, LogIn, UserPlus, UserCircle, Package, Bell, LogOut } from "lucide-react";
+import { ShoppingBag, Search, Truck, Clock, Menu, X, ChevronDown, User, LogIn, UserPlus, UserCircle, LogOut } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useState, useEffect, useRef } from "react";
 import SearchModal from "@/components/SearchModal";
@@ -85,11 +85,19 @@ export default function Navbar() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [eventos, setEventos] = useState<any[]>(DEFAULT_EVENTOS);
+  interface EventoNavbar {
+  id: number;
+  nombre: string;
+  slug: string;
+  featured?: boolean;
+  activo?: boolean;
+  descripcion?: string;
+}
+const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const handleProductClick = (product: any) => {
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
   };
 
@@ -123,8 +131,8 @@ export default function Navbar() {
     };
   }, [isMobileMenuOpen]);
 
-  const featuredEvent = eventos.find((e: any) => e.featured);
-  const eventosList = eventos.filter((e: any) => e.activo !== false);
+  const featuredEvent = eventos.find((e: EventoNavbar) => e.featured);
+  const eventosList = eventos.filter((e: EventoNavbar) => e.activo !== false);
 
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [isUserOpen, setIsUserOpen] = useState(false);
@@ -216,7 +224,7 @@ export default function Navbar() {
                 </Link>
 
                 <Dropdown label="Catálogo" items={categorias} />
-                <Dropdown label="Eventos" items={eventosList.map((e: any) => ({ href: `/evento/${e.slug}`, label: e.nombre }))} />
+                <Dropdown label="Eventos" items={eventosList.map((e: EventoNavbar) => ({ href: `/evento/${e.slug}`, label: e.nombre }))} />
               </div>
 
               <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
@@ -400,7 +408,7 @@ export default function Navbar() {
               </button>
               {mobileExpanded === 'eventos' && (
                 <div className="bg-gray-50">
-                  {eventosList.map((e: any) => (
+                  {eventosList.map((e: EventoNavbar) => (
                     <Link
                       key={e.slug}
                       href={`/evento/${e.slug}`}

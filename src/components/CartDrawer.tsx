@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { X, Plus, Minus, Trash2, ShoppingBag, Gift, ChevronRight } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { useCart } from "@/context/CartContext";
+import { useCart, CartItem } from "@/context/CartContext";
 import { Product } from "@/lib/ventify";
 import { loadExtras } from "@/lib/extras-cache";
 
@@ -127,8 +127,8 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     );
   };
 
-  const ExtraOption = ({ extra, currentItem }: { extra: Product; currentItem: any }) => {
-    const extraInCart = currentItem.extras?.find((e: any) => e.id === extra.id);
+  const ExtraOption = ({ extra, currentItem }: { extra: Product; currentItem: CartItem }) => {
+    const extraInCart = currentItem.extras?.find((e) => e.id === extra.id);
     const qty = extraInCart ? extraInCart.cantidad : 0;
 
     return (

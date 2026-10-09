@@ -20,9 +20,27 @@ import Faq from "./Faq";
 import Modal from "./Modal";
 import AuthModal from "@/components/AuthModal";
 
+export interface HeroConfigItems {
+  badge?: string;
+  titulo_linea1?: string;
+  titulo_linea2?: string;
+  boton_primario_logged?: string;
+  boton_primario?: string;
+  boton_secundario?: string;
+  estadistica?: string;
+  etiqueta_precio?: string;
+  valor_precio?: string;
+}
+
+export interface HeroConfig {
+  items?: HeroConfigItems;
+  subtitulo?: string;
+  imagen_url?: string;
+}
+
 interface Props {
   productosPersonalizados: Product[];
-  heroConfig?: any;
+  heroConfig?: HeroConfig;
 }
 
 export default function PersonalizadosContent({ productosPersonalizados, heroConfig }: Props) {

@@ -1,0 +1,25 @@
+{
+  "name": "Entre Hilos - Panel Admin",
+  "short_name": "EH Admin",
+  "description": "Sistema de Gestión de Producción, Costeo y Administración de Entre Hilos",
+  "start_url": "/admin?source=pwa",
+  "scope": "/admin",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FDF4F7",
+  "theme_color": "#C04267",
+  "icons": [
+    {
+      "src": "/Favicon-EHC.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Favicon-EHC.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

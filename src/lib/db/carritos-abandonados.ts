@@ -1,12 +1,21 @@
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
+export interface CarritoAbandonadoItem {
+  id: string
+  nombre?: string
+  precio?: number
+  cantidad?: number
+  imagen?: string
+  [key: string]: unknown
+}
+
 export interface CarritoAbandonado {
   id?: number
   created_at?: string
   updated_at?: string
   usuario_id?: string
   email?: string
-  items: any
+  items: CarritoAbandonadoItem[] | Record<string, unknown>
   total: number
   recuperado?: boolean
 }

@@ -3,6 +3,12 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+interface EventoRow {
+  slug: string;
+  activo?: boolean;
+  [key: string]: unknown;
+}
+
 export const DEFAULT_EVENTOS = [
   { id: -1, nombre: "Flores Amarillas", slug: "flores-amarillas", featured: true, activo: true },
   { id: -2, nombre: "Día de la Madre", slug: "dia-de-la-madre", featured: false, activo: true },
@@ -21,10 +27,10 @@ export async function GET() {
       .order("featured", { ascending: false })
       .order("nombre", { ascending: true });
 
-    const dbEvents = (data || []).filter((e: any) => e.activo !== false);
+    const dbEvents = (data || []).filter((e: EventoRow) => e.activo !== false);
 
     // Si la BD no tiene algunos de los eventos predeterminados, los incorporamos
-    const dbSlugs = new Set((data || []).map((e: any) => e.slug));
+    const dbSlugs = new Set((data || []).map((e: EventoRow) => e.slug));
     const missingDefaults = DEFAULT_EVENTOS.filter((d) => !dbSlugs.has(d.slug));
 
     const allEventos = [...dbEvents, ...missingDefaults];

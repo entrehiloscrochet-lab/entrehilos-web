@@ -3,7 +3,7 @@ import path from 'path';
 import { supabaseAdmin } from './supabase/server';
 import baseProductsJson from '@/data/productos_base.json';
 import { Product, getProductCatalogAssignments, invalidateProductCaches } from './ventify';
-import { getProductActiveSlugs, ProductoCatalogoAssignment } from './catalogos';
+import { getProductActiveSlugs } from './catalogos';
 
 const CUSTOM_PRODUCTS_PATH = path.join(process.cwd(), 'src/data/productos_custom.json');
 
@@ -49,7 +49,7 @@ export async function getAllLocalProducts(): Promise<Product[]> {
     if (!error && Array.isArray(dbProducts)) {
       if (dbProducts.length === 0) {
         // Auto-seed: la tabla existe pero está vacía, migrar los 49 productos base a Supabase
-        await seedProductsToSupabase(baseProductsJson as any[]);
+        await seedProductsToSupabase(baseProductsJson as unknown as Array<Record<string, unknown>>);
       } else {
         const assignments = await getProductCatalogAssignments();
         return dbProducts.map((p) => {
@@ -60,7 +60,7 @@ export async function getAllLocalProducts(): Promise<Product[]> {
             precio: Number(p.precio) || 0,
             imagen: p.imagen || '',
             imagenes: Array.isArray(p.imagenes) ? p.imagenes : [],
-            categoria: (p.categoria || 'General') as any,
+            categoria: (p.categoria as Product['categoria']) || 'General',
             categoriaOriginal: p.categoria_original || null,
             stock: Number(p.stock) || 0,
             descripcion: p.descripcion || '',
@@ -104,10 +104,10 @@ export async function getAllLocalProducts(): Promise<Product[]> {
 /**
  * Inserta los 49 productos base en Supabase public.productos cuando la tabla esté disponible
  */
-async function seedProductsToSupabase(baseProducts: any[]) {
+async function seedProductsToSupabase(baseProducts: Array<Record<string, unknown>>) {
   try {
     const rows = baseProducts.map((p) => ({
-      id: p.id,
+      id: p.id as string,
       sku: p.sku || '',
       nombre: p.nombre,
       precio: Number(p.precio) || 0,
@@ -136,15 +136,14 @@ export async function saveProduct(productData: {
   precio: number;
   imagen: string;
   imagenes?: string[];
-  categoria: 'Ramos' | 'Amigurumis' | 'Cajas' | 'Personalizado' | 'General';
+  categoria: 'Ramos' | 'Amigurumis' | 'Cajas' | 'Personalizado' | 'General' | string;
   stock?: number;
   descripcion?: string;
   catalogos?: string[];
   is_active?: boolean;
 }): Promise<Product> {
-  const isNew = !productData.id;
   const id = productData.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const sku = productData.sku || `${productData.categoria.substring(0, 4).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+  const sku = productData.sku || `${String(productData.categoria || '').substring(0, 4).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
 
   const imagenes = Array.isArray(productData.imagenes) ? productData.imagenes.filter(Boolean) : [];
   const primaryImg = productData.imagen?.trim() || imagenes[0] || '';

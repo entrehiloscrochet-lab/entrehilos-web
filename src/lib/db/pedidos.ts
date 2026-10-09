@@ -1,5 +1,14 @@
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
+export interface PedidoItem {
+  id: string
+  nombre?: string
+  precio?: number
+  cantidad?: number
+  imagen?: string
+  [key: string]: unknown
+}
+
 export interface Pedido {
   id?: number
   created_at?: string
@@ -8,7 +17,7 @@ export interface Pedido {
   cliente_telefono: string
   cliente_email?: string
   direccion_envio?: string
-  items: any
+  items: PedidoItem[] | Record<string, unknown>
   total: number
   estado?: string
   metodo_pago?: string

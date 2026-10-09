@@ -14,8 +14,15 @@ import {
   Mail, Phone, Calendar, Ruler, MapPin, Star,
   Truck, CheckCheck, Sparkles, Save, ChevronDown, Check,
   ShoppingBag, ShieldCheck, MessageCircle, ExternalLink,
-  HelpCircle, ArrowUpRight
+  HelpCircle, ArrowUpRight, type LucideIcon
 } from "lucide-react";
+
+interface PedidoItem {
+  id?: string;
+  nombre?: string;
+  precio?: number;
+  cantidad?: number;
+}
 
 interface ProfileData {
   nombre: string | null;
@@ -37,7 +44,7 @@ interface Pedido {
   cliente_nombre: string;
   cliente_telefono?: string;
   direccion_envio?: string;
-  items: any;
+  items: PedidoItem[] | string;
   total: number;
   estado: string;
 }
@@ -64,13 +71,13 @@ interface Notificacion {
   es_personalizado?: boolean;
 }
 
-const menuItems: { id: Tab; label: string; icon: any }[] = [
+const menuItems: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "perfil", label: "Mi perfil", icon: UserCircle },
   { id: "pedidos", label: "Mis pedidos", icon: Package },
   { id: "notificaciones", label: "Notificaciones", icon: Bell },
 ];
 
-const estados: Record<string, { label: string; color: string; icon: any }> = {
+const estados: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   pendiente: { label: "Pendiente", color: "text-amber-700 bg-amber-50 border-amber-200", icon: Clock },
   confirmado: { label: "Confirmado", color: "text-blue-700 bg-blue-50 border-blue-200", icon: CheckCircle2 },
   enviado: { label: "En camino", color: "text-purple-700 bg-purple-50 border-purple-200", icon: Truck },
@@ -149,13 +156,13 @@ function OrderStepper({ estado }: { estado: string }) {
   );
 }
 
-function CalificarProducto({ item, nombreCliente }: { item: any; nombreCliente: string }) {
+function CalificarProducto({ item, nombreCliente }: { item: PedidoItem; nombreCliente: string }) {
   const { ratedByMe, submitRating, refresh } = useReviews();
   const { showToast } = useToast();
   const [estrellas, setEstrellas] = useState(0);
   const [comentario, setComentario] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const yaCalificado = ratedByMe[item?.id];
+  const yaCalificado = item?.id ? ratedByMe[item.id] : undefined;
 
   const handleEnviar = async () => {
     if (!item?.id || !item?.nombre) return;
@@ -1050,7 +1057,7 @@ export default function PerfilPage() {
                           const EstadoIcon = estadoConfig.icon || Clock;
                           const estaEntregado = (p.estado || "").toLowerCase() === "entregado";
 
-                          let itemsPedido: any[] = [];
+                          let itemsPedido: PedidoItem[] = [];
                           if (Array.isArray(p.items)) {
                             itemsPedido = p.items;
                           } else if (typeof p.items === "string") {

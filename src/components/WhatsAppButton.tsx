@@ -5,11 +5,21 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { FileDown } from "lucide-react";
 
+interface EventoCatalog {
+  nombre?: string;
+  slug?: string;
+  activo?: boolean;
+  featured?: boolean;
+  destacado_rotonda?: boolean;
+  catalogo_url?: string | null;
+  catalogo_boton_visible?: boolean;
+}
+
 export default function WhatsAppButton() {
   const pathname = usePathname();
   const [showWspTooltip, setShowWspTooltip] = useState(false);
   const [showCatalogTooltip, setShowCatalogTooltip] = useState(false);
-  const [currentEvento, setCurrentEvento] = useState<any | null>(null);
+  const [currentEvento, setCurrentEvento] = useState<EventoCatalog | null>(null);
 
   const whatsappNumber = "51902578295";
   const generalWspMessage = "¡Hola Entre Hilos! Quiero más información sobre sus productos artesanales.";
@@ -21,7 +31,7 @@ export default function WhatsAppButton() {
       try {
         const res = await fetch("/api/eventos");
         if (!res.ok) return;
-        const eventos: any[] = await res.json();
+        const eventos: EventoCatalog[] = await res.json();
         if (!isMounted || !Array.isArray(eventos) || eventos.length === 0) return;
 
         const activos = eventos.filter((e) => e.activo !== false && e.catalogo_boton_visible !== false);

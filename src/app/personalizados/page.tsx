@@ -3,6 +3,13 @@ import PersonalizadosContent from "@/components/personalizados/PersonalizadosCli
 
 export const dynamic = "force-dynamic";
 
+interface HomeSection {
+  section_key?: string;
+  items?: Record<string, string>;
+  subtitulo?: string;
+  imagen_url?: string;
+}
+
 async function getHomeSections() {
   try {
     const { supabaseAdmin } = await import("@/lib/supabase/server");
@@ -30,7 +37,7 @@ export default async function PersonalizadosPage() {
   });
 
   const sections = await getHomeSections();
-  const heroConfig = sections.find((s: any) => s.section_key === "personalizados_hero");
+  const heroConfig = sections.find((s: HomeSection) => s.section_key === "personalizados_hero");
 
   return <PersonalizadosContent productosPersonalizados={productosPersonalizados} heroConfig={heroConfig} />;
 }

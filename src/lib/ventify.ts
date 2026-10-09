@@ -31,7 +31,7 @@ export interface Product {
   precio: number;
   imagen: string;
   imagenes?: string[];
-  categoria: 'Ramos' | 'Amigurumis' | 'Cajas' | 'Personalizado' | 'General';
+  categoria: 'Ramos' | 'Amigurumis' | 'Cajas' | 'Personalizado' | 'General' | string;
   categoriaOriginal?: string | null; // Categoría original
   stock: number;
   descripcion?: string;
@@ -366,7 +366,7 @@ export async function getVentifyProductById(productId: string): Promise<Product 
 /**
  * Crea una orden en Ventify (preparado para futuro)
  */
-export async function createVentifyOrder(orderData: any) {
+export async function createVentifyOrder(orderData: Record<string, unknown>) {
   try {
     if (!config.apiUrl || !config.accountId || !config.apiKey) {
       throw new Error('Faltan variables de entorno de Ventify');

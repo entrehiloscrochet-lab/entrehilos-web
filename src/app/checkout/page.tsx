@@ -9,6 +9,16 @@ import { useToast } from "@/components/Toast";
 import { getUsuarioId } from "@/lib/anon-id";
 import { getDepartamentos, getProvincias, getDistritos } from "@/lib/ubigeo";
 
+interface PerfilSugeridoData {
+  nombre?: string;
+  telefono?: string;
+  departamento?: string;
+  provincia?: string;
+  distrito?: string;
+  direccion?: string;
+  referencia?: string;
+}
+
 export default function CartPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -21,15 +31,7 @@ export default function CartPage() {
   const [direccionCalle, setDireccionCalle] = useState("");
   const [referencia, setReferencia] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [perfilSugerido, setPerfilSugerido] = useState<{
-    nombre?: string;
-    telefono?: string;
-    departamento?: string;
-    provincia?: string;
-    distrito?: string;
-    direccion?: string;
-    referencia?: string;
-  } | null>(null);
+  const [perfilSugerido, setPerfilSugerido] = useState<PerfilSugeridoData | null>(null);
   const [sugerenciaAplicada, setSugerenciaAplicada] = useState(false);
 
   const departamentos = useMemo(() => getDepartamentos(), []);
@@ -52,7 +54,7 @@ export default function CartPage() {
     if (!user) return;
     (async () => {
       try {
-        let pData: any = null;
+        let pData: PerfilSugeridoData | null = null;
         const localKey = `entrehilos_perfil_envio_${user.id}`;
         const localData = localStorage.getItem(localKey);
         if (localData) {

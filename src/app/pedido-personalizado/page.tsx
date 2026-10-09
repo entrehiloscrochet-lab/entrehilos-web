@@ -1,14 +1,20 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Calendar, Clock, MessageCircle, CheckCircle } from "lucide-react";
 import { useToast } from "@/components/Toast";
 
+interface ProductoSeleccionado {
+  id?: string;
+  nombre?: string;
+  precio?: number;
+  imagen?: string;
+}
+
 function PedidoPersonalizadoContent() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
-  const [producto, setProducto] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     nombreCliente: "",
@@ -21,17 +27,15 @@ function PedidoPersonalizadoContent() {
     extras: "",
   });
 
-  useEffect(() => {
-    // Obtener datos del producto desde URL params
+  // Obtener datos del producto desde URL params
+  const producto = useMemo<ProductoSeleccionado | null>(() => {
     const productoData = searchParams.get("producto");
-    if (productoData) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(productoData));
-        setProducto(parsed);
-        console.log("Producto cargado:", parsed);
-      } catch (error) {
-        console.error("Error al parsear producto:", error);
-      }
+    if (!productoData) return null;
+    try {
+      return JSON.parse(decodeURIComponent(productoData)) as ProductoSeleccionado;
+    } catch (error) {
+      console.error("Error al parsear producto:", error);
+      return null;
     }
   }, [searchParams]);
 

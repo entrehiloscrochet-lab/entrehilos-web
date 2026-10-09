@@ -24,15 +24,23 @@ import {
   getSlugBadgeInfo,
   ProductoCatalogoAssignment,
 } from "@/lib/catalogos";
+import type { Product } from "@/lib/ventify";
+
+type CategoriaProducto = "Ramos" | "Amigurumis" | "Cajas" | "Personalizado" | "General";
+
+interface EventoFormOption {
+  slug?: string | null;
+  nombre?: string | null;
+}
 
 interface ProductFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  product: any | null; // null para crear nuevo, objeto para editar
+  product: Product | null; // null para crear nuevo, objeto para editar
   assignments: ProductoCatalogoAssignment[];
-  eventos: any[];
+  eventos: EventoFormOption[];
   inactiveIds: Set<string>;
-  onSaveSuccess: (savedProduct: any, activeSlugs: string[], isActive: boolean) => void;
+  onSaveSuccess: (savedProduct: Product, activeSlugs: string[], isActive: boolean) => void;
 }
 
 export default function ProductFormModal({
@@ -52,7 +60,7 @@ export default function ProductFormModal({
   const [precio, setPrecio] = useState("");
   const [stock, setStock] = useState<number | string>(0);
   const [esAPedido, setEsAPedido] = useState(true);
-  const [categoria, setCategoria] = useState<"Ramos" | "Amigurumis" | "Cajas" | "Personalizado" | "General">("Ramos");
+  const [categoria, setCategoria] = useState<CategoriaProducto>("Ramos");
   const [imagen, setImagen] = useState(""); // Imagen principal / portada
   const [imagenes, setImagenes] = useState<string[]>([]); // Galería completa de imágenes
   const [tempUrlInput, setTempUrlInput] = useState("");
@@ -68,7 +76,7 @@ export default function ProductFormModal({
   const allAvailableEvents = React.useMemo(() => {
     const map = new Map<string, string>();
     EVENTOS_BASE.forEach((e) => map.set(e.slug, e.label));
-    eventos.forEach((e: any) => {
+    eventos.forEach((e) => {
       if (e.slug && !map.has(e.slug)) {
         map.set(e.slug, e.nombre || e.slug);
       }
@@ -89,7 +97,7 @@ export default function ProductFormModal({
       const stockVal = Number(product.stock) || 0;
       setStock(stockVal);
       setEsAPedido(stockVal === 0);
-      setCategoria(product.categoria || "Ramos");
+      setCategoria((product.categoria as CategoriaProducto) || "Ramos");
 
       // Cargar lista de imágenes
       const imgs: string[] = [];
@@ -160,7 +168,7 @@ export default function ProductFormModal({
           return next;
         });
       }
-    } catch (err: any) {
+    } catch (err) {
       setErrorMsg("Error al subir una o más imágenes");
       console.error(err);
     } finally {
@@ -273,9 +281,9 @@ export default function ProductFormModal({
 
       onSaveSuccess(saved, selectedSlugs, isActive);
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error al guardar producto:", err);
-      setErrorMsg(err.message || "Error al procesar la solicitud");
+      setErrorMsg(err instanceof Error ? err.message : "Error al procesar la solicitud");
     } finally {
       setSaving(false);
     }
@@ -362,7 +370,7 @@ export default function ProductFormModal({
                 </label>
                 <select
                   value={categoria}
-                  onChange={(e) => setCategoria(e.target.value as any)}
+                  onChange={(e) => setCategoria(e.target.value as CategoriaProducto)}
                   className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
                 >
                   <option value="Ramos">Ramos</option>

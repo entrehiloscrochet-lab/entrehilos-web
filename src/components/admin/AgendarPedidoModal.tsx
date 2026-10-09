@@ -21,11 +21,12 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import type { Product } from "@/lib/ventify";
 
 interface AgendarPedidoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  availableProducts: any[];
+  availableProducts: Product[];
   onSaveSuccess: () => void;
 }
 
@@ -85,7 +86,7 @@ export default function AgendarPedidoModal({
   const [items, setItems] = useState<ItemPedido[]>([]);
 
   // Búsqueda y catálogo de productos interno
-  const [internalProducts, setInternalProducts] = useState<any[]>(availableProducts || []);
+  const [internalProducts, setInternalProducts] = useState<Product[]>(availableProducts || []);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [prodSearch, setProdSearch] = useState("");
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -155,7 +156,7 @@ export default function AgendarPedidoModal({
   if (!isOpen) return null;
 
   // Acciones rápidas de productos
-  const handleQuickAddProduct = (prod: any) => {
+  const handleQuickAddProduct = (prod: Product) => {
     setItems((prev) => {
       const idx = prev.findIndex((it) => it.id === prod.id);
       if (idx >= 0) {
@@ -272,9 +273,9 @@ export default function AgendarPedidoModal({
 
       onSaveSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error al agendar pedido:", err);
-      setErrorMsg(err.message || "Error al procesar el pedido");
+      setErrorMsg(err instanceof Error ? err.message : "Error al procesar el pedido");
     } finally {
       setSaving(false);
     }

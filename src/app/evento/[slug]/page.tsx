@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { getVentifyProducts } from "@/lib/ventify";
+import { getVentifyProducts, type Product } from "@/lib/ventify";
 import { notFound } from "next/navigation";
 import { loadExtras } from "@/lib/extras-cache";
 import { isProductInSlug } from "@/lib/catalogos";
@@ -41,12 +41,31 @@ const eventDescriptions: Record<string, string> = {
   'hotwheels': 'Para los coleccionistas más apasionados',
 };
 
+interface CampanaFotoLike {
+  url?: string;
+  imagen?: string;
+  etiqueta?: string;
+  titulo?: string;
+  descripcion?: string;
+}
+
+interface EventoDB {
+  id?: string | number;
+  slug?: string;
+  nombre?: string;
+  descripcion?: string;
+  imagen_url?: string;
+  imagen_url_mobile?: string;
+  fecha_fin?: string;
+  fotos_campana?: (string | CampanaFotoLike)[];
+}
+
 export default function EventoPage({ params }: { params: Promise<{ slug: string }> }) {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [currentSlug, setCurrentSlug] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const [evento, setEvento] = useState<any | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [evento, setEvento] = useState<EventoDB | null>(null);
   const [heroImg, setHeroImg] = useState("");
   const [heroImgMobile, setHeroImgMobile] = useState("");
   const [isExpired, setIsExpired] = useState(false);
@@ -55,19 +74,19 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
     loadExtras(() => {});
   }, []);
 
-  const handleQuickView = (producto: any) => setSelectedProduct(producto);
+  const handleQuickView = (producto: Product) => setSelectedProduct(producto);
 
   useEffect(() => {
     const fetchData = async () => {
       const { slug } = await params;
       setCurrentSlug(slug);
 
-      let dbEvento: any = null;
+      let dbEvento: EventoDB | null = null;
       try {
         const res = await fetch("/api/eventos");
         if (res.ok) {
-          const eventosList = await res.json();
-          dbEvento = eventosList.find((e: any) => e.slug?.toLowerCase() === slug.toLowerCase()) || null;
+          const eventosList: EventoDB[] = await res.json();
+          dbEvento = eventosList.find((e) => e.slug?.toLowerCase() === slug.toLowerCase()) || null;
         }
       } catch (e) {
         console.error("Error cargando eventos desde api:", e);
@@ -125,7 +144,7 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
       const allProducts = await getVentifyProducts();
       // Filtrar usando el array de catálogos ya calculado en cada producto.
       // Si el producto tiene asignación manual que lo incluya/excluya, ya viene en p.catalogos.
-      let filtered = allProducts.filter((p: any) => {
+      let filtered = allProducts.filter((p) => {
         if (Array.isArray(p.catalogos) && p.catalogos.length > 0) {
           return p.catalogos.includes(slug.toLowerCase());
         }
@@ -135,7 +154,7 @@ export default function EventoPage({ params }: { params: Promise<{ slug: string 
 
       // Para eventos de alta demanda, ordenar por stock descendente
       if (['san-valentin', 'dia-de-la-novia'].includes(slug)) {
-        filtered = filtered.sort((a: any, b: any) => b.stock - a.stock);
+        filtered = filtered.sort((a, b) => b.stock - a.stock);
       }
 
       setProducts(filtered);

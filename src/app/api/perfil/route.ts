@@ -55,9 +55,9 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ profile: data || null });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error in GET /api/perfil:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: (err as { message?: string }).message }, { status: 500 });
   }
 }
 
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "id de usuario requerido" }, { status: 400 });
     }
 
-    const updatesFull: Record<string, any> = {
+    const updatesFull: Record<string, unknown> = {
       id,
       nombre: nombre ? String(nombre).trim() : null,
       telefono: telefono ? String(telefono).trim() : null,
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Intentar upsert con todos los campos. Si alguna columna de envio no existe
     // todavia en la BD, se omite y se reintenta en vez de perder todo el guardado.
-    const payload: Record<string, any> = { ...updatesFull };
+    const payload: Record<string, unknown> = { ...updatesFull };
     const omitidos: string[] = [];
 
     for (let intento = 0; intento <= CAMPOS_ENVIO_OPCIONALES.length; intento++) {
@@ -117,8 +117,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ error: "No se pudo guardar el perfil" }, { status: 500 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error in POST /api/perfil:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: (err as { message?: string }).message }, { status: 500 });
   }
 }

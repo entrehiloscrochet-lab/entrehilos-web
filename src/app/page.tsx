@@ -16,6 +16,11 @@ async function getHomeSections() {
   }
 }
 
+interface HeroConfigRow {
+  clave?: string;
+  [key: string]: unknown;
+}
+
 async function getHeroConfig() {
   try {
     const { supabaseAdmin } = await import("@/lib/supabase/server");
@@ -26,7 +31,7 @@ async function getHeroConfig() {
       .in("clave", heroKeys)
       .order("clave");
     if (!data) return [];
-    return heroKeys.map(k => data.find((h: any) => h.clave === k)).filter(Boolean);
+    return heroKeys.map(k => data.find((h: HeroConfigRow) => h.clave === k)).filter(Boolean);
   } catch {
     return [];
   }

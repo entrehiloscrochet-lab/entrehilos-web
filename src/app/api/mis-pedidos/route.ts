@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
+interface PedidoRow {
+  id: string | number;
+  estado?: string | null;
+  total?: number | string | null;
+  items?: Array<{ nombre?: string }> | null;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+interface PedidoPersonalizadoRow {
+  id: string | number;
+  estado?: string | null;
+  producto_nombre?: string | null;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+interface Notificacion {
+  id: string | number;
+  pedido_id: string | number;
+  tipo: string;
+  titulo: string;
+  mensaje: string;
+  created_at: string;
+  leido: boolean;
+  es_personalizado?: boolean;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -30,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Consultar pedidos personalizados
-    let personalizados: any[] = [];
+    let personalizados: PedidoPersonalizadoRow[] = [];
     if (email) {
       const { data: persData, error: persErr } = await supabaseAdmin
         .from("pedidos_personalizados")
@@ -46,7 +74,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Consultar notificaciones almacenadas en BD (si existe la tabla)
-    let notificacionesBd: any[] = [];
+    let notificacionesBd: Notificacion[] = [];
     try {
       const notifConds: string[] = [];
       if (userId) notifConds.push(`usuario_id.eq.${userId}`);
@@ -66,9 +94,9 @@ export async function GET(request: NextRequest) {
 
     // 4. Generar notificaciones dinámicas inteligentes a partir de pedidos existentes
     // Esto garantiza que el usuario vea notificaciones de inmediato para pedidos que cambiaron de estado
-    const notificacionesGeneradas: any[] = [];
+    const notificacionesGeneradas: Notificacion[] = [];
 
-    (pedidos || []).forEach((p: any) => {
+    (pedidos || []).forEach((p: PedidoRow) => {
       const estado = (p.estado || "pendiente").toLowerCase();
       // Si el pedido está confirmado, enviado, entregado o cancelado
       if (["confirmado", "enviado", "entregado", "cancelado"].includes(estado)) {
@@ -99,7 +127,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    personalizados.forEach((p: any) => {
+    personalizados.forEach((p: PedidoPersonalizadoRow) => {
       const estado = (p.estado || "pendiente").toLowerCase();
       if (["confirmado", "en_produccion", "listo", "entregado", "cancelado"].includes(estado)) {
         const titulo = estado === "entregado" ? `Tu pedido personalizado ha sido entregado`
@@ -142,8 +170,8 @@ export async function GET(request: NextRequest) {
       personalizados,
       notificaciones: combinadas,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error in /api/mis-pedidos:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: (err as { message?: string }).message }, { status: 500 });
   }
 }

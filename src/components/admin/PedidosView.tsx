@@ -16,8 +16,32 @@ import {
   Phone,
 } from "lucide-react";
 
+interface PedidoItem {
+  id?: string;
+  nombre?: string;
+  cantidad?: number;
+  precio?: number;
+}
+
+interface Pedido {
+  id: string | number;
+  origen?: string | null;
+  fecha_entrega?: string | null;
+  hora_entrega?: string | null;
+  adelanto?: number | string | null;
+  saldo_pendiente?: number | string | null;
+  total?: number | string | null;
+  notas?: string | null;
+  cliente_nombre?: string | null;
+  cliente_telefono?: string | null;
+  cliente_email?: string | null;
+  direccion_envio?: string | null;
+  estado?: string | null;
+  items?: unknown;
+}
+
 interface PedidosViewProps {
-  pedidos: any[];
+  pedidos: Pedido[];
   loading: boolean;
   onCambiarEstado: (id: string | number, nuevoEstado: string) => void;
   onOpenAgendarModal: () => void;
@@ -35,7 +59,7 @@ const CANAL_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   otro: { label: "Otro", badgeClass: "bg-gray-100 text-gray-700 border-gray-200" },
 };
 
-function parseRowData(row: any) {
+function parseRowData(row: Pedido) {
   let origen = (row.origen || "tienda").toLowerCase();
   let fechaEntrega = row.fecha_entrega || null;
   let horaEntrega = row.hora_entrega || null;
@@ -124,7 +148,7 @@ export default function PedidosView({
     });
   }, [pedidos, filterCanal, search]);
 
-  const generateWhatsAppLink = (row: any) => {
+  const generateWhatsAppLink = (row: Pedido) => {
     const rawTel = (row.cliente_telefono || "").replace(/\D/g, "");
     if (!rawTel) return "#";
     const num = rawTel.startsWith("51") ? rawTel : `51${rawTel}`;
@@ -228,10 +252,10 @@ export default function PedidosView({
         <>
           {/* 1. VISTA DE TARJETAS PARA MÓVIL Y TABLET (Evita scroll horizontal y espacios muertos) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:hidden gap-3.5">
-            {filteredPedidos.map((row: any) => {
+            {filteredPedidos.map((row: Pedido) => {
               const { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas } = parseRowData(row);
               const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
-              const itemsList: any[] = Array.isArray(row.items) ? row.items : [];
+              const itemsList: PedidoItem[] = Array.isArray(row.items) ? row.items : [];
               const tieneAdelanto = adelanto > 0;
               const displayId = row.id ? (String(row.id).length > 8 ? `#${String(row.id).slice(0, 6)}` : `#${row.id}`) : "#S/N";
               const displayCliente = row.cliente_nombre || row.cliente_email || "Cliente web";
@@ -318,7 +342,7 @@ export default function PedidosView({
                     <div className="space-y-1 bg-[#FDF4F7]/40 p-2.5 rounded-xl border border-pink-100/50">
                       {itemsList.length > 0 && (
                         <div className="space-y-1">
-                          {itemsList.map((it: any, i: number) => (
+                          {itemsList.map((it: PedidoItem, i: number) => (
                             <div key={i} className="font-quicksand text-xs text-gray-700 flex items-center justify-between gap-2">
                               <span className="truncate">
                                 {it.cantidad}x {it.nombre}
@@ -397,10 +421,10 @@ export default function PedidosView({
                 </tr>
               </thead>
               <tbody>
-                {filteredPedidos.map((row: any) => {
+                {filteredPedidos.map((row: Pedido) => {
                   const { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas } = parseRowData(row);
                   const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
-                  const itemsList: any[] = Array.isArray(row.items) ? row.items : [];
+                  const itemsList: PedidoItem[] = Array.isArray(row.items) ? row.items : [];
                   const tieneAdelanto = adelanto > 0;
 
                   return (
@@ -454,7 +478,7 @@ export default function PedidosView({
                       {/* Items */}
                       <td className="px-3 py-3">
                         <div className="space-y-1 max-w-[260px]">
-                          {itemsList.map((it: any, i: number) => (
+                          {itemsList.map((it: PedidoItem, i: number) => (
                             <div key={i} className="font-quicksand text-xs text-gray-700 flex items-center justify-between gap-2">
                               <span className="truncate">
                                 {it.cantidad}x {it.nombre}

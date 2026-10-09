@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { getVentifyProducts } from "@/lib/ventify";
+import { getVentifyProducts, type Product } from "@/lib/ventify";
 import { MessageCircle } from "lucide-react";
 import { loadExtras } from "@/lib/extras-cache";
 import ProductCard from "@/components/ProductCard";
@@ -18,16 +18,16 @@ const CAJITAS_8M = [
 ];
 
 export default function DiaDelaMujerPage() {
-  const [ramos, setRamos] = useState<any[]>([]);
-  const [cajitas, setCajitas] = useState<any[]>([]);
+  const [ramos, setRamos] = useState<Product[]>([]);
+  const [cajitas, setCajitas] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     loadExtras(() => {});
   }, []);
 
-  const handleQuickView = (producto: any) => {
+  const handleQuickView = (producto: Product) => {
     setSelectedProduct(producto);
   };
 

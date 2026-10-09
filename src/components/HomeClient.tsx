@@ -4,16 +4,95 @@ import Image from "next/image";
 import Link from "next/link";
 import { Product } from "@/lib/ventify";
 import { Sparkles, Heart, Package, Truck, ChevronDown } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ComponentProps } from "react";
 import QuickViewDrawer from "@/components/QuickViewDrawer";
 import CampanaRotondaSection from "@/components/CampanaRotondaSection";
 import EventoProductosRotondaSection from "@/components/EventoProductosRotondaSection";
 
+type RotondaSectionProp = ComponentProps<typeof EventoProductosRotondaSection>["section"];
+type RotondaEventoProp = ComponentProps<typeof EventoProductosRotondaSection>["eventoActual"];
+type CampanaSectionProp = ComponentProps<typeof CampanaRotondaSection>["section"];
+type EventoCampanaProp = ComponentProps<typeof CampanaRotondaSection>["eventoActual"];
+
+interface HeroConfigRow {
+  clave: string;
+  imagen_url?: string | null;
+  imagen_url_mobile?: string | null;
+  link_url?: string | null;
+  badge?: string | null;
+  titulo?: string | null;
+  subtitulo?: string | null;
+  descripcion?: string | null;
+  producto_sku?: string | null;
+  precio?: number | null;
+  [key: string]: unknown;
+}
+
+interface EventoRow {
+  id?: string;
+  slug?: string;
+  nombre?: string;
+  activo?: boolean;
+  featured?: boolean;
+  destacado?: boolean;
+  destacado_rotonda?: boolean;
+  mostrar_en_hero?: boolean;
+  imagen_url?: string | null;
+  imagen_url_mobile?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  fotos_campana?: unknown[] | null;
+}
+
+interface SectionItem {
+  sku?: string;
+  titulo?: string;
+  descripcion?: string;
+  imagen?: string;
+  precio?: number;
+  pregunta?: string;
+  respuesta?: string;
+}
+
+interface HomeSection {
+  section_key?: string;
+  activo?: boolean;
+  titulo?: string;
+  subtitulo?: string;
+  descripcion?: string;
+  imagen_url?: string;
+  link_url?: string;
+  link_text?: string;
+  items?: SectionItem[] | null;
+}
+
+interface HeroFlyerSlide {
+  isFlyer: true;
+  imageDesktop: string;
+  imageMobile: string;
+  link: string;
+  alt: string;
+}
+
+interface HeroContentSlide {
+  isFlyer: false;
+  badge: string;
+  title: string;
+  titleHighlight: string;
+  subtitle: string;
+  description: string;
+  image: string;
+  price: number;
+  link: string;
+}
+
+type HeroSlide = HeroFlyerSlide | HeroContentSlide;
+
 interface HomeClientProps {
   products: Product[];
-  sections: any[];
-  heroData?: any[];
-  eventosData?: any[];
+  sections: HomeSection[];
+  heroData?: HeroConfigRow[];
+  eventosData?: EventoRow[];
 }
 
 const BRAND = {
@@ -30,21 +109,22 @@ const BRAND = {
   line: '#EDE4D9',
 };
 
-function HeroCarousel({ products, heroData: initialHeroData, eventosData = [] }: { products: any[]; heroData?: any[]; eventosData?: any[] }) {
+function HeroCarousel({ products, heroData: initialHeroData, eventosData = [] }: { products: Product[]; heroData?: HeroConfigRow[]; eventosData?: EventoRow[] }) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [heroDesktop, setHeroDesktop] = useState(initialHeroData?.find((h: any) => h.clave === 'home_hero_1')?.imagen_url || "");
-  const [heroMobile, setHeroMobile] = useState(initialHeroData?.find((h: any) => h.clave === 'home_hero_1')?.imagen_url_mobile || "");
-  const [heroData, setHeroData] = useState<any[]>(initialHeroData || []);
+  const [heroDesktop, setHeroDesktop] = useState(initialHeroData?.find((h) => h.clave === 'home_hero_1')?.imagen_url || "");
+  const [heroMobile, setHeroMobile] = useState(initialHeroData?.find((h) => h.clave === 'home_hero_1')?.imagen_url_mobile || "");
+  const [heroData, setHeroData] = useState<HeroConfigRow[]>(initialHeroData || []);
 
-  function getHeroValue(clave: string, field: string, defaultValue: any) {
-    const h = heroData.find((h: any) => h.clave === clave);
-    if (!h || h[field] === null || h[field] === undefined || h[field] === '') return defaultValue;
-    return h[field];
+  function getHeroValue<T>(clave: string, field: string, defaultValue: T): T {
+    const h = heroData.find((h) => h.clave === clave);
+    const value = h?.[field];
+    if (!h || value === null || value === undefined || value === '') return defaultValue;
+    return value as T;
   }
 
   // Filtrar eventos vigentes por fechas para el banner principal
   const now = new Date();
-  const activeHeroEvents = (eventosData || []).filter((e: any) => {
+  const activeHeroEvents = (eventosData || []).filter((e) => {
     if (e.activo === false) return false;
     if (e.mostrar_en_hero === false) return false;
     if (!e.imagen_url && !e.imagen_url_mobile) return false;
@@ -53,7 +133,7 @@ function HeroCarousel({ products, heroData: initialHeroData, eventosData = [] }:
     return true;
   });
 
-  const eventSlides = activeHeroEvents.map((e: any) => ({
+  const eventSlides: HeroFlyerSlide[] = activeHeroEvents.map((e) => ({
     isFlyer: true,
     imageDesktop: e.imagen_url || e.imagen_url_mobile || '/dia-de-la-madre-horizontal.png',
     imageMobile: e.imagen_url_mobile || e.imagen_url || '/dia-de-la-madre-vertical.png',
@@ -61,7 +141,7 @@ function HeroCarousel({ products, heroData: initialHeroData, eventosData = [] }:
     alt: e.nombre || 'Evento Especial',
   }));
 
-  const defaultFlyer = (eventSlides.length === 0 && (heroDesktop || heroMobile)) ? [
+  const defaultFlyer: HeroFlyerSlide[] = (eventSlides.length === 0 && (heroDesktop || heroMobile)) ? [
     {
       isFlyer: true,
       imageDesktop: heroDesktop || '/dia-de-la-madre-horizontal.png',
@@ -71,7 +151,7 @@ function HeroCarousel({ products, heroData: initialHeroData, eventosData = [] }:
     }
   ] : [];
 
-  const slides: any[] = [
+  const slides: HeroSlide[] = [
     ...eventSlides,
     ...defaultFlyer,
     {
@@ -110,9 +190,9 @@ function HeroCarousel({ products, heroData: initialHeroData, eventosData = [] }:
   ];
 
   function getHeroProductImage(clave: string) {
-    const h = heroData.find((h: any) => h.clave === clave);
+    const h = heroData.find((h) => h.clave === clave);
     if (h?.producto_sku) {
-      const prod = products.find((p: any) => p.sku === h.producto_sku);
+      const prod = products.find((p) => p.sku === h.producto_sku);
       if (prod) return prod.imagen;
     }
     const fallbackImg = h?.imagen_url;
@@ -269,7 +349,7 @@ function HeroCarousel({ products, heroData: initialHeroData, eventosData = [] }:
 
 // ==================== SECTION RENDERERS ====================
 
-function ContentSection({ section, imagePosition = 'right' }: { section: any; imagePosition?: 'left' | 'right' }) {
+function ContentSection({ section, imagePosition = 'right' }: { section: HomeSection; imagePosition?: 'left' | 'right' }) {
   return (
     <section className="py-14 sm:py-20 px-4" style={{ backgroundColor: BRAND.canvas }}>
       <div className="max-w-7xl mx-auto">
@@ -338,7 +418,7 @@ function ContentSection({ section, imagePosition = 'right' }: { section: any; im
   );
 }
 
-function getSkuCatalogLink(sku: string | null): string {
+function getSkuCatalogLink(sku: string | null | undefined): string {
   if (!sku) return '/catalogo/ramos';
   if (sku.startsWith('Ramos-') || sku.startsWith('Madre-') || sku.startsWith('Flores-')) return '/catalogo/ramos';
   if (sku.startsWith('Amigu-')) return '/catalogo/amigurumis';
@@ -347,11 +427,11 @@ function getSkuCatalogLink(sku: string | null): string {
   return '/catalogo/ramos';
 }
 
-function ShowcaseSection({ section, products }: { section: any; products?: any[] }) {
+function ShowcaseSection({ section, products }: { section: HomeSection; products?: Product[] }) {
   const rawItems = section.items || [];
-  const items = rawItems.map((item: any) => {
+  const items = rawItems.map((item) => {
     if (item.sku && Array.isArray(products)) {
-      const prod = products.find((p: any) => p.sku === item.sku);
+      const prod = products.find((p) => p.sku === item.sku);
       if (prod) return { ...item, titulo: prod.nombre, descripcion: prod.descripcion || item.descripcion, imagen: prod.imagen || item.imagen, precio: prod.precio || item.precio };
     }
     return item;
@@ -377,7 +457,7 @@ function ShowcaseSection({ section, products }: { section: any; products?: any[]
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-          {Array.isArray(items) && items.map((item: any, i: number) => {
+              {Array.isArray(items) && items.map((item, i) => {
             const itemLink = getSkuCatalogLink(item.sku);
             return (
               <Link key={i} href={itemLink}
@@ -435,7 +515,7 @@ function ShowcaseSection({ section, products }: { section: any; products?: any[]
   );
 }
 
-function FaqSection({ section }: { section: any }) {
+function FaqSection({ section }: { section: HomeSection }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const items = section.items || [];
   const hasImage = !!section.imagen_url;
@@ -463,7 +543,7 @@ function FaqSection({ section }: { section: any }) {
             </div>
 
             <div className="space-y-3">
-              {Array.isArray(items) && items.map((item: any, i: number) => {
+          {Array.isArray(items) && items.map((item, i) => {
                 const isOpen = openIndex === i;
                 return (
                   <div key={i}
@@ -500,7 +580,7 @@ function FaqSection({ section }: { section: any }) {
               <div className="relative p-2 rounded-[2rem] border-2 border-dashed h-full" style={{ borderColor: BRAND.rose + '55' }}>
                 <div className="relative rounded-[1.5rem] overflow-hidden shadow-lg bg-gray-100 min-h-[300px] sm:min-h-[400px] h-full">
                   <Image
-                    src={section.imagen_url}
+                    src={section.imagen_url || ''}
                     alt={section.titulo || ""}
                     fill
                     className="object-cover"
@@ -516,12 +596,12 @@ function FaqSection({ section }: { section: any }) {
   );
 }
 
-function getRotondaEvento(eventosData: any[] = []): any | null {
+function getRotondaEvento(eventosData: EventoRow[] = []): EventoRow | null {
   if (!eventosData || eventosData.length === 0) return null;
   const now = new Date();
   const available = eventosData.filter((e) => e.activo !== false);
 
-  const isCurrent = (e: any) => {
+  const isCurrent = (e: EventoRow) => {
     const start = e.fecha_inicio ? new Date(e.fecha_inicio) : null;
     const end = e.fecha_fin ? new Date(e.fecha_fin) : null;
     if (start && start > now) return false;
@@ -555,7 +635,7 @@ function getRotondaEvento(eventosData: any[] = []): any | null {
       const end = new Date(e.fecha_fin);
       return end < now;
     })
-    .sort((a, b) => new Date(b.fecha_fin).getTime() - new Date(a.fecha_fin).getTime());
+    .sort((a, b) => new Date(b.fecha_fin || 0).getTime() - new Date(a.fecha_fin || 0).getTime());
   if (pastWithPhotos.length > 0) return pastWithPhotos[0];
 
   // 5. Cualquier evento activo con fotos subidas
@@ -584,7 +664,7 @@ function getRotondaEvento(eventosData: any[] = []): any | null {
 }
 
 export default function HomeClient({ products, sections, heroData, eventosData }: HomeClientProps) {
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     import("@/lib/extras-cache").then(({ loadExtras }) => loadExtras(() => {}));
@@ -592,12 +672,12 @@ export default function HomeClient({ products, sections, heroData, eventosData }
 
   const rotondaEvento = getRotondaEvento(eventosData);
 
-  const aboutSection = sections.find((s: any) => s.section_key === 'about_us' && s.activo !== false);
-  const productosRotondaSection = sections.find((s: any) => s.section_key === 'evento_productos_rotonda');
-  const rotondaSection = sections.find((s: any) => s.section_key === 'campana_rotonda' && s.activo !== false);
-  const showcaseSection = sections.find((s: any) => s.section_key === 'showcase' && s.activo !== false);
-  const customSection = sections.find((s: any) => s.section_key === 'custom_amigurumi' && s.activo !== false);
-  const faqSection = sections.find((s: any) => s.section_key === 'faq' && s.activo !== false);
+  const aboutSection = sections.find((s) => s.section_key === 'about_us' && s.activo !== false);
+  const productosRotondaSection = sections.find((s) => s.section_key === 'evento_productos_rotonda');
+  const rotondaSection = sections.find((s) => s.section_key === 'campana_rotonda' && s.activo !== false);
+  const showcaseSection = sections.find((s) => s.section_key === 'showcase' && s.activo !== false);
+  const customSection = sections.find((s) => s.section_key === 'custom_amigurumi' && s.activo !== false);
+  const faqSection = sections.find((s) => s.section_key === 'faq' && s.activo !== false);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: BRAND.canvas }}>
@@ -613,8 +693,8 @@ export default function HomeClient({ products, sections, heroData, eventosData }
       {/* Carrusel 3D de Productos del Catálogo de la Campaña / Evento Actual */}
       {(!productosRotondaSection || productosRotondaSection.activo !== false) && (
         <EventoProductosRotondaSection
-          section={productosRotondaSection}
-          eventoActual={rotondaEvento}
+          section={productosRotondaSection as unknown as RotondaSectionProp}
+          eventoActual={rotondaEvento as unknown as RotondaEventoProp}
           products={products}
           eventosData={eventosData}
           onQuickView={setSelectedProduct}
@@ -622,7 +702,7 @@ export default function HomeClient({ products, sections, heroData, eventosData }
       )}
 
       {/* Galería Rotonda 3D de Campañas / Fotos de Clientes */}
-      <CampanaRotondaSection section={rotondaSection} eventoActual={rotondaEvento} />
+      <CampanaRotondaSection section={rotondaSection as unknown as CampanaSectionProp} eventoActual={rotondaEvento as unknown as EventoCampanaProp} />
 
       {showcaseSection && <ShowcaseSection section={showcaseSection} products={products} />}
 

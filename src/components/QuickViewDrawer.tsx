@@ -29,7 +29,7 @@ const BRAND = {
 };
 
 interface QuickViewDrawerProps {
-  product: any;
+  product: Product;
   onClose: () => void;
 }
 

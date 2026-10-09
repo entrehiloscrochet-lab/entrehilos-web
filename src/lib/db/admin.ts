@@ -71,7 +71,7 @@ export async function getAdminHeroes() {
   return data || []
 }
 
-export async function actualizarHero(id: number, updates: Record<string, any>) {
+export async function actualizarHero(id: number, updates: Record<string, unknown>) {
   const { error } = await supabaseAdmin
     .from('hero_config')
     .update({ ...updates, updated_at: new Date().toISOString() })

@@ -8,10 +8,11 @@ import { useReviews } from "@/context/ReviewsContext";
 import RatingStars from "@/components/RatingStars";
 import { useToast } from "@/components/Toast";
 import { slugify } from "@/lib/utils";
+import { Product } from "@/lib/ventify";
 
 interface ProductCardProps {
-  producto: any;
-  onQuickView?: (producto: any) => void;
+  producto: Product;
+  onQuickView?: (producto: Product) => void;
   accentColor?: string;
   accentHover?: string;
   priceColor?: string;

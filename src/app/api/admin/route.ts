@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invalidateProductCaches } from "@/lib/ventify";
 
+interface EventoDbRow {
+  slug: string;
+  [key: string]: unknown;
+}
+
+interface SectionDbRow {
+  section_key: string;
+  [key: string]: unknown;
+}
+
+interface ProductoCatalogoRow {
+  producto_id: unknown;
+  sku: string | null;
+  categoria_slug: string;
+  incluir: boolean;
+}
+
+interface BulkCatalogItem {
+  producto_id: string;
+  sku?: string | null;
+}
+
 const TABLES: Record<string, string> = {
   suscriptores: "suscriptores",
   pedidos: "pedidos",
@@ -56,7 +78,7 @@ export async function GET(request: NextRequest) {
 
   if (tab === "eventos" || tab === "catalogos") {
     const dbEvents = data || [];
-    const dbSlugs = new Set(dbEvents.map((e: any) => e.slug));
+    const dbSlugs = new Set(dbEvents.map((e: EventoDbRow) => e.slug));
     const missingDefaults = DEFAULT_EVENTOS.filter((d) => !dbSlugs.has(d.slug));
     return NextResponse.json([...dbEvents, ...missingDefaults]);
   }
@@ -64,7 +86,7 @@ export async function GET(request: NextRequest) {
   if (tab === "inicio") {
     const sections = [...(data || [])];
 
-    const hasProductosRotonda = sections.some((s: any) => s.section_key === "evento_productos_rotonda");
+    const hasProductosRotonda = sections.some((s: SectionDbRow) => s.section_key === "evento_productos_rotonda");
     if (!hasProductosRotonda) {
       const defaultProductosRotonda = {
         id: -98,
@@ -83,7 +105,7 @@ export async function GET(request: NextRequest) {
       sections.unshift(defaultProductosRotonda);
     }
 
-    const hasRotonda = sections.some((s: any) => s.section_key === "campana_rotonda");
+    const hasRotonda = sections.some((s: SectionDbRow) => s.section_key === "campana_rotonda");
     if (!hasRotonda) {
       const defaultRotonda = {
         id: -99,
@@ -382,7 +404,7 @@ export async function PATCH(request: NextRequest) {
       .delete()
       .eq("producto_id", producto_id);
 
-    const rowsToInsert: any[] = [];
+    const rowsToInsert: ProductoCatalogoRow[] = [];
     if (Array.isArray(slugs_incluidos)) {
       for (const slug of slugs_incluidos) {
         if (slug && typeof slug === "string") {
@@ -449,7 +471,7 @@ export async function PATCH(request: NextRequest) {
           );
       }
     } else {
-      const rows = items.map((item: any) => ({
+      const rows = items.map((item: BulkCatalogItem) => ({
         producto_id: item.producto_id,
         sku: item.sku || null,
         categoria_slug: normalizedSlug,

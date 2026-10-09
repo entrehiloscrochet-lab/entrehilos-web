@@ -1,0 +1,205 @@
+{
+  "config": {
+    "id": "default",
+    "tarifa_hora": 8,
+    "margen_deseado_default": 40,
+    "limite_horas_dia_alerta": 4.5
+  },
+  "materiales": [
+    {
+      "id": "mat-1791528957634",
+      "nombre": "Cascabeles dorados",
+      "categoria": "Fornituras",
+      "presentacion": "Bolsa 50u",
+      "precio_compra": 15,
+      "cantidad_total": 50,
+      "unidad_medida": "unidades",
+      "costo_unitario": 0.3,
+      "stock_actual": 0,
+      "created_at": "2026-10-09T06:55:57.723028+00:00"
+    },
+    {
+      "id": "mat-1791527053977",
+      "nombre": "Imanes",
+      "categoria": "Accesorios",
+      "presentacion": "par",
+      "precio_compra": 1,
+      "cantidad_total": 2,
+      "unidad_medida": "unidades",
+      "costo_unitario": 0.5,
+      "stock_actual": 0,
+      "created_at": "2026-10-09T06:24:14.087474+00:00"
+    },
+    {
+      "id": "mat-1791526967741",
+      "nombre": "Ojitos",
+      "categoria": "Accesorios",
+      "presentacion": "cada uno",
+      "precio_compra": 1,
+      "cantidad_total": 2,
+      "unidad_medida": "unidades",
+      "costo_unitario": 0.5,
+      "stock_actual": 0,
+      "created_at": "2026-10-09T06:22:47.883551+00:00"
+    },
+    {
+      "id": "mat-1791526889536",
+      "nombre": "Llavero",
+      "categoria": "Accesorios",
+      "presentacion": "centena",
+      "precio_compra": 30,
+      "cantidad_total": 100,
+      "unidad_medida": "unidades",
+      "costo_unitario": 0.3,
+      "stock_actual": 0,
+      "created_at": "2026-10-09T06:21:29.617558+00:00"
+    },
+    {
+      "id": "mat-1",
+      "nombre": "Hilo de Algodón",
+      "categoria": "Hilos",
+      "presentacion": "Ovillo 100g",
+      "precio_compra": 7,
+      "cantidad_total": 1,
+      "unidad_medida": "unidades",
+      "costo_unitario": 7,
+      "stock_actual": 450,
+      "created_at": "2026-10-09T06:16:12.638963+00:00"
+    }
+  ],
+  "productos": [
+    {
+      "id": "prod-oso-amigurumi",
+      "producto_tienda_id": null,
+      "nombre": "Oso Amigurumi Clásico",
+      "categoria": "Amigurumis",
+      "tiempo_produccion": 2.5,
+      "precio_venta_real": 45,
+      "margen_deseado": 40,
+      "costo_materiales": 8,
+      "costo_mano_obra": 20,
+      "costo_total": 28,
+      "precio_sugerido": 47,
+      "notas": "Algodón 100g, relleno siliconado y ojitos de seguridad",
+      "imagen": "https://firebasestorage.googleapis.com/v0/b/ventify-xead3.firebasestorage.app/o/products%2FgVfKULjtvTdwZ6IJNRfzA2DBYrX2%2F1775578987352-qag7q9wo59j.jpg?alt=media&token=d5415ae0-f2ce-4bb2-95bf-a896f11097fe",
+      "items_receta": [
+        {
+          "id": "rec-1",
+          "producto_id": "prod-oso-amigurumi",
+          "material_id": "mat-1",
+          "cantidad": 1,
+          "costo_calculado": 7,
+          "material": {
+            "id": "mat-1",
+            "nombre": "Hilo de Algodón",
+            "categoria": "Hilos",
+            "presentacion": "Ovillo 100g",
+            "precio_compra": 7,
+            "cantidad_total": 1,
+            "unidad_medida": "unidades",
+            "costo_unitario": 7,
+            "stock_actual": 450,
+            "created_at": "2026-10-09T06:16:12.638963+00:00"
+          }
+        },
+        {
+          "id": "rec-2",
+          "producto_id": "prod-oso-amigurumi",
+          "material_id": "mat-1791526967741",
+          "cantidad": 2,
+          "costo_calculado": 1,
+          "material": {
+            "id": "mat-1791526967741",
+            "nombre": "Ojitos",
+            "categoria": "Accesorios",
+            "presentacion": "cada uno",
+            "precio_compra": 1,
+            "cantidad_total": 2,
+            "unidad_medida": "unidades",
+            "costo_unitario": 0.5,
+            "stock_actual": 0,
+            "created_at": "2026-10-09T06:22:47.883551+00:00"
+          }
+        }
+      ],
+      "created_at": "2026-10-09T06:00:00.000Z"
+    }
+  ],
+  "campanas": [
+    {
+      "id": "camp-1791526086475",
+      "nombre": "Feria Campaña Diciembre (PISCO)",
+      "descripcion": "Plazuela Belén",
+      "fecha_inicio": "2026-12-15",
+      "fecha_fin": "2026-10-19",
+      "activa": true,
+      "items": [],
+      "gastos": [],
+      "created_at": "2026-10-09T06:08:06.561969+00:00"
+    }
+  ],
+  "bitacora": [],
+  "categorias": [
+    "Amigurumis",
+    "Cajas",
+    "Flores Eternas",
+    "General",
+    "Llaveros",
+    "Personalizado",
+    "Ramos"
+  ],
+  "eventos": [
+    {
+      "slug": "general",
+      "nombre": "Catálogo General de la Tienda"
+    },
+    {
+      "slug": "dia-de-la-madre",
+      "nombre": "Día de la Madre",
+      "descripcion": "Regalos especiales para mamá",
+      "activo": true
+    },
+    {
+      "slug": "dia-de-la-mujer",
+      "nombre": "Día de la Mujer",
+      "descripcion": "Celebra su fuerza y dedicación",
+      "activo": true
+    },
+    {
+      "slug": "dia-de-la-novia",
+      "nombre": "Día de la Novia",
+      "descripcion": "Encuentra el regalo perfecto para celebrar el amor",
+      "activo": true
+    },
+    {
+      "slug": "dia-del-novio",
+      "nombre": "Dia del novio",
+      "descripcion": "Hoy les tocó a ellos ser los sorprendidos 🥹",
+      "activo": true
+    },
+    {
+      "slug": "flores-amarillas",
+      "nombre": "Flores Amarillas",
+      "descripcion": "La tradición de regalar flores amarillas",
+      "activo": true
+    },
+    {
+      "slug": "hotwheels",
+      "nombre": "HotWheels",
+      "descripcion": "Para los coleccionistas más exigentes",
+      "activo": true
+    },
+    {
+      "slug": "personalizados",
+      "nombre": "Personalizados",
+      "descripcion": "Diseños únicos tejidos a mano",
+      "activo": true
+    },
+    {
+      "slug": "san-valentin",
+      "nombre": "San Valentín",
+      "descripcion": "El amor se celebra con detalles únicos",
+      "activo": true
+    }
+  ]
+}

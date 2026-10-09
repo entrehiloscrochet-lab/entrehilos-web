@@ -2,22 +2,22 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { getVentifyProducts } from "@/lib/ventify";
+import { getVentifyProducts, type Product } from "@/lib/ventify";
 import { MessageCircle } from "lucide-react";
 import { loadExtras } from "@/lib/extras-cache";
 import ProductCard from "@/components/ProductCard";
 import QuickViewDrawer from "@/components/QuickViewDrawer";
 
 export default function DiaDeLaMadrePage() {
-  const [productos, setProductos] = useState<any[]>([]);
+  const [productos, setProductos] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     loadExtras(() => {});
   }, []);
 
-  const handleQuickView = (producto: any) => {
+  const handleQuickView = (producto: Product) => {
     setSelectedProduct(producto);
   };
 

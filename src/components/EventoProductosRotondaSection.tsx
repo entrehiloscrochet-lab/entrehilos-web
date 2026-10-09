@@ -4,13 +4,50 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Sparkles, Eye, ArrowRight, MessageCircle } from "lucide-react";
 import { isProductInSlug } from "@/lib/catalogos";
+import { Product } from "@/lib/ventify";
+
+interface RotondaEvento {
+  slug?: string;
+  nombre?: string;
+  featured?: boolean;
+  activo?: boolean;
+}
+
+interface CustomCatalogImage {
+  id?: string;
+  titulo?: string;
+  title?: string;
+  nombre?: string;
+  precio?: number | string;
+  price?: number | string;
+  imagen?: string;
+  image?: string;
+  url?: string;
+  categoria?: string;
+  descripcion?: string;
+}
+
+interface RotondaSectionItems {
+  evento_slug?: string;
+  custom_catalog_images?: CustomCatalogImage[];
+  selected_product_ids?: string[];
+  limite?: number;
+}
+
+interface RotondaSection {
+  activo?: boolean;
+  titulo?: string;
+  subtitulo?: string;
+  descripcion?: string;
+  items?: RotondaSectionItems;
+}
 
 export interface EventoProductosRotondaSectionProps {
-  section?: any;
-  eventoActual?: any;
-  products?: any[];
-  eventosData?: any[];
-  onQuickView?: (product: any) => void;
+  section?: RotondaSection;
+  eventoActual?: RotondaEvento | null;
+  products?: Product[];
+  eventosData?: RotondaEvento[];
+  onQuickView?: (product: Product) => void;
 }
 
 interface DisplayItem {
@@ -21,7 +58,7 @@ interface DisplayItem {
   categoria: string;
   descripcion?: string;
   isProduct: boolean;
-  rawProduct?: any;
+  rawProduct?: Product;
 }
 
 function getWhatsAppLink(item: DisplayItem, eventoNombre?: string) {
@@ -46,13 +83,13 @@ export default function EventoProductosRotondaSection({
   const eventoPrincipal = (() => {
     const configuredSlug = section?.items?.evento_slug;
     if (configuredSlug && configuredSlug !== "auto" && Array.isArray(eventosData) && eventosData.length > 0) {
-      const found = eventosData.find((e: any) => e.slug?.toLowerCase() === configuredSlug.toLowerCase());
+      const found = eventosData.find((e) => e.slug?.toLowerCase() === configuredSlug.toLowerCase());
       if (found) return found;
     }
     if (Array.isArray(eventosData) && eventosData.length > 0) {
-      const feat = eventosData.find((e: any) => e.featured === true && e.activo !== false);
+      const feat = eventosData.find((e) => e.featured === true && e.activo !== false);
       if (feat) return feat;
-      const act = eventosData.find((e: any) => e.activo !== false);
+      const act = eventosData.find((e) => e.activo !== false);
       if (act) return act;
       return eventosData[0];
     }
@@ -63,23 +100,26 @@ export default function EventoProductosRotondaSection({
   const eventoNombre = eventoPrincipal?.nombre || "Campaña Especial";
 
   // 2. Obtener imágenes de catálogo subidas manualmente desde el Admin
-  const customImages: any[] = Array.isArray(section?.items?.custom_catalog_images)
-    ? section.items.custom_catalog_images
+  const rawCustomImages = section?.items?.custom_catalog_images;
+  const customImages: CustomCatalogImage[] = Array.isArray(rawCustomImages)
+    ? rawCustomImages
     : [];
 
   // 3. Obtener productos elegidos o asignados al evento principal
-  const selectedProductIds: string[] = Array.isArray(section?.items?.selected_product_ids)
-    ? section.items.selected_product_ids
+  const rawSelectedProductIds = section?.items?.selected_product_ids;
+  const selectedProductIds: string[] = Array.isArray(rawSelectedProductIds)
+    ? rawSelectedProductIds
     : [];
   const selectedSet = new Set(selectedProductIds);
 
-  const maxItems = typeof section?.items?.limite === "number" && section.items.limite > 0
-    ? section.items.limite
+  const limite = section?.items?.limite;
+  const maxItems = typeof limite === "number" && limite > 0
+    ? limite
     : 8;
 
   // Filtrar productos: si el admin eligió productos específicos, tomamos esos;
   // de lo contrario, tomamos automáticamente los productos vinculados al evento principal
-  let matchingProducts = (products || []).filter((p: any) => {
+  let matchingProducts = (products || []).filter((p) => {
     if (p.is_active === false) return false;
     if (selectedSet.size > 0) {
       return selectedSet.has(p.id) || selectedSet.has(p.sku);
@@ -90,7 +130,7 @@ export default function EventoProductosRotondaSection({
 
   // Fallback a ramos si el evento principal no tiene productos aún y no hay imágenes subidas
   if (matchingProducts.length === 0 && selectedSet.size === 0 && customImages.length === 0) {
-    matchingProducts = (products || []).filter((p: any) => {
+    matchingProducts = (products || []).filter((p) => {
       if (p.is_active === false) return false;
       if (Array.isArray(p.catalogos) && p.catalogos.includes("ramos")) return true;
       return isProductInSlug(p, "ramos");
@@ -98,7 +138,7 @@ export default function EventoProductosRotondaSection({
   }
 
   // Normalizar items para la rotonda
-  const customItems: DisplayItem[] = customImages.map((c: any, idx: number) => ({
+  const customItems: DisplayItem[] = customImages.map((c, idx) => ({
     id: c.id || `custom-${idx}`,
     nombre: c.titulo || c.title || c.nombre || eventoNombre,
     precio: Number(c.precio ?? c.price ?? 0),
@@ -108,7 +148,7 @@ export default function EventoProductosRotondaSection({
     isProduct: false,
   }));
 
-  const productItems: DisplayItem[] = matchingProducts.map((p: any) => ({
+  const productItems: DisplayItem[] = matchingProducts.map((p) => ({
     id: String(p.id || p.sku),
     nombre: p.nombre,
     precio: Number(p.precio || 0),

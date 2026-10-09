@@ -1,5 +1,7 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useSyncExternalStore, ReactNode } from 'react';
+
+const emptySubscribe = () => () => {};
 import { Product } from '@/lib/ventify';
 import { useToast } from '@/components/Toast';
 
@@ -36,19 +38,20 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const { showToast } = useToast();
 
   useEffect(() => {
-    setIsClient(true);
     const savedCart = localStorage.getItem('entrehilos-cart');
     if (savedCart) {
       try {
         const parsedCart = JSON.parse(savedCart);
-        const safeCart = parsedCart.map((item: any) => ({
+        const safeCart = (parsedCart as CartItem[]).map((item) => ({
           ...item,
           extras: item.extras || []
         }));
+        // Hidratación inicial del carrito desde localStorage (sistema externo).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setItems(safeCart);
       } catch (error) {
         console.error('Error al cargar carrito:', error);

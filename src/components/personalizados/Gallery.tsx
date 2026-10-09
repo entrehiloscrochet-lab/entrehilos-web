@@ -26,7 +26,7 @@ export default function Gallery({ products }: Props) {
     return products.filter((p) => getCategory(p.sku) === active);
   }, [products, active]);
 
-  function handleQuickView(producto: any) {
+  function handleQuickView(producto: Product) {
     setSelectedProduct(producto);
   }
 

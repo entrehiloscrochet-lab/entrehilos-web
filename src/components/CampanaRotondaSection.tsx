@@ -11,8 +11,29 @@ export interface RotondaItem {
 }
 
 export interface CampanaRotondaSectionProps {
-  section?: any;
-  eventoActual?: any;
+  section?: CampanaSection;
+  eventoActual?: EventoCampana | null;
+}
+
+interface CampanaFoto {
+  url?: string;
+  imagen?: string;
+  etiqueta?: string;
+  titulo?: string;
+  descripcion?: string;
+}
+
+interface EventoCampana {
+  nombre?: string;
+  fotos_campana?: unknown[];
+}
+
+interface CampanaSection {
+  activo?: boolean;
+  titulo?: string;
+  subtitulo?: string;
+  descripcion?: string;
+  items?: RotondaItem[];
 }
 
 const DEFAULT_FALLBACK_ITEMS: RotondaItem[] = [
@@ -49,7 +70,7 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
   let itemsFromEvento: RotondaItem[] = [];
   if (eventoActual?.fotos_campana && Array.isArray(eventoActual.fotos_campana) && eventoActual.fotos_campana.length > 0) {
     itemsFromEvento = eventoActual.fotos_campana
-      .map((f: any, idx: number) => {
+      .map((f, idx) => {
         if (typeof f === "string") {
           return {
             imagen: f,
@@ -58,11 +79,12 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
             descripcion: `Entrega real de la campaña ${eventoActual.nombre || ""}`,
           };
         }
+        const foto = f as CampanaFoto;
         return {
-          imagen: f.url || f.imagen || "",
-          etiqueta: f.etiqueta || eventoActual.nombre || "Campaña",
-          titulo: f.titulo || `Entrega especial ${idx + 1}`,
-          descripcion: f.descripcion || `Fotos de clientes en la campaña ${eventoActual.nombre || ""}`,
+          imagen: foto.url || foto.imagen || "",
+          etiqueta: foto.etiqueta || eventoActual.nombre || "Campaña",
+          titulo: foto.titulo || `Entrega especial ${idx + 1}`,
+          descripcion: foto.descripcion || `Fotos de clientes en la campaña ${eventoActual.nombre || ""}`,
         };
       })
       .filter((i: RotondaItem) => Boolean(i.imagen));
@@ -71,7 +93,7 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
   // 2. Si no hay fotos en el evento, verificar si la sección tiene items configurados
   let itemsFromSection: RotondaItem[] = [];
   if (section?.items && Array.isArray(section.items) && section.items.length > 0) {
-    itemsFromSection = section.items.filter((i: any) => Boolean(i.imagen));
+    itemsFromSection = section.items.filter((i) => Boolean(i.imagen));
   }
 
   // 3. Determinar fotos a mostrar:

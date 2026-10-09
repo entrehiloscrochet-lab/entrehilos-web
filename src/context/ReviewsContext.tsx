@@ -79,6 +79,8 @@ export function ReviewsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Lectura inicial desde localStorage (sistema externo) al montar el provider.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRatedByMe();
     refresh();
   }, [loadRatedByMe, refresh]);

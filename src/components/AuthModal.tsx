@@ -31,18 +31,30 @@ export default function AuthModal({ isOpen, initialView = "login", onClose, onSu
     setPassword("");
   }, []);
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevInitialView, setPrevInitialView] = useState(initialView);
+  if (isOpen !== prevIsOpen || (isOpen && initialView !== prevInitialView)) {
+    setPrevIsOpen(isOpen);
+    setPrevInitialView(initialView);
+    setAnimate(false);
     if (isOpen) {
       setView(initialView);
       reset();
-      document.body.style.overflow = "hidden";
-      requestAnimationFrame(() => setAnimate(true));
-    } else {
-      setAnimate(false);
-      document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen, initialView, reset]);
+  }
+
+  useEffect(() => {
+    if (!isOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    const raf = requestAnimationFrame(() => setAnimate(true));
+    return () => {
+      document.body.style.overflow = "";
+      cancelAnimationFrame(raf);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

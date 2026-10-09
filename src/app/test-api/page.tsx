@@ -4,8 +4,15 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { ArrowLeft, CheckCircle, XCircle, Clock } from "lucide-react";
 
+interface ApiResult {
+  success: boolean;
+  error?: string;
+  data?: unknown;
+  timestamp: string;
+}
+
 export default function TestApiPage() {
-  const [result, setResult] = useState<any>({ success: false, error: 'Cargando...', timestamp: new Date().toISOString() });
+  const [result, setResult] = useState<ApiResult>({ success: false, error: 'Cargando...', timestamp: new Date().toISOString() });
 
   useEffect(() => {
     const fetchApi = async () => {
@@ -129,7 +136,7 @@ export default function TestApiPage() {
         </div>
 
         {/* Metadatos de la respuesta */}
-        {result.success && result.data && (
+        {result.success && !!result.data && (
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 mb-6 border border-white/20">
             <h2 className="text-xl font-bold mb-4">📊 Metadatos</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
@@ -153,7 +160,7 @@ export default function TestApiPage() {
               </div>
               <div className="bg-yellow-500/20 rounded-lg p-4">
                 <div className="text-3xl font-bold text-yellow-300">
-                  {result.data ? Object.keys(result.data).length : 0}
+                  {result.data ? Object.keys(result.data as object).length : 0}
                 </div>
                 <div className="text-sm text-gray-400 mt-1">Propiedades</div>
               </div>
