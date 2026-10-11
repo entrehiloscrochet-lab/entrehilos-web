@@ -117,62 +117,7 @@
       ],
       "created_at": "2026-10-09T20:29:08.596208+00:00"
     },
-    {
-      "id": "prod-1791577608798",
-      "producto_tienda_id": null,
-      "nombre": "Pochacco",
-      "categoria": "Llaveros",
-      "tiempo_produccion": 1,
-      "precio_venta_real": 15,
-      "margen_deseado": 50,
-      "costo_materiales": 2.05,
-      "costo_mano_obra": 8,
-      "costo_total": 10.05,
-      "precio_sugerido": 20,
-      "notas": "",
-      "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/produccion-1791577405570-qnp0wy.webp",
-      "items_receta": [
-        {
-          "id": "rec-1791577606944-0",
-          "producto_id": "prod-1791577608798",
-          "material_id": "mat-1",
-          "cantidad": 0.25,
-          "costo_calculado": 1.75,
-          "material": {
-            "id": "mat-1",
-            "nombre": "Hilo de Algodón BLANCO",
-            "categoria": "Hilos",
-            "presentacion": "Ovillo por precio",
-            "precio_compra": 7,
-            "cantidad_total": 1,
-            "unidad_medida": "precio",
-            "costo_unitario": 7,
-            "stock_actual": 450,
-            "created_at": "2026-10-09T06:16:12.638963+00:00"
-          }
-        },
-        {
-          "id": "rec-1791577606944-1",
-          "producto_id": "prod-1791577608798",
-          "material_id": "mat-1791526889536",
-          "cantidad": 1,
-          "costo_calculado": 0.3,
-          "material": {
-            "id": "mat-1791526889536",
-            "nombre": "Llavero",
-            "categoria": "Accesorios",
-            "presentacion": "centena",
-            "precio_compra": 30,
-            "cantidad_total": 100,
-            "unidad_medida": "unidades",
-            "costo_unitario": 0.3,
-            "stock_actual": 0,
-            "created_at": "2026-10-09T06:21:29.617558+00:00"
-          }
-        }
-      ],
-      "created_at": "2026-10-09T20:26:49.206733+00:00"
-    },
+
     {
       "id": "prod-1791577137003",
       "producto_tienda_id": null,
@@ -248,62 +193,7 @@
       ],
       "created_at": "2026-10-09T20:18:57.386413+00:00"
     },
-    {
-      "id": "prod-oso-amigurumi",
-      "producto_tienda_id": null,
-      "nombre": "Oso con chalona UNIDAD",
-      "categoria": "Llaveros",
-      "tiempo_produccion": 1.5,
-      "precio_venta_real": 15,
-      "margen_deseado": 40,
-      "costo_materiales": 1.7,
-      "costo_mano_obra": 12,
-      "costo_total": 13.7,
-      "precio_sugerido": 23,
-      "notas": "Algodón 100g, relleno siliconado y ojitos de seguridad",
-      "imagen": "https://rydogoubjnytzfctfnxz.supabase.co/storage/v1/object/public/heroes/produccion-1791538175027-e6givf.webp",
-      "items_receta": [
-        {
-          "id": "rec-1791538238306-0",
-          "producto_id": "prod-oso-amigurumi",
-          "material_id": "mat-1",
-          "cantidad": 0.2,
-          "costo_calculado": 1.4,
-          "material": {
-            "id": "mat-1",
-            "nombre": "Hilo de Algodón BLANCO",
-            "categoria": "Hilos",
-            "presentacion": "Ovillo por precio",
-            "precio_compra": 7,
-            "cantidad_total": 1,
-            "unidad_medida": "precio",
-            "costo_unitario": 7,
-            "stock_actual": 450,
-            "created_at": "2026-10-09T06:16:12.638963+00:00"
-          }
-        },
-        {
-          "id": "rec-1791538238306-1",
-          "producto_id": "prod-oso-amigurumi",
-          "material_id": "mat-1791526889536",
-          "cantidad": 1,
-          "costo_calculado": 0.3,
-          "material": {
-            "id": "mat-1791526889536",
-            "nombre": "Llavero",
-            "categoria": "Accesorios",
-            "presentacion": "centena",
-            "precio_compra": 30,
-            "cantidad_total": 100,
-            "unidad_medida": "unidades",
-            "costo_unitario": 0.3,
-            "stock_actual": 0,
-            "created_at": "2026-10-09T06:21:29.617558+00:00"
-          }
-        }
-      ],
-      "created_at": "2026-10-09T09:30:40.51544+00:00"
-    },
+
     {
       "id": "prod-1791538167107",
       "producto_tienda_id": null,

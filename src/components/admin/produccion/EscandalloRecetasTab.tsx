@@ -18,6 +18,7 @@ import {
   Heart,
   TrendingUp,
   Info,
+  Loader2,
 } from "lucide-react";
 import {
   ProductoProduccion,
@@ -129,10 +130,29 @@ export default function EscandalloRecetasTab({
 
   const [formItemsReceta, setFormItemsReceta] = useState<FormRecetaRow[]>([]);
   const [guardando, setGuardando] = useState(false);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
   // Referencias para auto-scroll al añadir un nuevo insumo
   const insumosListRef = useRef<HTMLDivElement>(null);
   const nuevoInsumoAnchorRef = useRef<HTMLDivElement>(null);
+
+  const handleConfirmEliminar = async (prod: ProductoProduccion) => {
+    if (!confirm(`¿Deseas eliminar el diseño de "${prod.nombre}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    setEliminandoId(prod.id);
+    try {
+      const ok = await onEliminarProducto(prod.id);
+      if (!ok) {
+        alert(`No se pudo eliminar "${prod.nombre}". Por favor, revisa la conexión o intenta de nuevo.`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`Error al eliminar "${prod.nombre}".`);
+    } finally {
+      setEliminandoId(null);
+    }
+  };
 
   const abrirModalNuevo = () => {
     setEditando(null);
@@ -500,15 +520,16 @@ export default function EscandalloRecetasTab({
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (confirm(`¿Deseas eliminar el diseño de "${prod.nombre}"?`)) {
-                              onEliminarProducto(prod.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          disabled={eliminandoId === prod.id}
+                          onClick={() => handleConfirmEliminar(prod)}
+                          className="p-1.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                           title="Eliminar diseño"
                         >
-                          <Trash2 size={15} />
+                          {eliminandoId === prod.id ? (
+                            <Loader2 size={15} className="animate-spin text-red-500" />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
                         </button>
                       </div>
                     </div>

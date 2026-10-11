@@ -329,12 +329,10 @@ async function getProduccionData(): Promise<ResumenProduccionData> {
       });
     });
 
-    // 2. Preservar cualquier producto del fallback que no esté en Supabase (ej. Oso Amigurumi Clásico)
+    // 2. Enriquecer solo atributos faltantes para productos que ya existen en Supabase
     (fallback.productos || []).forEach((fbProd) => {
-      if (!productosMap.has(fbProd.id)) {
-        productosMap.set(fbProd.id, fbProd);
-      } else {
-        const existing = productosMap.get(fbProd.id)!;
+      const existing = productosMap.get(fbProd.id);
+      if (existing) {
         if (!existing.imagen && fbProd.imagen) {
           existing.imagen = fbProd.imagen;
         }
@@ -1224,51 +1222,74 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Faltan parámetros 'tipo' o 'id'" }, { status: 400 });
     }
 
-    const currentData = await getProduccionData();
-
     if (tipo === "material") {
-      currentData.materiales = currentData.materiales.filter((m) => m.id !== id);
-      // Quitar de las recetas
-      currentData.productos.forEach((p) => {
-        p.items_receta = p.items_receta.filter((r) => r.material_id !== id);
-      });
-      saveFallbackData(currentData);
-      try {
-        await supabaseAdmin.from("produccion_materiales").delete().eq("id", id);
-      } catch (e) {}
+      // 1. Quitar de las recetas en Supabase para evitar restricción de FK
+      await supabaseAdmin.from("produccion_recetas_items").delete().eq("material_id", id);
+      const { error: delErr } = await supabaseAdmin.from("produccion_materiales").delete().eq("id", id);
+      if (delErr) {
+        console.error("Error al eliminar material en Supabase:", delErr);
+        return NextResponse.json({ error: delErr.message || "Error al eliminar material" }, { status: 500 });
+      }
     } else if (tipo === "producto") {
-      currentData.productos = currentData.productos.filter((p) => p.id !== id);
-      currentData.campanas.forEach((c) => {
-        c.items = c.items.filter((ci) => ci.producto_id !== id);
-      });
-      currentData.bitacora = currentData.bitacora.filter((b) => b.producto_id !== id);
-      saveFallbackData(currentData);
-      try {
-        await supabaseAdmin.from("produccion_productos").delete().eq("id", id);
-      } catch (e) {}
+      // 1. Quitar relaciones dependientes en Supabase
+      await supabaseAdmin.from("produccion_recetas_items").delete().eq("producto_id", id);
+      await supabaseAdmin.from("produccion_campana_items").delete().eq("producto_id", id);
+      await supabaseAdmin.from("produccion_bitacora").delete().eq("producto_id", id);
+      const { error: delErr } = await supabaseAdmin.from("produccion_productos").delete().eq("id", id);
+      if (delErr) {
+        console.error("Error al eliminar producto en Supabase:", delErr);
+        return NextResponse.json({ error: delErr.message || "Error al eliminar producto" }, { status: 500 });
+      }
     } else if (tipo === "campana") {
-      currentData.campanas = currentData.campanas.filter((c) => c.id !== id);
-      saveFallbackData(currentData);
-      try {
-        await supabaseAdmin.from("produccion_campanas").delete().eq("id", id);
-      } catch (e) {}
+      await supabaseAdmin.from("produccion_campana_items").delete().eq("campana_id", id);
+      await supabaseAdmin.from("produccion_campana_gastos").delete().eq("campana_id", id);
+      const { error: delErr } = await supabaseAdmin.from("produccion_campanas").delete().eq("id", id);
+      if (delErr) {
+        console.error("Error al eliminar campana en Supabase:", delErr);
+        return NextResponse.json({ error: delErr.message || "Error al eliminar campana" }, { status: 500 });
+      }
     } else if (tipo === "bitacora") {
-      currentData.bitacora = currentData.bitacora.filter((b) => b.id !== id);
-      saveFallbackData(currentData);
-      try {
-        await supabaseAdmin.from("produccion_bitacora").delete().eq("id", id);
-      } catch (e) {}
+      const { error: delErr } = await supabaseAdmin.from("produccion_bitacora").delete().eq("id", id);
+      if (delErr) {
+        console.error("Error al eliminar bitacora en Supabase:", delErr);
+        return NextResponse.json({ error: delErr.message || "Error al eliminar registro de bitácora" }, { status: 500 });
+      }
     } else if (tipo === "gasto") {
-      currentData.campanas.forEach((c) => {
-        c.gastos = c.gastos.filter((g) => g.id !== id);
-      });
-      saveFallbackData(currentData);
-      try {
-        await supabaseAdmin.from("produccion_campana_gastos").delete().eq("id", id);
-      } catch (e) {}
+      const { error: delErr } = await supabaseAdmin.from("produccion_campana_gastos").delete().eq("id", id);
+      if (delErr) {
+        console.error("Error al eliminar gasto en Supabase:", delErr);
+        return NextResponse.json({ error: delErr.message || "Error al eliminar gasto" }, { status: 500 });
+      }
     }
 
-    return NextResponse.json({ success: true, data: currentData });
+    // Actualizar también fallback local en dev si el sistema de archivos lo permite
+    try {
+      const currentFallback = readFallbackData();
+      if (tipo === "material") {
+        currentFallback.materiales = (currentFallback.materiales || []).filter((m) => m.id !== id);
+        (currentFallback.productos || []).forEach((p) => {
+          p.items_receta = (p.items_receta || []).filter((r) => r.material_id !== id);
+        });
+      } else if (tipo === "producto") {
+        currentFallback.productos = (currentFallback.productos || []).filter((p) => p.id !== id);
+        (currentFallback.campanas || []).forEach((c) => {
+          c.items = (c.items || []).filter((ci) => ci.producto_id !== id);
+        });
+        currentFallback.bitacora = (currentFallback.bitacora || []).filter((b) => b.producto_id !== id);
+      } else if (tipo === "campana") {
+        currentFallback.campanas = (currentFallback.campanas || []).filter((c) => c.id !== id);
+      } else if (tipo === "bitacora") {
+        currentFallback.bitacora = (currentFallback.bitacora || []).filter((b) => b.id !== id);
+      } else if (tipo === "gasto") {
+        (currentFallback.campanas || []).forEach((c) => {
+          c.gastos = (c.gastos || []).filter((g) => g.id !== id);
+        });
+      }
+      saveFallbackData(currentFallback);
+    } catch (_) {}
+
+    const updatedData = await getProduccionData();
+    return NextResponse.json({ success: true, data: updatedData });
   } catch (error: unknown) {
     return NextResponse.json({ error: (error as { message?: string }).message || "Error al eliminar" }, { status: 500 });
   }

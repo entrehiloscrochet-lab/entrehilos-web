@@ -180,9 +180,12 @@ export default function ProduccionMainView({
         method: "DELETE",
       });
       const json = await res.json();
-      if (json.success && json.data) {
+      if (res.ok && json.success && json.data) {
         setData(json.data);
         return true;
+      }
+      if (json.error) {
+        alert(json.error);
       }
       return false;
     } catch (e) {
@@ -216,9 +219,12 @@ export default function ProduccionMainView({
         method: "DELETE",
       });
       const json = await res.json();
-      if (json.success && json.data) {
+      if (res.ok && json.success && json.data) {
         setData(json.data);
         return true;
+      }
+      if (json.error) {
+        alert(json.error);
       }
       return false;
     } catch (e) {
@@ -290,9 +296,12 @@ export default function ProduccionMainView({
         method: "DELETE",
       });
       const json = await res.json();
-      if (json.success && json.data) {
+      if (res.ok && json.success && json.data) {
         setData(json.data);
         return true;
+      }
+      if (json.error) {
+        alert(json.error);
       }
       return false;
     } catch (e) {
@@ -403,9 +412,12 @@ export default function ProduccionMainView({
         method: "DELETE",
       });
       const json = await res.json();
-      if (json.success && json.data) {
+      if (res.ok && json.success && json.data) {
         setData(json.data);
         return true;
+      }
+      if (json.error) {
+        alert(json.error);
       }
       return false;
     } catch (e) {

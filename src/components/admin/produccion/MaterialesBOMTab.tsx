@@ -13,6 +13,7 @@ import {
   Sparkles,
   Info,
   Check,
+  Loader2,
 } from "lucide-react";
 import {
   MaterialItem,
@@ -56,6 +57,25 @@ export default function MaterialesBOMTab({
   const [filtroCategoria, setFiltroCategoria] = useState<string>("todas");
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<MaterialItem | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+
+  const handleConfirmEliminar = async (m: MaterialItem) => {
+    if (!confirm(`¿Deseas eliminar el material "${m.nombre}"?`)) {
+      return;
+    }
+    setEliminandoId(m.id);
+    try {
+      const ok = await onEliminarMaterial(m.id);
+      if (!ok) {
+        alert(`No se pudo eliminar "${m.nombre}". Revisa si está siendo usado en alguna receta.`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`Error al eliminar "${m.nombre}".`);
+    } finally {
+      setEliminandoId(null);
+    }
+  };
 
   // Categorías dinámicas y creación de nuevas categorías
   const [categoriasCustom, setCategoriasCustom] = useState<string[]>([]);
@@ -271,15 +291,16 @@ export default function MaterialesBOMTab({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm(`¿Deseas eliminar el material "${m.nombre}"?`)) {
-                          onEliminarMaterial(m.id);
-                        }
-                      }}
-                      className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                      disabled={eliminandoId === m.id}
+                      onClick={() => handleConfirmEliminar(m)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
                       title="Eliminar material"
                     >
-                      <Trash2 size={15} />
+                      {eliminandoId === m.id ? (
+                        <Loader2 size={15} className="animate-spin text-red-500" />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -379,15 +400,16 @@ export default function MaterialesBOMTab({
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (confirm(`¿Deseas eliminar el material "${m.nombre}"?`)) {
-                              onEliminarMaterial(m.id);
-                            }
-                          }}
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                          disabled={eliminandoId === m.id}
+                          onClick={() => handleConfirmEliminar(m)}
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
                           title="Eliminar material"
                         >
-                          <Trash2 size={15} />
+                          {eliminandoId === m.id ? (
+                            <Loader2 size={15} className="animate-spin text-red-500" />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
                         </button>
                       </div>
                     </td>
