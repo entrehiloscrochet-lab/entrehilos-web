@@ -332,7 +332,21 @@ export default function AdminPage() {
   // Estados para Instalación de App PWA (solo visible para admin)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installModalOpen, setInstallModalOpen] = useState(false);
-  const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const isStandalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.matchMedia("(display-mode: minimal-ui)").matches ||
+        Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
+        document.referrer.includes("android-app://");
+      if (isStandalone) return true;
+      try {
+        return localStorage.getItem("admin_app_installed") === "true";
+      } catch {}
+    }
+    return false;
+  });
 
   // Función para cambiar de sección con sincronización en URL y localStorage
   const cambiarSeccion = useCallback((newMain: MainTab, newSub?: SubTab) => {
@@ -1041,13 +1055,20 @@ export default function AdminPage() {
       navigator.serviceWorker.register("/sw-admin.js").catch(() => {});
     }
 
-    // Detectar si ya está corriendo en modo standalone
+    // Detectar si ya está corriendo en modo standalone o fue instalada previamente
     if (typeof window !== "undefined") {
       const isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
-        (window.navigator as Navigator & { standalone?: boolean }).standalone;
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.matchMedia("(display-mode: minimal-ui)").matches ||
+        Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
+        document.referrer.includes("android-app://") ||
+        localStorage.getItem("admin_app_installed") === "true";
       if (isStandalone) {
         setIsAppInstalled(true);
+        try {
+          localStorage.setItem("admin_app_installed", "true");
+        } catch {}
       }
     }
 
@@ -1059,6 +1080,9 @@ export default function AdminPage() {
     const handleAppInstalled = () => {
       setIsAppInstalled(true);
       setInstallPrompt(null);
+      try {
+        localStorage.setItem("admin_app_installed", "true");
+      } catch {}
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
@@ -1080,12 +1104,26 @@ export default function AdminPage() {
       if (choice.outcome === "accepted") {
         setIsAppInstalled(true);
         setInstallModalOpen(false);
+        try {
+          localStorage.setItem("admin_app_installed", "true");
+        } catch {}
       }
       setInstallPrompt(null);
     } else {
       setInstallModalOpen(true);
     }
   };
+
+  const handleSetInstalled = useCallback((installed: boolean) => {
+    setIsAppInstalled(installed);
+    try {
+      if (installed) {
+        localStorage.setItem("admin_app_installed", "true");
+      } else {
+        localStorage.removeItem("admin_app_installed");
+      }
+    } catch {}
+  }, []);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -1818,17 +1856,19 @@ export default function AdminPage() {
       {effectiveCollapsed ? (
         <div className="py-3 px-2 border-t border-[#FDE8EF] flex flex-col items-center gap-2">
           {/* Botón de Descargar App Admin */}
-          <button
-            onClick={() => setInstallModalOpen(true)}
-            className="w-11 h-11 rounded-xl bg-pink-50 text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
-            title="Instalar App Admin (Celular / Tablet / PC)"
-            aria-label="Instalar App Admin"
-          >
-            <Download size={19} strokeWidth={2.2} />
-            <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
-              Instalar App Admin
-            </span>
-          </button>
+          {!isAppInstalled && (
+            <button
+              onClick={() => setInstallModalOpen(true)}
+              className="w-11 h-11 rounded-xl bg-pink-50 text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
+              title="Instalar App Admin (Celular / Tablet / PC)"
+              aria-label="Instalar App Admin"
+            >
+              <Download size={19} strokeWidth={2.2} />
+              <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+                Instalar App Admin
+              </span>
+            </button>
+          )}
 
           <Link
             href="/"
@@ -1856,18 +1896,20 @@ export default function AdminPage() {
       ) : (
         <div className="p-3 border-t border-[#FDE8EF] space-y-1.5">
           {/* Botón de Descargar App Admin */}
-          <button
-            onClick={() => setInstallModalOpen(true)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200 text-[#C04267] hover:border-[#EE6B8D] hover:shadow-xs transition-all text-left group cursor-pointer"
-          >
-            <div className="w-8 h-8 rounded-lg bg-white border border-pink-200/80 flex items-center justify-center text-[#EE6B8D] shrink-0 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all">
-              <Download size={15} strokeWidth={2.2} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-xs truncate leading-tight">Instalar App Admin</div>
-              <div className="text-[10px] text-gray-500 truncate">Celular, Tablet o PC</div>
-            </div>
-          </button>
+          {!isAppInstalled && (
+            <button
+              onClick={() => setInstallModalOpen(true)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200 text-[#C04267] hover:border-[#EE6B8D] hover:shadow-xs transition-all text-left group cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-lg bg-white border border-pink-200/80 flex items-center justify-center text-[#EE6B8D] shrink-0 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all">
+                <Download size={15} strokeWidth={2.2} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-xs truncate leading-tight">Instalar App Admin</div>
+                <div className="text-[10px] text-gray-500 truncate">Celular, Tablet o PC</div>
+              </div>
+            </button>
+          )}
 
           <Link
             href="/"
@@ -1916,15 +1958,17 @@ export default function AdminPage() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setInstallModalOpen(true)}
-            className="text-xs font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
-            title="Descargar APK / Instalar App en el celular"
-          >
-            <Download size={13} strokeWidth={2.2} className="text-[#EE6B8D]" />
-            <span>Descargar APK</span>
-          </button>
+          {!isAppInstalled && (
+            <button
+              type="button"
+              onClick={() => setInstallModalOpen(true)}
+              className="text-xs font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
+              title="Descargar APK / Instalar App en el celular"
+            >
+              <Download size={13} strokeWidth={2.2} className="text-[#EE6B8D]" />
+              <span>Descargar APK</span>
+            </button>
+          )}
 
           <Link
             href="/"
@@ -1976,31 +2020,33 @@ export default function AdminPage() {
               </p>
             </div>
 
-            {/* Banner de Descarga de App / Instalación APK */}
-            <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Download size={22} strokeWidth={2.2} />
+            {/* Banner de Descarga de App / Instalación APK (solo visible si no está instalada) */}
+            {!isAppInstalled && (
+              <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Download size={22} strokeWidth={2.2} />
+                  </div>
+                  <div>
+                    <h3 className="font-fredoka text-base font-bold text-[#C04267]">
+                      Descargar App Móvil / Instalar APK de Administración
+                    </h3>
+                    <p className="font-quicksand text-xs text-gray-600 mt-0.5">
+                      Instala la app en tu celular Android, iPhone, tablet o PC para acceso directo en pantalla completa y avisos sonoros de entregas.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-fredoka text-base font-bold text-[#C04267]">
-                    Descargar App Móvil / Instalar APK de Administración
-                  </h3>
-                  <p className="font-quicksand text-xs text-gray-600 mt-0.5">
-                    Instala la app en tu celular Android, iPhone, tablet o PC para acceso directo en pantalla completa y avisos sonoros de entregas.
-                  </p>
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => setInstallModalOpen(true)}
-                className="w-full sm:w-auto px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
-              >
-                <Download size={15} strokeWidth={2.2} />
-                <span>Descargar / Instalar App</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setInstallModalOpen(true)}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+                >
+                  <Download size={15} strokeWidth={2.2} />
+                  <span>Descargar / Instalar App</span>
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {menuGroups.filter(m => m.id !== "dashboard").map((group) => {
                 const Icon = group.icon;
@@ -6484,8 +6530,8 @@ export default function AdminPage() {
 
       {/* Barra de Navegación Inferior Fija para Celulares (APK / PWA / Web Móvil) */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#FDE8EF] px-2 py-1.5 shadow-lg flex items-center justify-around"
-        style={{ paddingBottom: "max(0.4rem, env(safe-area-inset-bottom))" }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#FDE8EF] px-1 py-1 shadow-lg flex items-center justify-around"
+        style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
         aria-label="Navegación principal inferior"
       >
         {menuGroups.map((group) => {
@@ -6496,20 +6542,24 @@ export default function AdminPage() {
               key={group.id}
               type="button"
               onClick={() => cambiarSeccion(group.id)}
-              className={`flex items-center justify-center transition-all duration-200 cursor-pointer ${
-                isActive
-                  ? "bg-pink-100/90 text-[#C04267] py-1.5 px-3 rounded-2xl flex-initial gap-1.5 shadow-2xs font-bold"
-                  : "text-gray-400 hover:text-gray-600 p-2 rounded-xl"
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-0.5 rounded-xl transition-all cursor-pointer min-w-0 ${
+                isActive ? "text-[#C04267]" : "text-gray-400 hover:text-gray-600"
               }`}
-              title={group.label}
-              aria-label={group.label}
             >
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.75} className="shrink-0" />
-              {isActive && (
-                <span className="text-xs font-quicksand font-bold tracking-tight truncate">
-                  {group.label}
-                </span>
-              )}
+              <div
+                className={`p-1.5 rounded-xl transition-all ${
+                  isActive ? "bg-pink-100/80 text-[#C04267]" : "bg-transparent text-gray-500"
+                }`}
+              >
+                <Icon size={19} strokeWidth={isActive ? 2.5 : 1.75} />
+              </div>
+              <span
+                className={`text-[10px] font-quicksand font-bold tracking-tight truncate max-w-full ${
+                  isActive ? "text-[#C04267]" : "text-gray-500"
+                }`}
+              >
+                {group.label}
+              </span>
             </button>
           );
         })}
@@ -6522,6 +6572,7 @@ export default function AdminPage() {
         deferredPrompt={installPrompt}
         onPromptInstall={handlePromptInstall}
         isInstalled={isAppInstalled}
+        onSetInstalled={handleSetInstalled}
       />
 
       <AgendarPersonalizadoModal

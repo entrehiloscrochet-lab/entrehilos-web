@@ -24,6 +24,7 @@ interface AdminInstallAppModalProps {
   deferredPrompt: InstallPromptEvent | null;
   onPromptInstall: () => void;
   isInstalled: boolean;
+  onSetInstalled?: (installed: boolean) => void;
 }
 
 export default function AdminInstallAppModal({
@@ -32,6 +33,7 @@ export default function AdminInstallAppModal({
   deferredPrompt,
   onPromptInstall,
   isInstalled,
+  onSetInstalled,
 }: AdminInstallAppModalProps) {
   const [deviceTab, setDeviceTab] = useState<"movil" | "tablet" | "pc" | "ios">(() => {
     if (typeof window !== "undefined") {
@@ -102,10 +104,39 @@ export default function AdminInstallAppModal({
             </div>
           )}
 
-          {isInstalled && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 font-semibold">
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-              <span>La aplicación ya está instalada en tu dispositivo.</span>
+          {isInstalled ? (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs space-y-2 font-semibold">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                <span className="font-bold text-sm text-emerald-900">Aplicación ya instalada</span>
+              </div>
+              <p className="font-normal text-emerald-700 leading-relaxed">
+                Esta app ya está instalada en tu dispositivo. Ya no aparecerán botones ni avisos para descargarla.
+              </p>
+              {onSetInstalled && (
+                <div className="pt-2 border-t border-emerald-200/60 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onSetInstalled(false)}
+                    className="text-[11px] text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                  >
+                    Desmarcar si la desinstalaste
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-200 text-xs">
+              <span className="text-gray-600">¿Ya la instalaste en tu pantalla de inicio?</span>
+              {onSetInstalled && (
+                <button
+                  type="button"
+                  onClick={() => onSetInstalled(true)}
+                  className="font-bold text-[#C04267] hover:underline cursor-pointer"
+                >
+                  Marcar como ya instalada
+                </button>
+              )}
             </div>
           )}
 
