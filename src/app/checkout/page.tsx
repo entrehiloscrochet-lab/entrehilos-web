@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, CheckCircle2, MapPin, Phone, User, Mail, Truck, Lock, ShieldCheck, ChevronDown, Check } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, CheckCircle2, MapPin, Phone, User, Mail, Truck, Lock, ShieldCheck, ChevronDown, Check, Calendar, Clock, Sparkles } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/components/Toast";
 import { getUsuarioId } from "@/lib/anon-id";
@@ -33,6 +33,18 @@ export default function CartPage() {
   const [enviando, setEnviando] = useState(false);
   const [perfilSugerido, setPerfilSugerido] = useState<PerfilSugeridoData | null>(null);
   const [sugerenciaAplicada, setSugerenciaAplicada] = useState(false);
+  const [tieneFechaEntrega, setTieneFechaEntrega] = useState(false);
+  const [fechaEntrega, setFechaEntrega] = useState("");
+  const [horaEntrega, setHoraEntrega] = useState("");
+  const [notaEntrega, setNotaEntrega] = useState("");
+
+  const minFechaEntrega = useMemo(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
 
   const departamentos = useMemo(() => getDepartamentos(), []);
   const provincias = useMemo(() => getProvincias(departamento), [departamento]);
@@ -128,6 +140,10 @@ export default function CartPage() {
             }),
             total: totalPrice,
             estado: "pendiente",
+            fecha_entrega: tieneFechaEntrega && fechaEntrega ? fechaEntrega : null,
+            hora_entrega: tieneFechaEntrega && horaEntrega.trim() ? horaEntrega.trim() : null,
+            origen: "tienda",
+            notas: tieneFechaEntrega && notaEntrega.trim() ? `Ocasión/Nota: ${notaEntrega.trim()}` : null,
           },
         }),
       });
@@ -172,7 +188,14 @@ export default function CartPage() {
     // El mensaje base y los datos de entrega se codifican limpiamente una sola vez
     const mensajeBase = getWhatsAppMessage();
     const textoBase = mensajeBase.includes("%") ? decodeURIComponent(mensajeBase) : mensajeBase;
-    const datosEntrega = `\n\n*Datos de entrega:*\nNombre: ${clienteNombre.trim()}\nTeléfono: ${clienteTelefono.trim()}\n${emailFinal ? `Email: ${emailFinal}\n` : ""}Dirección: ${direccionEnvio.trim()}`;
+    let datosEntrega = `\n\n*Datos de entrega:*\nNombre: ${clienteNombre.trim()}\nTeléfono: ${clienteTelefono.trim()}\n${emailFinal ? `Email: ${emailFinal}\n` : ""}Dirección: ${direccionEnvio.trim()}`;
+    if (tieneFechaEntrega && fechaEntrega) {
+      const parts = fechaEntrega.split("-");
+      const fechaFmt = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fechaEntrega;
+      datosEntrega += `\n📅 *Fecha deseada de entrega:* ${fechaFmt}`;
+      if (horaEntrega.trim()) datosEntrega += ` (${horaEntrega.trim()})`;
+      if (notaEntrega.trim()) datosEntrega += `\n📝 *Detalle/Ocasión:* ${notaEntrega.trim()}`;
+    }
     const whatsappUrl = `https://wa.me/51902578295?text=${encodeURIComponent(textoBase + datosEntrega)}`;
     window.open(whatsappUrl, "_blank");
 
@@ -528,6 +551,97 @@ export default function CartPage() {
                     placeholder="Ej: Frente al parque, color verde"
                     className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent font-quicksand text-sm text-[#2A2A2A]"
                   />
+                </div>
+
+                {/* PROGRAMACIÓN / FECHA DE ENTREGA (OPCIONAL) */}
+                <div className="pt-2 border-t border-gray-100">
+                  <div
+                    onClick={() => setTieneFechaEntrega(!tieneFechaEntrega)}
+                    className="p-3.5 rounded-xl border border-pink-200 bg-gradient-to-r from-pink-50/70 to-rose-50/40 hover:bg-pink-100/50 transition-colors cursor-pointer flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#EE6B8D]/15 text-[#EE6B8D] flex items-center justify-center shrink-0">
+                        <Calendar size={16} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-fredoka text-xs sm:text-sm font-bold text-[#C04267]">
+                            ¿Deseas recibirlo en una fecha específica?
+                          </span>
+                          <span className="text-[10px] font-semibold bg-white border border-pink-200 text-[#C04267] px-2 py-0.5 rounded-full">
+                            Opcional
+                          </span>
+                        </div>
+                        <p className="font-quicksand text-[11px] text-gray-500 mt-0.5">
+                          Cumpleaños, aniversarios o detalles para un día especial.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={tieneFechaEntrega}
+                        onChange={(e) => setTieneFechaEntrega(e.target.checked)}
+                        className="w-4 h-4 accent-[#EE6B8D] rounded cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+
+                  {tieneFechaEntrega && (
+                    <div className="mt-3 p-4 rounded-xl border border-pink-100 bg-pink-50/30 space-y-3 animate-in fade-in duration-200">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-quicksand text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                            <Calendar size={13} className="text-[#EE6B8D]" /> Fecha deseada de entrega *
+                          </label>
+                          <input
+                            type="date"
+                            min={minFechaEntrega}
+                            value={fechaEntrega}
+                            onChange={(e) => setFechaEntrega(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] font-quicksand text-xs sm:text-sm text-[#2A2A2A] bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="font-quicksand text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                            <Clock size={13} className="text-[#EE6B8D]" /> Rango / Preferencia horaria
+                          </label>
+                          <select
+                            value={horaEntrega}
+                            onChange={(e) => setHoraEntrega(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] font-quicksand text-xs sm:text-sm text-[#2A2A2A] bg-white"
+                          >
+                            <option value="">Cualquier momento del día</option>
+                            <option value="Mañana (9:00 am - 1:00 pm)">Mañana (9:00 am - 1:00 pm)</option>
+                            <option value="Tarde (2:00 pm - 6:00 pm)">Tarde (2:00 pm - 6:00 pm)</option>
+                            <option value="Noche (6:00 pm - 8:00 pm)">Noche (6:00 pm - 8:00 pm)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="font-quicksand text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1.5">
+                          <Sparkles size={12} className="text-[#EE6B8D]" /> Motivo u ocasión especial (opcional)
+                        </label>
+                        <input
+                          type="text"
+                          value={notaEntrega}
+                          onChange={(e) => setNotaEntrega(e.target.value)}
+                          placeholder="Ej: Cumpleaños de mamá, aniversario, etc."
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] font-quicksand text-xs text-[#2A2A2A] bg-white"
+                        />
+                      </div>
+
+                      <p className="font-quicksand text-[11px] text-[#8a5a68] italic flex items-center gap-1.5">
+                        <span>✨</span>
+                        <span>
+                          Cada pieza a crochet es elaborada a mano con mucho detalle. Si la fecha es muy cercana, confirmaremos contigo por WhatsApp la factibilidad según agenda del taller.
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-start gap-2 bg-[#FDF4F7] border border-[#FDE8EF] rounded-lg px-3.5 py-2.5">

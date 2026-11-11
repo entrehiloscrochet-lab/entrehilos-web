@@ -22,6 +22,11 @@ export interface Pedido {
   estado?: string
   metodo_pago?: string
   notas?: string
+  fecha_entrega?: string | null
+  hora_entrega?: string | null
+  origen?: string | null
+  adelanto?: number | null
+  saldo_pendiente?: number | null
 }
 
 export async function insertPedido(data: Pedido) {

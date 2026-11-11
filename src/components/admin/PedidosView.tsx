@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ShoppingBag,
   Plus,
@@ -11,10 +11,129 @@ import {
   MessageSquare,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
+  Bell,
+  BellRing,
   Truck,
   DollarSign,
   Phone,
+  Flame,
+  Sparkles,
 } from "lucide-react";
+
+export interface UrgenciaEntrega {
+  tipo: "atrasado" | "hoy" | "manana" | "proximo" | "futuro" | "completado" | "sin_fecha";
+  label: string;
+  badgeClass: string;
+  diffDias: number | null;
+  esUrgente: boolean;
+}
+
+export function calcularUrgenciaEntrega(fechaStr?: string | null, estado?: string | null): UrgenciaEntrega {
+  const est = (estado || "").toLowerCase().trim();
+  if (est === "entregado" || est === "cancelado") {
+    return {
+      tipo: "completado",
+      label: est === "entregado" ? "Entregado" : "Cancelado",
+      badgeClass: "bg-gray-100 text-gray-500 border-gray-200",
+      diffDias: null,
+      esUrgente: false,
+    };
+  }
+
+  if (!fechaStr) {
+    return {
+      tipo: "sin_fecha",
+      label: "Inmediata",
+      badgeClass: "bg-gray-100 text-gray-400 border-gray-200 italic",
+      diffDias: null,
+      esUrgente: false,
+    };
+  }
+
+  // Extraer año, mes, día (ignora horas/zonas para comparar día calendario peruano)
+  const dateOnly = fechaStr.split("T")[0].trim();
+  const parts = dateOnly.split("-");
+  if (parts.length !== 3) {
+    return {
+      tipo: "sin_fecha",
+      label: fechaStr,
+      badgeClass: "bg-gray-100 text-gray-500 border-gray-200",
+      diffDias: null,
+      esUrgente: false,
+    };
+  }
+
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+
+  const targetDate = new Date(y, m, d);
+  const now = new Date();
+  const todayZero = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diffDias = Math.round((targetDate.getTime() - todayZero.getTime()) / msPerDay);
+
+  if (diffDias < 0) {
+    const dias = Math.abs(diffDias);
+    return {
+      tipo: "atrasado",
+      label: `¡Atrasado (${dias}d)!`,
+      badgeClass: "bg-rose-600 text-white border-rose-700 animate-pulse font-bold shadow-xs",
+      diffDias,
+      esUrgente: true,
+    };
+  }
+
+  if (diffDias === 0) {
+    return {
+      tipo: "hoy",
+      label: "¡ENTREGA HOY!",
+      badgeClass: "bg-[#C04267] text-white border-pink-700 font-extrabold shadow-xs",
+      diffDias: 0,
+      esUrgente: true,
+    };
+  }
+
+  if (diffDias === 1) {
+    return {
+      tipo: "manana",
+      label: "Entrega Mañana",
+      badgeClass: "bg-amber-500 text-white border-amber-600 font-bold shadow-xs",
+      diffDias: 1,
+      esUrgente: true,
+    };
+  }
+
+  if (diffDias === 2) {
+    return {
+      tipo: "proximo",
+      label: "En 2 días",
+      badgeClass: "bg-amber-100 text-amber-900 border-amber-300 font-bold",
+      diffDias: 2,
+      esUrgente: true,
+    };
+  }
+
+  if (diffDias <= 5) {
+    return {
+      tipo: "proximo",
+      label: `En ${diffDias} días`,
+      badgeClass: "bg-blue-50 text-blue-800 border-blue-200 font-semibold",
+      diffDias,
+      esUrgente: false,
+    };
+  }
+
+  return {
+    tipo: "futuro",
+    label: `En ${diffDias} días`,
+    badgeClass: "bg-gray-100 text-gray-700 border-gray-200 font-medium",
+    diffDias,
+    esUrgente: false,
+  };
+}
 
 interface PedidoItem {
   id?: string;
@@ -107,6 +226,93 @@ export default function PedidosView({
 }: PedidosViewProps) {
   const [search, setSearch] = useState("");
   const [filterCanal, setFilterCanal] = useState<string>("todos");
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission);
+    } else {
+      setNotifPermission("unsupported");
+    }
+  }, []);
+
+  // Métricas de urgencia de entregas
+  const metricasEntrega = useMemo(() => {
+    let hoyCount = 0;
+    let mananaCount = 0;
+    let atrasadosCount = 0;
+    let proximos48hCount = 0;
+    let totalConFecha = 0;
+
+    pedidos.forEach((p) => {
+      const { fechaEntrega } = parseRowData(p);
+      if (fechaEntrega) totalConFecha++;
+      const urg = calcularUrgenciaEntrega(fechaEntrega, p.estado);
+      if (urg.tipo === "hoy") hoyCount++;
+      if (urg.tipo === "manana") mananaCount++;
+      if (urg.tipo === "atrasado") atrasadosCount++;
+      if (urg.esUrgente) proximos48hCount++;
+    });
+
+    return {
+      hoyCount,
+      mananaCount,
+      atrasadosCount,
+      proximos48hCount,
+      totalConFecha,
+      tieneAlertas: hoyCount > 0 || atrasadosCount > 0 || mananaCount > 0,
+    };
+  }, [pedidos]);
+
+  // Alerta sonora o notificación en el navegador al detectar pedidos para hoy
+  useEffect(() => {
+    if (notifPermission !== "granted") return;
+    if (metricasEntrega.hoyCount === 0 && metricasEntrega.atrasadosCount === 0) return;
+    if (typeof window === "undefined") return;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const sessionKey = `entrehilos_alerta_mostrada_${todayStr}`;
+    if (!sessionStorage.getItem(sessionKey)) {
+      sessionStorage.setItem(sessionKey, "true");
+      try {
+        const bodyMsg = metricasEntrega.atrasadosCount > 0
+          ? `¡Atención! Tienes ${metricasEntrega.atrasadosCount} pedido(s) atrasados y ${metricasEntrega.hoyCount} para entregar hoy.`
+          : `Tienes ${metricasEntrega.hoyCount} entrega(s) programadas para hoy.`;
+        new Notification("Entre Hilos 🧶 - Agenda de Entregas", {
+          body: bodyMsg,
+          icon: "/favicon.ico",
+        });
+      } catch (err) {
+        console.error("Error disparando notificación:", err);
+      }
+    }
+  }, [notifPermission, metricasEntrega.hoyCount, metricasEntrega.atrasadosCount]);
+
+  const handleActivarNotificaciones = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      alert("Tu navegador o dispositivo no soporta notificaciones locales.");
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      setNotifPermission(perm);
+      if (perm === "granted") {
+        if (metricasEntrega.hoyCount > 0 || metricasEntrega.atrasadosCount > 0) {
+          new Notification("Entre Hilos 🧶 - Alertas de Entregas", {
+            body: `Tienes ${metricasEntrega.hoyCount} entrega(s) para hoy y ${metricasEntrega.atrasadosCount} vencidas.`,
+            icon: "/favicon.ico",
+          });
+        } else {
+          new Notification("Entre Hilos 🧶", {
+            body: "¡Notificaciones activadas! Te avisaremos de tus pedidos y fechas de entrega.",
+            icon: "/favicon.ico",
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Error solicitando permiso:", e);
+    }
+  };
 
   // Conteos por canal
   const counts = useMemo(() => {
@@ -131,12 +337,22 @@ export default function PedidosView({
   // Filtrado
   const filteredPedidos = useMemo(() => {
     return pedidos.filter((p) => {
-      const { origen, cleanNotas } = parseRowData(p);
-      if (filterCanal === "tienda" && origen !== "tienda" && origen !== "web") return false;
-      if (filterCanal === "whatsapp" && origen !== "whatsapp") return false;
-      if (filterCanal === "facebook" && origen !== "facebook") return false;
-      if (filterCanal === "instagram" && origen !== "instagram") return false;
-      if (filterCanal === "otros" && ["tienda", "web", "whatsapp", "facebook", "instagram"].includes(origen)) return false;
+      const { origen, fechaEntrega, cleanNotas } = parseRowData(p);
+      const urg = calcularUrgenciaEntrega(fechaEntrega, p.estado);
+
+      if (filterCanal === "urgentes") {
+        if (!urg.esUrgente) return false;
+      } else if (filterCanal === "tienda" && origen !== "tienda" && origen !== "web") {
+        return false;
+      } else if (filterCanal === "whatsapp" && origen !== "whatsapp") {
+        return false;
+      } else if (filterCanal === "facebook" && origen !== "facebook") {
+        return false;
+      } else if (filterCanal === "instagram" && origen !== "instagram") {
+        return false;
+      } else if (filterCanal === "otros" && ["tienda", "web", "whatsapp", "facebook", "instagram"].includes(origen)) {
+        return false;
+      }
 
       if (!search.trim()) return true;
       const s = search.toLowerCase();
@@ -185,11 +401,30 @@ export default function PedidosView({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {notifPermission !== "granted" && notifPermission !== "unsupported" && (
+            <button
+              type="button"
+              onClick={handleActivarNotificaciones}
+              className="px-3.5 py-2 bg-white border border-pink-200 hover:bg-pink-50 text-[#C04267] rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+              title="Recibe alertas de entregas urgentes en tu celular o PC"
+            >
+              <Bell size={15} className="text-[#EE6B8D]" />
+              <span>Activar Avisos</span>
+            </button>
+          )}
+
+          {notifPermission === "granted" && (
+            <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl font-quicksand font-bold text-xs flex items-center gap-1.5 shadow-2xs">
+              <CheckCircle2 size={14} className="text-emerald-600" />
+              <span>Avisos de celular activos</span>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={onOpenAgendarModal}
-            className="w-full sm:w-auto px-4 py-2 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+            className="w-full sm:w-auto px-4 py-2 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
           >
             <Plus size={16} />
             <span>Agendar Pedido</span>
@@ -197,32 +432,102 @@ export default function PedidosView({
         </div>
       </div>
 
+      {/* BANNER INTELIGENTE DE ENTREGAS DEL DÍA Y ATRASADAS */}
+      {metricasEntrega.tieneAlertas && (
+        <div className="bg-gradient-to-r from-rose-50 via-pink-50 to-amber-50 border-2 border-rose-200/90 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#C04267] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                <BellRing size={20} className="animate-bounce" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-fredoka text-base sm:text-lg font-bold text-[#C04267]">
+                    ¡Atención a las fechas de entrega!
+                  </h3>
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider bg-rose-600 text-white px-2 py-0.5 rounded-full">
+                    Avisos del Sistema
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5 font-quicksand text-xs sm:text-sm text-gray-700">
+                  {metricasEntrega.atrasadosCount > 0 && (
+                    <span className="font-bold text-rose-700 bg-rose-100/90 px-2.5 py-0.5 rounded-lg border border-rose-300 flex items-center gap-1">
+                      <AlertTriangle size={12} className="text-rose-600" />
+                      {metricasEntrega.atrasadosCount} vencido(s) sin entregar
+                    </span>
+                  )}
+                  {metricasEntrega.hoyCount > 0 && (
+                    <span className="font-extrabold text-[#C04267] bg-pink-100/90 px-2.5 py-0.5 rounded-lg border border-pink-300 flex items-center gap-1">
+                      <Sparkles size={12} className="text-[#EE6B8D]" />
+                      {metricasEntrega.hoyCount} entrega(s) para HOY
+                    </span>
+                  )}
+                  {metricasEntrega.mananaCount > 0 && (
+                    <span className="font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-lg border border-amber-300 flex items-center gap-1">
+                      <Clock size={12} className="text-amber-700" />
+                      {metricasEntrega.mananaCount} entrega(s) mañana
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setFilterCanal(filterCanal === "urgentes" ? "todos" : "urgentes")}
+                className={`px-3.5 py-2 rounded-xl font-quicksand text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  filterCanal === "urgentes"
+                    ? "bg-rose-700 text-white hover:bg-rose-800"
+                    : "bg-[#C04267] text-white hover:bg-[#A03352]"
+                }`}
+              >
+                <Flame size={14} />
+                <span>{filterCanal === "urgentes" ? "Ver todos los pedidos" : "Filtrar urgentes (48h)"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Barra de Filtros por Canal y Buscador */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#FDE8EF] shadow-xs">
         <div className="flex flex-wrap gap-1.5">
           {[
-            { id: "todos", label: "Todos", count: counts.todos },
-            { id: "tienda", label: "Tienda Web", count: counts.tienda },
-            { id: "whatsapp", label: "WhatsApp", count: counts.whatsapp },
-            { id: "facebook", label: "Facebook", count: counts.facebook },
-            { id: "instagram", label: "Instagram", count: counts.instagram },
-            { id: "otros", label: "Otros", count: counts.otros },
+            { id: "todos", label: "Todos", count: counts.todos, isUrgent: false },
+            ...(metricasEntrega.proximos48hCount > 0
+              ? [{ id: "urgentes", label: "🚨 Próximos (48h)", count: metricasEntrega.proximos48hCount, isUrgent: true }]
+              : []),
+            { id: "tienda", label: "Tienda Web", count: counts.tienda, isUrgent: false },
+            { id: "whatsapp", label: "WhatsApp", count: counts.whatsapp, isUrgent: false },
+            { id: "facebook", label: "Facebook", count: counts.facebook, isUrgent: false },
+            { id: "instagram", label: "Instagram", count: counts.instagram, isUrgent: false },
+            { id: "otros", label: "Otros", count: counts.otros, isUrgent: false },
           ].map((tab) => {
             const isSelected = filterCanal === tab.id;
+            const isTabUrgent = Boolean(tab.isUrgent);
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setFilterCanal(tab.id)}
-                className={`px-3 py-1.5 rounded-xl font-quicksand text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl font-quicksand text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   isSelected
-                    ? "bg-[#EE6B8D] text-white shadow-xs"
+                    ? isTabUrgent
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "bg-[#EE6B8D] text-white shadow-xs"
+                    : isTabUrgent
+                    ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
                     : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                 }`}
               >
                 <span>{tab.label}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  isSelected ? "bg-white/20 text-white" : "bg-gray-200 text-gray-600"
+                  isSelected
+                    ? "bg-white/20 text-white"
+                    : isTabUrgent
+                    ? "bg-rose-200 text-rose-800 font-extrabold"
+                    : "bg-gray-200 text-gray-600"
                 }`}>
                   {tab.count}
                 </span>
@@ -259,6 +564,7 @@ export default function PedidosView({
               const tieneAdelanto = adelanto > 0;
               const displayId = row.id ? (String(row.id).length > 8 ? `#${String(row.id).slice(0, 6)}` : `#${row.id}`) : "#S/N";
               const displayCliente = row.cliente_nombre || row.cliente_email || "Cliente web";
+              const urgencia = calcularUrgenciaEntrega(fechaEntrega, row.estado);
 
               return (
                 <div
@@ -309,8 +615,18 @@ export default function PedidosView({
                         )}
                       </div>
 
-                      {/* Fecha de Entrega */}
-                      <div className="text-right shrink-0">
+                      {/* Fecha de Entrega y Urgencia */}
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        {urgencia.tipo !== "completado" && urgencia.tipo !== "sin_fecha" && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${urgencia.badgeClass}`}>
+                            {urgencia.tipo === "atrasado" || urgencia.tipo === "hoy" ? (
+                              <AlertTriangle size={10} className="shrink-0" />
+                            ) : (
+                              <Clock size={10} className="shrink-0" />
+                            )}
+                            <span>{urgencia.label}</span>
+                          </span>
+                        )}
                         {fechaEntrega ? (
                           <div className="flex items-center justify-end gap-1 text-xs font-quicksand text-gray-800 font-bold">
                             <Calendar size={12} className="text-[#EE6B8D]" />
@@ -426,6 +742,7 @@ export default function PedidosView({
                   const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
                   const itemsList: PedidoItem[] = Array.isArray(row.items) ? row.items : [];
                   const tieneAdelanto = adelanto > 0;
+                  const urgencia = calcularUrgenciaEntrega(fechaEntrega, row.estado);
 
                   return (
                     <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/40 transition-colors">
@@ -454,25 +771,39 @@ export default function PedidosView({
                         )}
                       </td>
 
-                      {/* Fecha de Entrega */}
+                      {/* Fecha de Entrega y Urgencia */}
                       <td className="px-3 py-3 whitespace-nowrap">
-                        {fechaEntrega ? (
-                          <div className="flex items-center gap-1.5 text-xs font-quicksand text-gray-800 font-bold">
-                            <Calendar size={13} className="text-[#EE6B8D]" />
-                            <span>
-                              {new Date(fechaEntrega).toLocaleDateString("es-PE", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
-                        )}
-                        {horaEntrega && (
-                          <p className="font-quicksand text-[10px] text-gray-500 mt-0.5">{horaEntrega}</p>
-                        )}
+                        <div className="space-y-1">
+                          {urgencia.tipo !== "completado" && urgencia.tipo !== "sin_fecha" && (
+                            <div>
+                              <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${urgencia.badgeClass}`}>
+                                {urgencia.tipo === "atrasado" || urgencia.tipo === "hoy" ? (
+                                  <AlertTriangle size={10} className="shrink-0" />
+                                ) : (
+                                  <Clock size={10} className="shrink-0" />
+                                )}
+                                <span>{urgencia.label}</span>
+                              </span>
+                            </div>
+                          )}
+                          {fechaEntrega ? (
+                            <div className="flex items-center gap-1.5 text-xs font-quicksand text-gray-800 font-bold">
+                              <Calendar size={13} className="text-[#EE6B8D]" />
+                              <span>
+                                {new Date(fechaEntrega).toLocaleDateString("es-PE", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
+                          )}
+                          {horaEntrega && (
+                            <p className="font-quicksand text-[10px] text-gray-500 mt-0.5">{horaEntrega}</p>
+                          )}
+                        </div>
                       </td>
 
                       {/* Items */}
