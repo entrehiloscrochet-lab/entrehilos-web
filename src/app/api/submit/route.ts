@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { normalizarFechaEntrega } from "@/lib/fecha-entrega";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   if (type === "pedido" && data && typeof data === "object") {
     if (data.fecha_entrega !== undefined) {
-      data.fecha_entrega = data.fecha_entrega ? String(data.fecha_entrega).split("T")[0].trim() : null;
+      data.fecha_entrega = normalizarFechaEntrega(data.fecha_entrega);
     }
     if (data.hora_entrega !== undefined) {
       data.hora_entrega = data.hora_entrega ? String(data.hora_entrega).trim() : null;

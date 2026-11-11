@@ -760,6 +760,8 @@ export default function PedidosView({
               const displayId = row.id ? (String(row.id).length > 8 ? `#${String(row.id).slice(0, 6)}` : `#${row.id}`) : "#S/N";
               const displayCliente = row.cliente_nombre || row.cliente_email || "Cliente web";
               const urgencia = calcularUrgenciaEntrega(fechaEntrega, row.estado);
+              const esCancelado = (row.estado || "").toLowerCase() === "cancelado";
+              const esFinalizado = esCancelado || (row.estado || "").toLowerCase() === "entregado";
 
               return (
                 <div
@@ -886,7 +888,7 @@ export default function PedidosView({
                           </span>
                         ) : tieneAdelanto ? (
                           <span className="font-quicksand text-[10px] text-emerald-700 font-bold block">
-                            Cancelado ✓
+                            Pagado ✓
                           </span>
                         ) : null}
                       </div>
@@ -911,20 +913,20 @@ export default function PedidosView({
                         type="button"
                         onClick={() => handleOpenGestionModal(row)}
                         className={`w-full py-2.5 px-3 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.99] cursor-pointer ${
-                          saldoPendiente > 0
-                            ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                            : row.estado === "entregado"
+                          esFinalizado
                             ? "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
+                            : saldoPendiente > 0
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
                             : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
                         }`}
                       >
-                        {saldoPendiente > 0 ? (
+                        {esFinalizado ? (
+                          <span>Ver / Gestionar Pedido</span>
+                        ) : saldoPendiente > 0 ? (
                           <>
                             <DollarSign size={14} />
                             <span>Cobrar Saldo (S/ {saldoPendiente.toFixed(2)}) y Gestionar</span>
                           </>
-                        ) : row.estado === "entregado" ? (
-                          <span>Ver / Gestionar Pedido</span>
                         ) : (
                           <span>Completar Venta / Gestionar</span>
                         )}
@@ -958,6 +960,8 @@ export default function PedidosView({
                   const itemsList: PedidoItem[] = Array.isArray(row.items) ? row.items : [];
                   const tieneAdelanto = adelanto > 0;
                   const urgencia = calcularUrgenciaEntrega(fechaEntrega, row.estado);
+                  const esCancelado = (row.estado || "").toLowerCase() === "cancelado";
+                  const esFinalizado = esCancelado || (row.estado || "").toLowerCase() === "entregado";
 
                   return (
                     <tr key={row.id} className="border-b border-gray-50 hover:bg-[#FDF4F7]/40 transition-colors">
@@ -1077,21 +1081,21 @@ export default function PedidosView({
                               type="button"
                               onClick={() => handleOpenGestionModal(row)}
                               className={`px-3 py-1.5 rounded-lg font-quicksand font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
-                                saldoPendiente > 0
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                                  : row.estado === "entregado"
+                                esFinalizado
                                   ? "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
+                                  : saldoPendiente > 0
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
                                   : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
                               }`}
                               title="Gestionar estado, pagos y entrega"
                             >
-                              {saldoPendiente > 0 ? (
+                              {esFinalizado ? (
+                                <span>Ver / Gestionar</span>
+                              ) : saldoPendiente > 0 ? (
                                 <>
                                   <DollarSign size={13} />
                                   <span>Cobrar y Gestionar</span>
                                 </>
-                              ) : row.estado === "entregado" ? (
-                                <span>Ver / Gestionar</span>
                               ) : (
                                 <span>Completar Venta</span>
                               )}

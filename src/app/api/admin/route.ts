@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invalidateProductCaches } from "@/lib/ventify";
+import { normalizarFechaEntrega } from "@/lib/fecha-entrega";
 
 interface EventoDbRow {
   slug: string;
@@ -220,6 +221,7 @@ export async function PATCH(request: NextRequest) {
       metodo_pago,
       fecha_entrega,
       hora_entrega,
+      cliente_telefono,
       notas,
     } = updates;
 
@@ -234,9 +236,11 @@ export async function PATCH(request: NextRequest) {
     if (adelanto !== undefined) updatePayload.adelanto = Number(adelanto);
     if (saldo_pendiente !== undefined) updatePayload.saldo_pendiente = Number(saldo_pendiente);
     if (metodo_pago !== undefined) updatePayload.metodo_pago = metodo_pago;
+    if (cliente_telefono !== undefined) {
+      updatePayload.cliente_telefono = String(cliente_telefono).trim();
+    }
     if (fecha_entrega !== undefined) {
-      const cleanFecha = fecha_entrega ? String(fecha_entrega).split("T")[0].trim() : null;
-      updatePayload.fecha_entrega = cleanFecha || null;
+      updatePayload.fecha_entrega = normalizarFechaEntrega(fecha_entrega);
     }
     if (hora_entrega !== undefined) {
       const cleanHora = hora_entrega ? String(hora_entrega).trim() : null;
@@ -257,6 +261,9 @@ export async function PATCH(request: NextRequest) {
       const safePayload: Record<string, unknown> = {};
       if (updatePayload.estado) safePayload.estado = updatePayload.estado;
       if (updatePayload.metodo_pago) safePayload.metodo_pago = updatePayload.metodo_pago;
+      if (updatePayload.cliente_telefono !== undefined) {
+        safePayload.cliente_telefono = updatePayload.cliente_telefono;
+      }
 
       const fallbackNotas = [
         notas !== undefined ? notas : (pedidoData?.notas || ""),
@@ -638,7 +645,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nombre de cliente e ítems son requeridos" }, { status: 400 });
     }
 
-    const cleanFecha = fecha_entrega ? String(fecha_entrega).split("T")[0].trim() : null;
+    const cleanFecha = normalizarFechaEntrega(fecha_entrega);
     const cleanHora = hora_entrega ? String(hora_entrega).trim() : null;
     const cleanNotas = notas ? String(notas).trim() : null;
 

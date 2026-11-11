@@ -78,6 +78,7 @@ export default function GestionarPedidoModal({
 }: GestionarPedidoModalProps) {
   const [estado, setEstado] = useState<string>("pendiente");
   const [metodoPago, setMetodoPago] = useState<string>("yape");
+  const [telefono, setTelefono] = useState<string>("");
   const [adelanto, setAdelanto] = useState<string>("0");
   const [fechaEntrega, setFechaEntrega] = useState<string>("");
   const [horaEntrega, setHoraEntrega] = useState<string>("");
@@ -124,6 +125,7 @@ export default function GestionarPedidoModal({
 
     setEstado(pedido.estado || "pendiente");
     setMetodoPago(pedido.metodo_pago || "yape");
+    setTelefono(pedido.cliente_telefono || "");
     setAdelanto(String(initAdelanto));
     setFechaEntrega(initFecha);
     setHoraEntrega(initHora);
@@ -168,6 +170,7 @@ export default function GestionarPedidoModal({
         id: pedido.id,
         updates: {
           estado,
+          cliente_telefono: telefono.trim(),
           adelanto: adelantoNum,
           saldo_pendiente: saldoActual,
           metodo_pago: metodoPago,
@@ -198,7 +201,7 @@ export default function GestionarPedidoModal({
     }
   };
 
-  const rawTel = (pedido.cliente_telefono || "").replace(/\D/g, "");
+  const rawTel = (telefono || "").replace(/\D/g, "");
   const numWa = rawTel ? (rawTel.startsWith("51") ? rawTel : `51${rawTel}`) : "";
   const waUrl = numWa
     ? `https://wa.me/${numWa}?text=${encodeURIComponent(
@@ -225,7 +228,7 @@ export default function GestionarPedidoModal({
             </div>
             <p className="font-quicksand text-xs text-gray-500 mt-0.5">
               Cliente: <span className="font-semibold text-gray-800">{pedido.cliente_nombre || "Cliente web"}</span>
-              {pedido.cliente_telefono && ` · ${pedido.cliente_telefono}`}
+              {telefono ? ` · ${telefono}` : " · Sin teléfono"}
             </p>
           </div>
 
@@ -262,6 +265,45 @@ export default function GestionarPedidoModal({
             </div>
           )}
 
+          {/* 0. CONTACTO / WHATSAPP */}
+          <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-2">
+            <label className="font-fredoka text-sm font-bold text-gray-800 block">
+              Contacto / WhatsApp
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  placeholder="Ej. 902578295"
+                  className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+                />
+              </div>
+              <a
+                href={waUrl || "#"}
+                target={waUrl ? "_blank" : undefined}
+                rel={waUrl ? "noopener noreferrer" : undefined}
+                onClick={(e) => {
+                  if (!waUrl) e.preventDefault();
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors ${
+                  waUrl
+                    ? "bg-green-50 text-green-700 hover:bg-green-100 border-green-200"
+                    : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                }`}
+                title={waUrl ? "Abrir WhatsApp" : "Ingresa un teléfono para habilitar WhatsApp"}
+              >
+                <MessageSquare size={13} />
+                <span>WhatsApp</span>
+              </a>
+            </div>
+            <p className="text-[10px] text-gray-400">
+              Escribe el número y guarda los cambios para habilitar el botón de WhatsApp en la lista.
+            </p>
+          </div>
+
           {/* 1. SECCIÓN COBROS Y SALDOS */}
           <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-3">
             <div className="flex items-center justify-between">
@@ -279,7 +321,7 @@ export default function GestionarPedidoModal({
               ) : (
                 <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
                   <Check size={13} />
-                  Total cancelado
+                  Total pagado
                 </span>
               )}
             </div>

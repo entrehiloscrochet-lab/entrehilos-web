@@ -11,8 +11,16 @@ ALTER TABLE public.pedidos
 
 CREATE INDEX IF NOT EXISTS idx_pedidos_fecha_entrega ON public.pedidos (fecha_entrega);
 
-COMMENT ON COLUMN public.pedidos.fecha_entrega IS 'Fecha programada o agendada para la entrega del pedido';
+COMMENT ON COLUMN public.pedidos.fecha_entrega IS 'Fecha programada o agendada para la entrega del pedido (anclada a mediodía de Perú para evitar desfase de día)';
 COMMENT ON COLUMN public.pedidos.hora_entrega IS 'Horario/turno preferido para la entrega del pedido';
+
+-- Normalizar fechas ya guardadas: las que quedaron a medianoche UTC
+-- pasan a mediodía de Perú para que se muestren en el día correcto.
+UPDATE public.pedidos
+SET fecha_entrega =
+  ((fecha_entrega AT TIME ZONE 'UTC')::date + TIME '12:00') AT TIME ZONE 'America/Lima'
+WHERE fecha_entrega IS NOT NULL
+  AND (fecha_entrega AT TIME ZONE 'UTC')::time = TIME '00:00:00';
 
 -- 2. HORA DE ENTREGA EN PEDIDOS PERSONALIZADOS
 ALTER TABLE public.pedidos_personalizados
