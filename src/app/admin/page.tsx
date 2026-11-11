@@ -1915,20 +1915,32 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <Link
-          href="/"
-          className="text-xs font-quicksand font-bold text-[#EE6B8D] hover:text-[#C04267] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 transition-colors"
-        >
-          <Home size={13} />
-          <span>Ver Tienda</span>
-        </Link>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setInstallModalOpen(true)}
+            className="text-xs font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
+            title="Descargar APK / Instalar App en el celular"
+          >
+            <Download size={13} strokeWidth={2.2} className="text-[#EE6B8D]" />
+            <span>Descargar APK</span>
+          </button>
+
+          <Link
+            href="/"
+            className="text-xs font-quicksand font-bold text-[#EE6B8D] hover:text-[#C04267] flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-pink-50 transition-colors"
+          >
+            <Home size={13} />
+            <span className="hidden xs:inline">Tienda</span>
+          </Link>
+        </div>
       </header>
 
       {/* Contenido Principal con padding inferior extra en móvil para la barra de navegación */}
       <main className="flex-1 min-w-0 p-3 sm:p-5 lg:p-6 pb-28 md:pb-8 transition-all duration-300 overflow-x-hidden">
-        {/* Subpestañas superiores táctiles para secciones con múltiples vistas */}
+        {/* Subpestañas superiores adaptativas sin scroll lateral: solo el activo expande su nombre */}
         {SUBTABS_BY_MAIN[mainTab]?.length > 1 && (
-          <div className="flex items-center gap-1.5 mb-5 bg-white p-1 rounded-2xl border border-[#FDE8EF] w-full max-w-full shadow-xs overflow-x-auto no-scrollbar">
+          <div className="flex items-center justify-between sm:justify-start gap-1 sm:gap-2 mb-5 bg-white p-1 rounded-2xl border border-[#FDE8EF] w-full shadow-xs">
             {SUBTABS_BY_MAIN[mainTab].map((st) => {
               const StIcon = st.icon;
               const isSubActive = subTab === st.id;
@@ -1937,14 +1949,18 @@ export default function AdminPage() {
                   key={st.id}
                   type="button"
                   onClick={() => cambiarSubTab(st.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-quicksand text-xs sm:text-sm font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                  title={st.label}
+                  aria-label={st.label}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-xl font-quicksand transition-all duration-200 cursor-pointer min-w-0 ${
                     isSubActive
-                      ? "bg-[#EE6B8D] text-white shadow-xs font-bold"
-                      : "text-gray-600 hover:text-[#C04267] hover:bg-[#FDF4F7]"
+                      ? "bg-[#EE6B8D] text-white shadow-xs font-bold px-3 sm:px-4 text-xs sm:text-sm flex-1 sm:flex-initial"
+                      : "text-gray-500 hover:text-[#C04267] hover:bg-[#FDF4F7] p-2 sm:px-3 text-xs shrink-0"
                   }`}
                 >
-                  <StIcon size={15} strokeWidth={isSubActive ? 2.5 : 1.75} />
-                  <span>{st.label}</span>
+                  <StIcon size={17} strokeWidth={isSubActive ? 2.5 : 1.75} className="shrink-0" />
+                  <span className={`${isSubActive ? "inline-block truncate leading-none" : "hidden sm:inline-block truncate leading-none"}`}>
+                    {st.label}
+                  </span>
                 </button>
               );
             })}
@@ -1958,6 +1974,32 @@ export default function AdminPage() {
               <p className="font-quicksand text-xs text-gray-500 mt-1">
                 Panel de control y gestión integral de Entre Hilos
               </p>
+            </div>
+
+            {/* Banner de Descarga de App / Instalación APK */}
+            <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Download size={22} strokeWidth={2.2} />
+                </div>
+                <div>
+                  <h3 className="font-fredoka text-base font-bold text-[#C04267]">
+                    Descargar App Móvil / Instalar APK de Administración
+                  </h3>
+                  <p className="font-quicksand text-xs text-gray-600 mt-0.5">
+                    Instala la app en tu celular Android, iPhone, tablet o PC para acceso directo en pantalla completa y avisos sonoros de entregas.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setInstallModalOpen(true)}
+                className="w-full sm:w-auto px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+              >
+                <Download size={15} strokeWidth={2.2} />
+                <span>Descargar / Instalar App</span>
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {menuGroups.filter(m => m.id !== "dashboard").map((group) => {
@@ -6442,8 +6484,8 @@ export default function AdminPage() {
 
       {/* Barra de Navegación Inferior Fija para Celulares (APK / PWA / Web Móvil) */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#FDE8EF] px-1 py-1 shadow-lg flex items-center justify-around"
-        style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#FDE8EF] px-2 py-1.5 shadow-lg flex items-center justify-around"
+        style={{ paddingBottom: "max(0.4rem, env(safe-area-inset-bottom))" }}
         aria-label="Navegación principal inferior"
       >
         {menuGroups.map((group) => {
@@ -6454,24 +6496,20 @@ export default function AdminPage() {
               key={group.id}
               type="button"
               onClick={() => cambiarSeccion(group.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-0.5 rounded-xl transition-all cursor-pointer min-w-0 ${
-                isActive ? "text-[#C04267]" : "text-gray-400 hover:text-gray-600"
+              className={`flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                isActive
+                  ? "bg-pink-100/90 text-[#C04267] py-1.5 px-3 rounded-2xl flex-initial gap-1.5 shadow-2xs font-bold"
+                  : "text-gray-400 hover:text-gray-600 p-2 rounded-xl"
               }`}
+              title={group.label}
+              aria-label={group.label}
             >
-              <div
-                className={`p-1.5 rounded-xl transition-all ${
-                  isActive ? "bg-pink-100/80 text-[#C04267]" : "bg-transparent text-gray-500"
-                }`}
-              >
-                <Icon size={19} strokeWidth={isActive ? 2.5 : 1.75} />
-              </div>
-              <span
-                className={`text-[10px] font-quicksand font-bold tracking-tight truncate max-w-full ${
-                  isActive ? "text-[#C04267]" : "text-gray-500"
-                }`}
-              >
-                {group.label}
-              </span>
+              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.75} className="shrink-0" />
+              {isActive && (
+                <span className="text-xs font-quicksand font-bold tracking-tight truncate">
+                  {group.label}
+                </span>
+              )}
             </button>
           );
         })}

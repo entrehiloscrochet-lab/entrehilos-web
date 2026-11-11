@@ -60,10 +60,10 @@ export default function AdminInstallAppModal({
             </div>
             <div>
               <h2 className="font-fredoka text-base sm:text-lg font-bold text-gray-800">
-                Instalar App de Administración
+                Instalar App / Descargar APK
               </h2>
               <p className="font-quicksand text-xs text-gray-500">
-                Para Celular, Tablet y PC a pantalla completa
+                Para Celular Android, Tablet, iPhone y PC a pantalla completa
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function AdminInstallAppModal({
                 className="w-full py-3 px-4 rounded-2xl bg-[#EE6B8D] hover:bg-[#C04267] text-white font-fredoka font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Download size={18} />
-                Instalar App Ahora (1 Clic)
+                Instalar App / Descargar APK (1 Clic)
               </button>
             </div>
           )}
