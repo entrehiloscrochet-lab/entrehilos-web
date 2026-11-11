@@ -20,8 +20,10 @@ import {
   Flame,
   CreditCard,
   Settings2,
+  Camera,
 } from "lucide-react";
 import GestionarPedidoModal, { PedidoGestion } from "./GestionarPedidoModal";
+import { parsearFotosEntrega, quitarMarcadorFotos } from "@/lib/fotos-pedido";
 
 // Sonido sintetizado de campana armónica de dos tonos con Web Audio API (cero dependencias externas)
 function reproducirCampanaSonido() {
@@ -265,6 +267,8 @@ interface PedidoItem {
   nombre?: string;
   cantidad?: number;
   precio?: number;
+  imagen?: string;
+  esPersonalizado?: boolean;
 }
 
 interface Pedido {
@@ -282,6 +286,7 @@ interface Pedido {
   direccion_envio?: string | null;
   estado?: string | null;
   items?: unknown;
+  fotos_entrega?: unknown;
 }
 
 interface PedidosViewProps {
@@ -369,13 +374,15 @@ function parseRowData(row: Pedido) {
     }
   }
 
-  const cleanNotas = (row.notas || "")
-    .replace(/\[Origen:\s*[^\]]+\]/gi, "")
-    .replace(/\[Fecha Entrega:\s*[^\]]+\]/gi, "")
-    .replace(/\[Adelanto:[^\]]+\]/gi, "")
-    .replace(/\|\s*\|/g, "|")
-    .replace(/^\|\s*|\s*\|$/g, "")
-    .trim();
+  const cleanNotas = quitarMarcadorFotos(
+    (row.notas || "")
+      .replace(/\[Origen:\s*[^\]]+\]/gi, "")
+      .replace(/\[Fecha Entrega:\s*[^\]]+\]/gi, "")
+      .replace(/\[Adelanto:[^\]]+\]/gi, "")
+      .replace(/\|\s*\|/g, "|")
+      .replace(/^\|\s*|\s*\|$/g, "")
+      .trim()
+  );
 
   return { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas };
 }
@@ -410,6 +417,7 @@ export default function PedidosView({
       adelanto: parsed.adelanto,
       saldo_pendiente: parsed.saldoPendiente,
       notas: parsed.cleanNotas,
+      fotos_entrega: parsearFotosEntrega(pedido),
     } as PedidoGestion);
     setIsGestionModalOpen(true);
   }, []);
@@ -852,8 +860,17 @@ export default function PedidosView({
                         <div className="space-y-1">
                           {itemsList.map((it: PedidoItem, i: number) => (
                             <div key={i} className="font-quicksand text-xs text-gray-700 flex items-center justify-between gap-2">
-                              <span className="truncate">
-                                {it.cantidad}x {it.nombre}
+                              <span className="truncate flex items-center gap-1.5 min-w-0">
+                                {it.imagen && (
+                                  <img
+                                    src={it.imagen}
+                                    alt=""
+                                    className="w-5 h-5 rounded object-cover border border-gray-200 shrink-0"
+                                  />
+                                )}
+                                <span className="truncate">
+                                  {it.cantidad}x {it.nombre}
+                                </span>
                               </span>
                               <span className="font-bold text-gray-600 text-[11px] shrink-0">
                                 S/ {(Number(it.precio || 0) * (it.cantidad || 1)).toFixed(2)}
@@ -865,6 +882,12 @@ export default function PedidosView({
                       {cleanNotas && (
                         <p className="font-quicksand text-[10px] text-gray-500 italic pt-1 border-t border-pink-100/40">
                           Nota: {cleanNotas}
+                        </p>
+                      )}
+                      {parsearFotosEntrega(row).length > 0 && (
+                        <p className="font-quicksand text-[10px] text-emerald-700 font-bold flex items-center gap-1 pt-1 border-t border-pink-100/40">
+                          <Camera size={11} />
+                          {parsearFotosEntrega(row).length} foto(s) de entrega
                         </p>
                       )}
                     </div>
@@ -1024,8 +1047,17 @@ export default function PedidosView({
                         <div className="space-y-1 max-w-[260px]">
                           {itemsList.map((it: PedidoItem, i: number) => (
                             <div key={i} className="font-quicksand text-xs text-gray-700 flex items-center justify-between gap-2">
-                              <span className="truncate">
-                                {it.cantidad}x {it.nombre}
+                              <span className="truncate flex items-center gap-1.5 min-w-0">
+                                {it.imagen && (
+                                  <img
+                                    src={it.imagen}
+                                    alt=""
+                                    className="w-5 h-5 rounded object-cover border border-gray-200 shrink-0"
+                                  />
+                                )}
+                                <span className="truncate">
+                                  {it.cantidad}x {it.nombre}
+                                </span>
                               </span>
                               <span className="font-semibold text-gray-500 text-[11px] shrink-0">
                                 S/ {(Number(it.precio || 0) * (it.cantidad || 1)).toFixed(2)}
@@ -1035,6 +1067,12 @@ export default function PedidosView({
                           {cleanNotas && (
                             <p className="font-quicksand text-[10px] text-gray-400 italic bg-gray-50 p-1.5 rounded-lg border border-gray-100 mt-1 max-w-[240px] truncate" title={cleanNotas}>
                               Nota: {cleanNotas}
+                            </p>
+                          )}
+                          {parsearFotosEntrega(row).length > 0 && (
+                            <p className="font-quicksand text-[10px] text-emerald-700 font-bold flex items-center gap-1 mt-1">
+                              <Camera size={11} />
+                              {parsearFotosEntrega(row).length} foto(s) de entrega
                             </p>
                           )}
                         </div>

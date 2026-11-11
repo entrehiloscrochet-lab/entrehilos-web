@@ -10,13 +10,20 @@ import {
   MessageSquare,
   Loader2,
   Check,
+  Package,
+  Image as ImageIcon,
+  Camera,
 } from "lucide-react";
+import OrderPhotoUploader from "./OrderPhotoUploader";
+import { parsearFotosEntrega } from "@/lib/fotos-pedido";
 
 export interface PedidoGestionItem {
   id?: string;
   nombre?: string;
   cantidad?: number;
   precio?: number;
+  imagen?: string;
+  esPersonalizado?: boolean;
 }
 
 export interface PedidoGestion {
@@ -35,6 +42,7 @@ export interface PedidoGestion {
   estado?: string | null;
   metodo_pago?: string | null;
   items?: unknown;
+  fotos_entrega?: unknown;
 }
 
 interface GestionarPedidoModalProps {
@@ -83,6 +91,7 @@ export default function GestionarPedidoModal({
   const [fechaEntrega, setFechaEntrega] = useState<string>("");
   const [horaEntrega, setHoraEntrega] = useState<string>("");
   const [notas, setNotas] = useState<string>("");
+  const [fotosEntrega, setFotosEntrega] = useState<string[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -130,10 +139,15 @@ export default function GestionarPedidoModal({
     setFechaEntrega(initFecha);
     setHoraEntrega(initHora);
     setNotas(cleanNotas);
+    setFotosEntrega(parsearFotosEntrega(pedido));
     setErrorMsg(null);
   }, [pedido]);
 
   if (!isOpen || !pedido) return null;
+
+  const itemsList: PedidoGestionItem[] = Array.isArray(pedido.items)
+    ? (pedido.items as PedidoGestionItem[])
+    : [];
 
   const totalNum = Number(pedido.total || 0);
   const adelantoNum = Math.max(0, parseFloat(adelanto) || 0);
@@ -177,6 +191,7 @@ export default function GestionarPedidoModal({
           fecha_entrega: cleanFecha,
           hora_entrega: cleanHora,
           notas: cleanNotas,
+          fotos_entrega: fotosEntrega,
         },
       };
 
@@ -303,6 +318,54 @@ export default function GestionarPedidoModal({
               Escribe el número y guarda los cambios para habilitar el botón de WhatsApp en la lista.
             </p>
           </div>
+
+          {/* PRODUCTOS DEL PEDIDO (con foto de referencia) */}
+          {itemsList.length > 0 && (
+            <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-2">
+              <label className="font-fredoka text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                <Package size={14} className="text-[#EE6B8D]" />
+                Productos del Pedido
+              </label>
+              <div className="space-y-1.5">
+                {itemsList.map((it, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50/70 border border-gray-100"
+                  >
+                    {it.imagen ? (
+                      <a
+                        href={it.imagen}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0"
+                        title="Ver foto de referencia"
+                      >
+                        <img
+                          src={it.imagen}
+                          alt={it.nombre || "Producto"}
+                          className="w-10 h-10 rounded-lg object-cover border border-gray-200 bg-white"
+                        />
+                      </a>
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-pink-50 text-[#C04267] flex items-center justify-center shrink-0">
+                        <ImageIcon size={15} />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-gray-800 truncate">{it.nombre}</p>
+                      <p className="text-[10px] text-gray-500">
+                        {it.cantidad || 1} × S/ {Number(it.precio || 0).toFixed(2)}
+                        {it.esPersonalizado ? " · Personalizado" : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-gray-700 shrink-0">
+                      S/ {(Number(it.precio || 0) * Number(it.cantidad || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 1. SECCIÓN COBROS Y SALDOS */}
           <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-3">
@@ -506,6 +569,24 @@ export default function GestionarPedidoModal({
               className="w-full p-2.5 border border-gray-200 rounded-lg text-xs text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D] resize-none"
             />
           </div>
+
+          {/* 5. FOTOS DE LA ENTREGA */}
+          {(estado === "entregado" || fotosEntrega.length > 0) && (
+            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-2">
+              <label className="font-fredoka text-sm font-bold text-emerald-800 flex items-center gap-1.5">
+                <Camera size={14} />
+                Fotos de la Entrega
+              </label>
+              <OrderPhotoUploader
+                fotos={fotosEntrega}
+                onChange={setFotosEntrega}
+                max={8}
+                label=""
+                compact
+                hint="Adjunta, arrastra o pega (Ctrl + V) fotos de cómo se entregó el pedido. Quedan guardadas con el pedido."
+              />
+            </div>
+          )}
         </div>
 
         {/* Pie del modal: Botones proporcionados y sin confusiones */}

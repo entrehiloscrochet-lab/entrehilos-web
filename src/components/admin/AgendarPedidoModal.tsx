@@ -21,6 +21,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import type { Product } from "@/lib/ventify";
+import OrderPhotoUploader from "./OrderPhotoUploader";
 
 interface AgendarPedidoModalProps {
   isOpen: boolean;
@@ -91,6 +92,7 @@ export default function AgendarPedidoModal({
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customNombre, setCustomNombre] = useState("");
   const [customPrecio, setCustomPrecio] = useState("");
+  const [customFotos, setCustomFotos] = useState<string[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -208,10 +210,12 @@ export default function AgendarPedidoModal({
         precio: precioNum,
         cantidad: 1,
         esPersonalizado: true,
+        imagen: customFotos[0] || undefined,
       },
     ]);
     setCustomNombre("");
     setCustomPrecio("");
+    setCustomFotos([]);
     setShowCustomForm(false);
   };
 
@@ -551,6 +555,15 @@ export default function AgendarPedidoModal({
                         </button>
                       </div>
                     </div>
+
+                    <OrderPhotoUploader
+                      fotos={customFotos}
+                      onChange={setCustomFotos}
+                      max={1}
+                      compact
+                      label="Foto de referencia (opcional)"
+                      hint="Adjunta, arrastra o pega (Ctrl + V) una imagen de lo que el cliente busca."
+                    />
                   </div>
                 )}
 

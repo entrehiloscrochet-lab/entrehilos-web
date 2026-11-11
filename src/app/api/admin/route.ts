@@ -223,6 +223,7 @@ export async function PATCH(request: NextRequest) {
       hora_entrega,
       cliente_telefono,
       notas,
+      fotos_entrega,
     } = updates;
 
     const { data: pedidoData } = await supabaseAdmin
@@ -250,10 +251,47 @@ export async function PATCH(request: NextRequest) {
       updatePayload.notas = notas ? String(notas).trim() : null;
     }
 
+    const fotosEntregaLimpias =
+      fotos_entrega !== undefined
+        ? (Array.isArray(fotos_entrega) ? fotos_entrega : [])
+            .filter((f): f is string => typeof f === "string" && f.trim().length > 0)
+            .map((f) => f.trim())
+        : undefined;
+
+    if (fotosEntregaLimpias !== undefined) {
+      updatePayload.fotos_entrega = fotosEntregaLimpias;
+    }
+
     let { error } = await supabaseAdmin
       .from("pedidos")
       .update(updatePayload)
       .eq("id", id);
+
+    // Si la columna `fotos_entrega` aún no existe, reintentamos sin ella y
+    // guardamos las fotos como marcador dentro de `notas` para no perderlas.
+    if (error && updatePayload.fotos_entrega !== undefined) {
+      const sinFotos = { ...updatePayload };
+      delete sinFotos.fotos_entrega;
+
+      const baseNotas = (notas !== undefined ? String(notas) : (pedidoData?.notas || ""))
+        .replace(/\[Fotos Entrega:[^\]]*\]/gi, "")
+        .replace(/\|\s*\|/g, "|")
+        .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
+        .trim();
+
+      sinFotos.notas = [
+        baseNotas,
+        fotosEntregaLimpias && fotosEntregaLimpias.length > 0
+          ? `[Fotos Entrega: ${fotosEntregaLimpias.join(" | ")}]`
+          : null,
+      ].filter(Boolean).join(" | ") || null;
+
+      const retrySinFotos = await supabaseAdmin
+        .from("pedidos")
+        .update(sinFotos)
+        .eq("id", id);
+      error = retrySinFotos.error;
+    }
 
     // Fallback si alguna columna aún no existe en Supabase (ej. fecha_entrega, adelanto)
     if (error) {
@@ -265,10 +303,19 @@ export async function PATCH(request: NextRequest) {
         safePayload.cliente_telefono = updatePayload.cliente_telefono;
       }
 
+      const baseNotas = (notas !== undefined ? String(notas) : (pedidoData?.notas || ""))
+        .replace(/\[Fotos Entrega:[^\]]*\]/gi, "")
+        .replace(/\|\s*\|/g, "|")
+        .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
+        .trim();
+
       const fallbackNotas = [
-        notas !== undefined ? notas : (pedidoData?.notas || ""),
+        baseNotas,
         fecha_entrega ? `[Fecha Entrega: ${fecha_entrega} ${hora_entrega || ""}]` : null,
         adelanto !== undefined ? `[Adelanto: S/${adelanto} | Saldo: S/${saldo_pendiente}]` : null,
+        fotosEntregaLimpias && fotosEntregaLimpias.length > 0
+          ? `[Fotos Entrega: ${fotosEntregaLimpias.join(" | ")}]`
+          : null,
       ].filter(Boolean).join(" | ");
 
       if (fallbackNotas) safePayload.notas = fallbackNotas;
