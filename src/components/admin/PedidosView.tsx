@@ -21,6 +21,7 @@ import {
   CreditCard,
   Settings2,
   Camera,
+  X,
 } from "lucide-react";
 import GestionarPedidoModal, { PedidoGestion } from "./GestionarPedidoModal";
 import { parsearFotosEntrega, quitarMarcadorFotos } from "@/lib/fotos-pedido";
@@ -396,6 +397,10 @@ export default function PedidosView({
 }: PedidosViewProps) {
   const [search, setSearch] = useState("");
   const [filterCanal, setFilterCanal] = useState<string>("todos");
+  const [filterEstado, setFilterEstado] = useState<string>("todos");
+  const [filterPago, setFilterPago] = useState<string>("todos");
+  const [filterFecha, setFilterFecha] = useState<string>("todas");
+  const [fechaExacta, setFechaExacta] = useState<string>("");
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
   const [selectedPedidoGestion, setSelectedPedidoGestion] = useState<PedidoGestion | null>(null);
   const [isGestionModalOpen, setIsGestionModalOpen] = useState(false);
@@ -528,35 +533,108 @@ export default function PedidosView({
     return map;
   }, [pedidos]);
 
+  // Conteos por estado, pago y fecha de entrega
+  const countsExtras = useMemo(() => {
+    const estado: Record<string, number> = {};
+    const pago = { pagado: 0, saldo: 0, sin_adelanto: 0, con_adelanto: 0 };
+    const fecha = { hoy: 0, manana: 0, atrasados: 0, proximos48h: 0, sin_fecha: 0, con_fecha: 0 };
+
+    pedidos.forEach((p) => {
+      const est = (p.estado || "pendiente").toLowerCase();
+      estado[est] = (estado[est] || 0) + 1;
+
+      const { fechaEntrega, saldoPendiente, adelanto } = parseRowData(p);
+
+      if (saldoPendiente > 0) pago.saldo++;
+      else pago.pagado++;
+
+      if (adelanto > 0) pago.con_adelanto++;
+      else pago.sin_adelanto++;
+
+      if (fechaEntrega) fecha.con_fecha++;
+      else fecha.sin_fecha++;
+
+      const urg = calcularUrgenciaEntrega(fechaEntrega, p.estado);
+      if (urg.tipo === "hoy") fecha.hoy++;
+      if (urg.tipo === "manana") fecha.manana++;
+      if (urg.tipo === "atrasado") fecha.atrasados++;
+      if (urg.esUrgente) fecha.proximos48h++;
+    });
+
+    return { estado, pago, fecha };
+  }, [pedidos]);
+
   // Filtrado
   const filteredPedidos = useMemo(() => {
-    return pedidos.filter((p) => {
-      const { origen, fechaEntrega, cleanNotas } = parseRowData(p);
-      const urg = calcularUrgenciaEntrega(fechaEntrega, p.estado);
+    const busqueda = search.trim().toLowerCase();
 
-      if (filterCanal === "urgentes") {
-        if (!urg.esUrgente) return false;
-      } else if (filterCanal === "tienda" && origen !== "tienda" && origen !== "web") {
-        return false;
-      } else if (filterCanal === "whatsapp" && origen !== "whatsapp") {
-        return false;
-      } else if (filterCanal === "facebook" && origen !== "facebook") {
-        return false;
-      } else if (filterCanal === "instagram" && origen !== "instagram") {
-        return false;
-      } else if (filterCanal === "otros" && ["tienda", "web", "whatsapp", "facebook", "instagram"].includes(origen)) {
+    return pedidos.filter((p) => {
+      const { origen, fechaEntrega, cleanNotas, saldoPendiente, adelanto } = parseRowData(p);
+
+      // Canal de origen
+      if (filterCanal !== "todos") {
+        if (filterCanal === "tienda" && origen !== "tienda" && origen !== "web") return false;
+        if (filterCanal === "whatsapp" && origen !== "whatsapp") return false;
+        if (filterCanal === "facebook" && origen !== "facebook") return false;
+        if (filterCanal === "instagram" && origen !== "instagram") return false;
+        if (
+          filterCanal === "otros" &&
+          ["tienda", "web", "whatsapp", "facebook", "instagram"].includes(origen)
+        ) {
+          return false;
+        }
+      }
+
+      // Estado
+      if (filterEstado !== "todos" && (p.estado || "pendiente").toLowerCase() !== filterEstado) {
         return false;
       }
 
-      if (!search.trim()) return true;
-      const s = search.toLowerCase();
-      const matchNombre = p.cliente_nombre?.toLowerCase().includes(s);
-      const matchTel = p.cliente_telefono?.includes(s);
-      const matchId = String(p.id).includes(s);
-      const matchNotas = cleanNotas.toLowerCase().includes(s);
+      // Estado de pago
+      if (filterPago === "pagado" && saldoPendiente > 0) return false;
+      if (filterPago === "saldo" && saldoPendiente <= 0) return false;
+      if (filterPago === "sin_adelanto" && adelanto > 0) return false;
+      if (filterPago === "con_adelanto" && adelanto <= 0) return false;
+
+      // Fecha de entrega (rangos)
+      if (filterFecha !== "todas") {
+        const urg = calcularUrgenciaEntrega(fechaEntrega, p.estado);
+        if (filterFecha === "hoy" && urg.tipo !== "hoy") return false;
+        if (filterFecha === "manana" && urg.tipo !== "manana") return false;
+        if (filterFecha === "atrasados" && urg.tipo !== "atrasado") return false;
+        if (filterFecha === "proximos48h" && !urg.esUrgente) return false;
+        if (filterFecha === "sin_fecha" && fechaEntrega) return false;
+        if (filterFecha === "con_fecha" && !fechaEntrega) return false;
+      }
+
+      // Fecha exacta
+      if (fechaExacta && fechaEntrega !== fechaExacta) return false;
+
+      if (!busqueda) return true;
+      const matchNombre = p.cliente_nombre?.toLowerCase().includes(busqueda);
+      const matchTel = p.cliente_telefono?.includes(busqueda);
+      const matchId = String(p.id).includes(busqueda);
+      const matchNotas = cleanNotas.toLowerCase().includes(busqueda);
       return matchNombre || matchTel || matchId || matchNotas;
     });
-  }, [pedidos, filterCanal, search]);
+  }, [pedidos, filterCanal, filterEstado, filterPago, filterFecha, fechaExacta, search]);
+
+  const hayFiltros =
+    filterCanal !== "todos" ||
+    filterEstado !== "todos" ||
+    filterPago !== "todos" ||
+    filterFecha !== "todas" ||
+    Boolean(fechaExacta) ||
+    Boolean(search.trim());
+
+  const limpiarFiltros = () => {
+    setFilterCanal("todos");
+    setFilterEstado("todos");
+    setFilterPago("todos");
+    setFilterFecha("todas");
+    setFechaExacta("");
+    setSearch("");
+  };
 
   const generateWhatsAppLink = (row: Pedido) => {
     const rawTel = (row.cliente_telefono || "").replace(/\D/g, "");
@@ -678,76 +756,142 @@ export default function PedidosView({
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
               <button
                 type="button"
-                onClick={() => setFilterCanal(filterCanal === "urgentes" ? "todos" : "urgentes")}
+                onClick={() =>
+                  setFilterFecha(filterFecha === "proximos48h" ? "todas" : "proximos48h")
+                }
                 className={`px-3.5 py-2 rounded-xl font-quicksand text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                  filterCanal === "urgentes"
+                  filterFecha === "proximos48h"
                     ? "bg-rose-700 text-white hover:bg-rose-800"
                     : "bg-[#C04267] text-white hover:bg-[#A03352]"
                 }`}
               >
                 <Flame size={14} />
-                <span>{filterCanal === "urgentes" ? "Ver todos los pedidos" : "Filtrar urgentes (48h)"}</span>
+                <span>
+                  {filterFecha === "proximos48h" ? "Ver todos los pedidos" : "Filtrar urgentes (48h)"}
+                </span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Barra de Filtros por Canal y Buscador */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#FDE8EF] shadow-xs">
-        <div className="flex flex-wrap gap-1.5">
-          {[
-            { id: "todos", label: "Todos", count: counts.todos, isUrgent: false },
-            ...(metricasEntrega.proximos48hCount > 0
-              ? [{ id: "urgentes", label: "Próximos (48h)", count: metricasEntrega.proximos48hCount, isUrgent: true }]
-              : []),
-            { id: "tienda", label: "Tienda Web", count: counts.tienda, isUrgent: false },
-            { id: "whatsapp", label: "WhatsApp", count: counts.whatsapp, isUrgent: false },
-            { id: "facebook", label: "Facebook", count: counts.facebook, isUrgent: false },
-            { id: "instagram", label: "Instagram", count: counts.instagram, isUrgent: false },
-            { id: "otros", label: "Otros", count: counts.otros, isUrgent: false },
-          ].map((tab) => {
-            const isSelected = filterCanal === tab.id;
-            const isTabUrgent = Boolean(tab.isUrgent);
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilterCanal(tab.id)}
-                className={`px-3 py-1.5 rounded-xl font-quicksand text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  isSelected
-                    ? isTabUrgent
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "bg-[#EE6B8D] text-white shadow-xs"
-                    : isTabUrgent
-                    ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
-                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                }`}
+      {/* Barra de Filtros: selectores + buscador */}
+      <div className="bg-white p-3 rounded-2xl border border-[#FDE8EF] shadow-xs space-y-2.5">
+        <div className="flex flex-col lg:flex-row gap-2.5">
+          <div className="relative w-full lg:w-72 shrink-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar cliente, teléfono o #..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3.5 py-2 text-xs border border-gray-200 rounded-xl font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 flex-1">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                Canal
+              </label>
+              <select
+                value={filterCanal}
+                onChange={(e) => setFilterCanal(e.target.value)}
+                className="w-full px-2.5 py-2 text-xs border border-gray-200 rounded-xl font-quicksand font-semibold text-gray-700 bg-white focus:outline-none focus:border-[#EE6B8D] cursor-pointer"
               >
-                <span>{tab.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  isSelected
-                    ? "bg-white/20 text-white"
-                    : isTabUrgent
-                    ? "bg-rose-200 text-rose-800 font-extrabold"
-                    : "bg-gray-200 text-gray-600"
-                }`}>
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
+                <option value="todos">Todos ({counts.todos})</option>
+                <option value="tienda">Tienda Web ({counts.tienda})</option>
+                <option value="whatsapp">WhatsApp ({counts.whatsapp})</option>
+                <option value="facebook">Facebook ({counts.facebook})</option>
+                <option value="instagram">Instagram ({counts.instagram})</option>
+                <option value="otros">Otros ({counts.otros})</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                Estado
+              </label>
+              <select
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+                className="w-full px-2.5 py-2 text-xs border border-gray-200 rounded-xl font-quicksand font-semibold text-gray-700 bg-white focus:outline-none focus:border-[#EE6B8D] cursor-pointer"
+              >
+                <option value="todos">Todos</option>
+                <option value="pendiente">Pendiente ({countsExtras.estado.pendiente || 0})</option>
+                <option value="confirmado">Confirmado ({countsExtras.estado.confirmado || 0})</option>
+                <option value="en_produccion">En confección ({countsExtras.estado.en_produccion || 0})</option>
+                <option value="listo">Listo p/ entrega ({countsExtras.estado.listo || 0})</option>
+                <option value="enviado">En camino ({countsExtras.estado.enviado || 0})</option>
+                <option value="entregado">Entregado ({countsExtras.estado.entregado || 0})</option>
+                <option value="cancelado">Cancelado ({countsExtras.estado.cancelado || 0})</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                Pago
+              </label>
+              <select
+                value={filterPago}
+                onChange={(e) => setFilterPago(e.target.value)}
+                className="w-full px-2.5 py-2 text-xs border border-gray-200 rounded-xl font-quicksand font-semibold text-gray-700 bg-white focus:outline-none focus:border-[#EE6B8D] cursor-pointer"
+              >
+                <option value="todos">Todos los pagos</option>
+                <option value="pagado">Pagado / sin saldo ({countsExtras.pago.pagado})</option>
+                <option value="saldo">Con saldo pendiente ({countsExtras.pago.saldo})</option>
+                <option value="con_adelanto">Con adelanto ({countsExtras.pago.con_adelanto})</option>
+                <option value="sin_adelanto">Sin adelanto ({countsExtras.pago.sin_adelanto})</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                Entrega
+              </label>
+              <select
+                value={filterFecha}
+                onChange={(e) => setFilterFecha(e.target.value)}
+                className="w-full px-2.5 py-2 text-xs border border-gray-200 rounded-xl font-quicksand font-semibold text-gray-700 bg-white focus:outline-none focus:border-[#EE6B8D] cursor-pointer"
+              >
+                <option value="todas">Todas las fechas</option>
+                <option value="proximos48h">Próximos 48h ({countsExtras.fecha.proximos48h})</option>
+                <option value="hoy">Hoy ({countsExtras.fecha.hoy})</option>
+                <option value="manana">Mañana ({countsExtras.fecha.manana})</option>
+                <option value="atrasados">Atrasados ({countsExtras.fecha.atrasados})</option>
+                <option value="con_fecha">Con fecha ({countsExtras.fecha.con_fecha})</option>
+                <option value="sin_fecha">Sin fecha ({countsExtras.fecha.sin_fecha})</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                Fecha exacta
+              </label>
+              <input
+                type="date"
+                value={fechaExacta}
+                onChange={(e) => setFechaExacta(e.target.value)}
+                className="w-full px-2.5 py-2 text-xs border border-gray-200 rounded-xl font-quicksand font-semibold text-gray-700 bg-white focus:outline-none focus:border-[#EE6B8D] cursor-pointer"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar cliente, teléfono o #..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3.5 py-1.5 text-xs border border-gray-200 rounded-xl font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
-          />
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-quicksand text-[11px] font-semibold text-gray-500">
+            Mostrando <strong className="text-[#C04267]">{filteredPedidos.length}</strong> de {pedidos.length} pedidos
+          </span>
+          {hayFiltros && (
+            <button
+              type="button"
+              onClick={limpiarFiltros}
+              className="font-quicksand text-[11px] font-bold text-[#C04267] hover:text-[#EE6B8D] flex items-center gap-1 cursor-pointer"
+            >
+              <X size={12} />
+              <span>Limpiar filtros</span>
+            </button>
+          )}
         </div>
       </div>
 

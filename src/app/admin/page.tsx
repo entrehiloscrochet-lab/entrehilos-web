@@ -22,6 +22,7 @@ import {
 } from "@/lib/catalogos";
 import ProductFormModal from "@/components/admin/ProductFormModal";
 import AgendarPedidoModal from "@/components/admin/AgendarPedidoModal";
+import AgendarPersonalizadoModal from "@/components/admin/AgendarPersonalizadoModal";
 import PedidosView from "@/components/admin/PedidosView";
 import ProduccionMainView from "@/components/admin/produccion/ProduccionMainView";
 import AdminInstallAppModal from "@/components/admin/AdminInstallAppModal";
@@ -401,6 +402,7 @@ export default function AdminPage() {
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProductItem, setEditingProductItem] = useState<AdminProduct | null>(null);
   const [agendarModalOpen, setAgendarModalOpen] = useState(false);
+  const [personalizadoModalOpen, setPersonalizadoModalOpen] = useState(false);
   const [editingProductoCatalogos, setEditingProductoCatalogos] = useState<AdminProduct | null>(null);
   const [selectedSlugsForProducto, setSelectedSlugsForProducto] = useState<string[]>([]);
   const [savingCatalogos, setSavingCatalogos] = useState(false);
@@ -6207,20 +6209,34 @@ export default function AdminPage() {
         )}
 
         {mainTab !== "dashboard" && mainTab !== "produccion" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && !loading && (
-          data.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-[#FDE8EF]">
-              <p className="font-quicksand text-xs text-gray-400">No hay registros en esta sección todavía.</p>
-            </div>
-          ) : (
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-                <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
-                  {SUBTABS_BY_MAIN[mainTab]?.find(m => m.id === subTab)?.label || subTab}
-                </h2>
-                <span className="font-quicksand text-xs font-semibold text-gray-500 bg-white border border-[#FDE8EF] px-3 py-1 rounded-full shadow-xs self-start sm:self-auto">
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+              <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
+                {SUBTABS_BY_MAIN[mainTab]?.find(m => m.id === subTab)?.label || subTab}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <span className="font-quicksand text-xs font-semibold text-gray-500 bg-white border border-[#FDE8EF] px-3 py-1 rounded-full shadow-xs">
                   {data.length} {data.length === 1 ? "registro" : "registros"}
                 </span>
+                {subTab === "personalizados" && (
+                  <button
+                    type="button"
+                    onClick={() => setPersonalizadoModalOpen(true)}
+                    className="px-3.5 py-2 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Plus size={15} />
+                    <span>Nuevo Pedido Personalizado</span>
+                  </button>
+                )}
               </div>
+            </div>
+
+            {data.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-[#FDE8EF]">
+                <p className="font-quicksand text-xs text-gray-400">No hay registros en esta sección todavía.</p>
+              </div>
+            ) : (
+              <div>
             {/* 1. VISTA TARJETAS PARA CELULARES Y TABLETS VERTICALES (lg:hidden) */}
             <div className="lg:hidden space-y-3">
               {data.map((row) => {
@@ -6387,8 +6403,10 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+              </div>
+            )}
           </div>
-        ) )}
+        )}
       </main>
 
       {/* Modal para instalar la App de Administración (exclusivo para rol admin) */}
@@ -6398,6 +6416,14 @@ export default function AdminPage() {
         deferredPrompt={installPrompt}
         onPromptInstall={handlePromptInstall}
         isInstalled={isAppInstalled}
+      />
+
+      <AgendarPersonalizadoModal
+        isOpen={personalizadoModalOpen}
+        onClose={() => setPersonalizadoModalOpen(false)}
+        onSaveSuccess={() => {
+          fetchData();
+        }}
       />
     </div>
   );
