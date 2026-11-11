@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   LayoutDashboard, ShoppingBag, MessageSquare, ClipboardList, Mail,
   Image as ImageIcon, Users, LogOut, Home, Loader2, Eye, ExternalLink,
-  UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Sparkles, Camera,
+  UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Camera,
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
   FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil, Menu,
   PanelLeft, PanelLeftClose, Calculator, Boxes, type LucideIcon,
@@ -131,52 +131,58 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-type MainTab = "dashboard" | "pedidos" | "catalogo" | "diseno" | "eventos" | "atencion" | "clientes" | "produccion";
+type MainTab = "dashboard" | "catalogo" | "pedidos" | "produccion" | "clientes" | "diseno" | "eventos" | "atencion";
 
-type SubTab = "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores" | "catalogos" | "produccion_panel";
+type SubTab = "resumen" | "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores" | "catalogos" | "produccion_panel";
 
 const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: LucideIcon; desc: string }[]> = {
-  dashboard: [],
-  produccion: [
-    { id: "produccion_panel", label: "Gestión de Producción y Costos", icon: Calculator, desc: "BOM, escandallo, recetas, campañas y punto de equilibrio" },
-  ],
-  pedidos: [
-    { id: "pedidos", label: "Pedidos de Tienda", icon: ShoppingBag, desc: "Pedidos recibidos desde el carrito" },
-    { id: "personalizados", label: "Pedidos Personalizados", icon: Mail, desc: "Solicitudes de cotización a medida" },
+  dashboard: [
+    { id: "resumen", label: "Resumen General", icon: LayoutDashboard, desc: "Métricas y accesos rápidos" },
+    { id: "heroes", label: "Banners (Heroes)", icon: ImageIcon, desc: "Carrusel principal y banners de colecciones" },
+    { id: "inicio", label: "Secciones de Portada", icon: Home, desc: "Textos y bloques informativos de la portada" },
+    { id: "eventos", label: "Eventos Especiales", icon: CalendarCheck, desc: "Campañas y fechas especiales activas" },
+    { id: "catalogos", label: "Catálogo de Portada", icon: Layers, desc: "Elegir productos y carrusel de la portada" },
   ],
   catalogo: [
     { id: "productos", label: "Visibilidad de Productos", icon: Package, desc: "Activar o desactivar productos en la web" },
     { id: "precios", label: "Precios por Tamaño", icon: Tag, desc: "Precios pequeño, mediano y grande para amigurumis" },
-    { id: "catalogos", label: "Catálogo de Portada", icon: Sparkles, desc: "Elegir productos y subir imágenes para el carrusel de la portada" },
+    { id: "catalogos", label: "Catálogo de Portada", icon: Layers, desc: "Elegir productos y carrusel de la portada" },
+  ],
+  pedidos: [
+    { id: "pedidos", label: "Pedidos de Tienda", icon: ShoppingBag, desc: "Pedidos recibidos desde el carrito o agendados" },
+    { id: "personalizados", label: "Pedidos Personalizados", icon: Mail, desc: "Encargos y cotizaciones a medida" },
+  ],
+  produccion: [
+    { id: "produccion_panel", label: "Gestión de Producción y Costos", icon: Calculator, desc: "BOM, escandallo, recetas, campañas y punto de equilibrio" },
+  ],
+  clientes: [
+    { id: "usuarios", label: "Usuarios Registrados", icon: UserCheck, desc: "Cuentas de clientes con perfil registrado" },
+    { id: "mensajes", label: "Mensajes de Contacto", icon: MessageSquare, desc: "Consultas enviadas desde el formulario" },
+    { id: "reclamaciones", label: "Libro de Reclamaciones", icon: ClipboardList, desc: "Reclamos y quejas formales de clientes" },
+    { id: "resenas", label: "Reseñas y Calificaciones", icon: Star, desc: "Calificaciones de clientes y testimonios" },
+    { id: "suscriptores", label: "Suscriptores del Boletín", icon: Users, desc: "Correos suscritos para novedades" },
   ],
   diseno: [
     { id: "heroes", label: "Banners (Heroes)", icon: ImageIcon, desc: "Carrusel principal y banners de colecciones" },
-    { id: "inicio", label: "Secciones de Inicio", icon: Home, desc: "Textos y bloques informativos de la portada" },
+    { id: "inicio", label: "Secciones de Portada", icon: Home, desc: "Textos y bloques informativos de la portada" },
   ],
   eventos: [
-    { id: "eventos", label: "Eventos Especiales", icon: Sparkles, desc: "Campañas y fechas especiales activas" },
-    { id: "catalogos", label: "Catálogo de Portada", icon: Sparkles, desc: "Elegir productos y subir imágenes para el carrusel de la portada" },
+    { id: "eventos", label: "Eventos Especiales", icon: CalendarCheck, desc: "Campañas y fechas especiales activas" },
+    { id: "catalogos", label: "Catálogo de Portada", icon: Layers, desc: "Elegir productos y carrusel de la portada" },
   ],
   atencion: [
     { id: "mensajes", label: "Mensajes de Contacto", icon: MessageSquare, desc: "Consultas enviadas desde el formulario" },
     { id: "reclamaciones", label: "Libro de Reclamaciones", icon: ClipboardList, desc: "Reclamos y quejas formales de clientes" },
     { id: "resenas", label: "Reseñas y Calificaciones", icon: Star, desc: "Calificaciones de clientes y testimonios" },
   ],
-  clientes: [
-    { id: "usuarios", label: "Usuarios Registrados", icon: UserCheck, desc: "Cuentas de clientes con perfil registrado" },
-    { id: "suscriptores", label: "Suscriptores del Boletín", icon: Users, desc: "Correos suscritos para novedades" },
-  ],
 };
 
 const menuGroups: { id: MainTab; label: string; icon: LucideIcon; desc: string; defaultSubTab: SubTab }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, desc: "Vista general y accesos rápidos", defaultSubTab: "pedidos" },
-  { id: "produccion", label: "Producción y Costos", icon: Calculator, desc: "Costeo unitario, BOM, ferias y break-even", defaultSubTab: "produccion_panel" },
-  { id: "pedidos", label: "Pedidos", icon: ShoppingBag, desc: "Pedidos de tienda y personalizados", defaultSubTab: "pedidos" },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, desc: "Métricas, banners y eventos", defaultSubTab: "resumen" },
   { id: "catalogo", label: "Catálogo", icon: Package, desc: "Productos activos y precios por tamaño", defaultSubTab: "productos" },
-  { id: "diseno", label: "Banners y Diseño", icon: ImageIcon, desc: "Banners hero y secciones de inicio", defaultSubTab: "heroes" },
-  { id: "eventos", label: "Eventos", icon: Sparkles, desc: "Campañas y fechas especiales", defaultSubTab: "eventos" },
-  { id: "atencion", label: "Atención al Cliente", icon: MessageSquare, desc: "Mensajes, reclamaciones y reseñas", defaultSubTab: "mensajes" },
-  { id: "clientes", label: "Clientes y Usuarios", icon: Users, desc: "Usuarios registrados y suscriptores", defaultSubTab: "usuarios" },
+  { id: "pedidos", label: "Pedidos", icon: ShoppingBag, desc: "Pedidos de tienda y personalizados", defaultSubTab: "pedidos" },
+  { id: "produccion", label: "Producción", icon: Calculator, desc: "Costeo unitario, BOM, ferias y break-even", defaultSubTab: "produccion_panel" },
+  { id: "clientes", label: "Clientes", icon: Users, desc: "Usuarios, atención, mensajes y reseñas", defaultSubTab: "usuarios" },
 ];
 
 const ALL_HERO_KEYS: { clave: string; label: string }[] = [
@@ -288,11 +294,16 @@ export default function AdminPage() {
   const [mainTab, setMainTab] = useState<MainTab>(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
-      const tabQ = urlParams.get("seccion") || urlParams.get("tab");
-      const validTabs: MainTab[] = ["dashboard", "produccion", "pedidos", "catalogo", "diseno", "eventos", "atencion", "clientes"];
+      let tabQ = urlParams.get("seccion") || urlParams.get("tab");
+      if (tabQ === "diseno" || tabQ === "eventos") tabQ = "dashboard";
+      if (tabQ === "atencion") tabQ = "clientes";
+
+      const validTabs: MainTab[] = ["dashboard", "catalogo", "pedidos", "produccion", "clientes"];
       if (tabQ && validTabs.includes(tabQ as MainTab)) return tabQ as MainTab;
       try {
-        const saved = localStorage.getItem("admin_active_seccion");
+        let saved = localStorage.getItem("admin_active_seccion");
+        if (saved === "diseno" || saved === "eventos") saved = "dashboard";
+        if (saved === "atencion") saved = "clientes";
         if (saved && validTabs.includes(saved as MainTab)) return saved as MainTab;
       } catch {}
     }
@@ -302,14 +313,20 @@ export default function AdminPage() {
   const [subTab, setSubTab] = useState<SubTab>(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
-      const subQ = urlParams.get("sub") || urlParams.get("subtab");
+      let subQ = urlParams.get("sub") || urlParams.get("subtab");
+      const rawTab = urlParams.get("seccion") || urlParams.get("tab");
+      if (!subQ) {
+        if (rawTab === "diseno") subQ = "heroes";
+        else if (rawTab === "eventos") subQ = "eventos";
+        else if (rawTab === "atencion") subQ = "mensajes";
+      }
       if (subQ) return subQ as SubTab;
       try {
         const saved = localStorage.getItem("admin_active_subtab");
         if (saved) return saved as SubTab;
       } catch {}
     }
-    return "pedidos";
+    return "resumen";
   });
 
   // Estados para Instalación de App PWA (solo visible para admin)
@@ -1083,7 +1100,7 @@ export default function AdminPage() {
   };
 
   const fetchData = useCallback(async () => {
-    if (mainTab === "dashboard" || mainTab === "produccion") { setLoading(false); return; }
+    if ((mainTab === "dashboard" && subTab === "resumen") || mainTab === "produccion") { setLoading(false); return; }
     setLoading(true);
     try {
       const res = await fetch(`/api/admin?tab=${subTab}`);
@@ -1873,52 +1890,68 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#FDF4F7] flex flex-col md:flex-row">
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
+      {/* Sidebar exclusivamente para pantallas medianas y grandes (Desktop / Tablet) */}
       <aside
-        className={`fixed md:sticky top-0 left-0 z-50 h-screen ${
+        className={`hidden md:block sticky top-0 left-0 z-30 h-screen ${
           effectiveCollapsed ? "md:w-[72px]" : "md:w-64"
-        } w-64 bg-white shadow-lg md:shadow-none border-r border-[#FDE8EF] transform transition-all duration-300 ease-in-out shrink-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
+        } w-64 bg-white border-r border-[#FDE8EF] transition-all duration-300 ease-in-out shrink-0`}
       >
         {sidebarContent}
       </aside>
 
-      {/* Header Compacto para Celular (< md) */}
+      {/* Header Compacto para Celular (< md) sin menú lateral */}
       <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#FDE8EF] px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="w-9 h-9 rounded-xl bg-[#FDF4F7] text-[#C04267] flex items-center justify-center hover:bg-pink-100 transition-colors"
-            aria-label="Abrir menú de navegación"
-          >
-            <Menu size={18} />
-          </button>
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center font-fredoka font-bold text-xs shadow-xs shrink-0">
+            EH
+          </div>
           <div>
             <h1 className="font-fredoka text-sm font-bold text-[#C04267] leading-tight">
-              Entre Hilos
+              Entre Hilos Admin
             </h1>
             <p className="font-quicksand text-[10px] text-gray-500 font-semibold leading-none capitalize">
-              {menuGroups.find((m) => m.id === mainTab)?.label || "Super Admin"}
+              {menuGroups.find((m) => m.id === mainTab)?.label || "Panel"}
             </p>
           </div>
         </div>
 
         <Link
           href="/"
-          className="text-xs font-quicksand font-bold text-[#EE6B8D] hover:text-[#C04267] flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-pink-50 transition-colors"
+          className="text-xs font-quicksand font-bold text-[#EE6B8D] hover:text-[#C04267] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 transition-colors"
         >
           <Home size={13} />
-          <span className="hidden xs:inline">Ver Tienda</span>
+          <span>Ver Tienda</span>
         </Link>
       </header>
 
-      <main className="flex-1 min-w-0 p-3.5 sm:p-5 lg:p-6 transition-all duration-300">
-        {mainTab === "dashboard" && (
+      {/* Contenido Principal con padding inferior extra en móvil para la barra de navegación */}
+      <main className="flex-1 min-w-0 p-3 sm:p-5 lg:p-6 pb-28 md:pb-8 transition-all duration-300 overflow-x-hidden">
+        {/* Subpestañas superiores táctiles para secciones con múltiples vistas */}
+        {SUBTABS_BY_MAIN[mainTab]?.length > 1 && (
+          <div className="flex items-center gap-1.5 mb-5 bg-white p-1 rounded-2xl border border-[#FDE8EF] w-full max-w-full shadow-xs overflow-x-auto no-scrollbar">
+            {SUBTABS_BY_MAIN[mainTab].map((st) => {
+              const StIcon = st.icon;
+              const isSubActive = subTab === st.id;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => cambiarSubTab(st.id)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-quicksand text-xs sm:text-sm font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                    isSubActive
+                      ? "bg-[#EE6B8D] text-white shadow-xs font-bold"
+                      : "text-gray-600 hover:text-[#C04267] hover:bg-[#FDF4F7]"
+                  }`}
+                >
+                  <StIcon size={15} strokeWidth={isSubActive ? 2.5 : 1.75} />
+                  <span>{st.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {mainTab === "dashboard" && subTab === "resumen" && (
           <div>
             <div className="mb-6">
               <h2 className="font-fredoka text-2xl font-bold text-[#C04267]">Dashboard</h2>
@@ -1963,37 +1996,13 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Subpestañas superiores para secciones con múltiples vistas */}
-        {mainTab !== "dashboard" && SUBTABS_BY_MAIN[mainTab]?.length > 1 && (
-          <div className="flex flex-wrap items-center gap-2 mb-6 bg-white p-1.5 rounded-2xl border border-[#FDE8EF] w-full sm:w-fit shadow-xs">
-            {SUBTABS_BY_MAIN[mainTab].map((st) => {
-              const StIcon = st.icon;
-              const isSubActive = subTab === st.id;
-              return (
-                <button
-                  key={st.id}
-                  onClick={() => cambiarSubTab(st.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-quicksand text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                    isSubActive
-                      ? "bg-[#EE6B8D] text-white shadow-sm"
-                      : "text-gray-600 hover:text-[#C04267] hover:bg-[#FDF4F7]"
-                  }`}
-                >
-                  <StIcon size={16} strokeWidth={isSubActive ? 2.5 : 1.5} />
-                  {st.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {mainTab !== "dashboard" && mainTab !== "produccion" && loading && (
+        {!((mainTab === "dashboard" && subTab === "resumen") || mainTab === "produccion") && loading && (
           <div className="flex items-center justify-center py-20">
             <Loader2 size={24} className="animate-spin text-[#EE6B8D]" />
           </div>
         )}
 
-        {mainTab === "diseno" && subTab === "heroes" && !loading && (
+        {(mainTab === "diseno" || mainTab === "dashboard") && subTab === "heroes" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Heroes</h2>
@@ -2047,7 +2056,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab === "diseno" && subTab === "inicio" && !loading && (
+        {(mainTab === "diseno" || mainTab === "dashboard") && subTab === "inicio" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Inicio - Secciones</h2>
@@ -2088,7 +2097,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab === "eventos" && subTab === "eventos" && !loading && (
+        {(mainTab === "eventos" || mainTab === "dashboard") && subTab === "eventos" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
@@ -2178,13 +2187,13 @@ export default function AdminPage() {
                           <div className="flex items-center gap-1">
                             {enHero && (
                               <span className="font-quicksand text-[10px] font-bold text-white bg-gradient-to-r from-[#EE6B8D] to-[#C04267] px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
-                                <Sparkles size={10} />
+                                <Star size={10} />
                                 Hero
                               </span>
                             )}
                             {evento.destacado_rotonda && (
                               <span className="font-quicksand text-[10px] font-bold text-white bg-gradient-to-r from-[#C97B4A] to-[#EE6B8D] px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
-                                <Sparkles size={10} />
+                                <Star size={10} />
                                 Rotonda Portada
                               </span>
                             )}
@@ -3224,12 +3233,12 @@ export default function AdminPage() {
                           <div key={i} className="p-4 bg-gray-50 rounded-2xl border border-gray-200">
                             <div className="flex items-center justify-between mb-3">
                               <span className="font-quicksand text-xs font-bold text-[#C04267] uppercase tracking-wider flex items-center gap-1.5">
-                                <Sparkles size={13} className="text-[#EE6B8D]" />
+                                <ImageIcon size={13} className="text-[#EE6B8D]" />
                                 Foto {i + 1} de la Rotonda
                               </span>
                               {item.imagen && (
                                 <span className="font-quicksand text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
-                                  ✓ Imagen cargada
+                                  Imagen cargada
                                 </span>
                               )}
                             </div>
@@ -3904,7 +3913,7 @@ export default function AdminPage() {
               <div className="border-t border-gray-100 pt-5 pb-2">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Sparkles size={16} className="text-[#EE6B8D]" />
+                    <Camera size={16} className="text-[#EE6B8D]" />
                     <label className="font-quicksand text-xs font-bold text-gray-700 uppercase tracking-wider block">
                       Fotos de Campaña / Entregas (Rotonda de Portada)
                     </label>
@@ -4258,7 +4267,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {(mainTab === "catalogo" || mainTab === "eventos") && subTab === "catalogos" && !loading && (() => {
+        {(mainTab === "catalogo" || mainTab === "eventos" || mainTab === "dashboard") && subTab === "catalogos" && !loading && (() => {
           // Eventos disponibles
           const activeFeaturedEvent = eventos.find((e) => e.featured && e.activo !== false) || eventos.find((e) => e.activo !== false) || eventos[0];
           const resolvedCurrentEventSlug = portadaEventoSlug === "auto" ? (activeFeaturedEvent?.slug || "dia-del-novio") : portadaEventoSlug;
@@ -4297,7 +4306,7 @@ export default function AdminPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="font-fredoka text-xl font-bold text-[#C04267] flex items-center gap-2">
-                    <Sparkles size={22} className="text-[#EE6B8D]" />
+                    <Layers size={22} className="text-[#EE6B8D]" />
                     Catálogo y Carrusel 3D de Portada
                   </h2>
                   <p className="font-quicksand text-xs text-gray-500 mt-1 max-w-2xl">
@@ -4376,7 +4385,7 @@ export default function AdminPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-100">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-[#FDF4F7] border border-[#FDE8EF] flex items-center justify-center text-[#C04267] shrink-0">
-                      <Sparkles size={24} />
+                      <Layers size={24} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -5873,7 +5882,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab === "atencion" && subTab === "resenas" && !loading && (
+        {(mainTab === "atencion" || mainTab === "clientes") && subTab === "resenas" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Reseñas</h2>
@@ -6232,9 +6241,31 @@ export default function AdminPage() {
             </div>
 
             {data.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-[#FDE8EF]">
-                <p className="font-quicksand text-xs text-gray-400">No hay registros en esta sección todavía.</p>
-              </div>
+              subTab === "personalizados" ? (
+                <div className="text-center py-14 px-4 bg-white rounded-2xl border border-[#FDE8EF] shadow-xs max-w-lg mx-auto">
+                  <div className="w-14 h-14 mx-auto mb-3.5 rounded-2xl bg-pink-50 text-[#EE6B8D] flex items-center justify-center">
+                    <Mail size={26} />
+                  </div>
+                  <h3 className="font-fredoka text-lg font-bold text-[#C04267] mb-1.5">
+                    No hay pedidos personalizados registrados
+                  </h3>
+                  <p className="font-quicksand text-xs text-gray-500 leading-relaxed mb-5 max-w-sm mx-auto">
+                    Los pedidos a medida, cotizaciones o ítems personalizados registrados desde Pedidos de Tienda aparecerán aquí.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPersonalizadoModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs shadow-sm transition-all cursor-pointer"
+                  >
+                    <Plus size={16} />
+                    <span>Registrar Pedido Personalizado</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-16 bg-white rounded-2xl border border-[#FDE8EF]">
+                  <p className="font-quicksand text-xs text-gray-400">No hay registros en esta sección todavía.</p>
+                </div>
+              )
             ) : (
               <div>
             {/* 1. VISTA TARJETAS PARA CELULARES Y TABLETS VERTICALES (lg:hidden) */}
@@ -6408,6 +6439,43 @@ export default function AdminPage() {
           </div>
         )}
       </main>
+
+      {/* Barra de Navegación Inferior Fija para Celulares (APK / PWA / Web Móvil) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#FDE8EF] px-1 py-1 shadow-lg flex items-center justify-around"
+        style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
+        aria-label="Navegación principal inferior"
+      >
+        {menuGroups.map((group) => {
+          const Icon = group.icon;
+          const isActive = mainTab === group.id;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => cambiarSeccion(group.id)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-0.5 rounded-xl transition-all cursor-pointer min-w-0 ${
+                isActive ? "text-[#C04267]" : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              <div
+                className={`p-1.5 rounded-xl transition-all ${
+                  isActive ? "bg-pink-100/80 text-[#C04267]" : "bg-transparent text-gray-500"
+                }`}
+              >
+                <Icon size={19} strokeWidth={isActive ? 2.5 : 1.75} />
+              </div>
+              <span
+                className={`text-[10px] font-quicksand font-bold tracking-tight truncate max-w-full ${
+                  isActive ? "text-[#C04267]" : "text-gray-500"
+                }`}
+              >
+                {group.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* Modal para instalar la App de Administración (exclusivo para rol admin) */}
       <AdminInstallAppModal

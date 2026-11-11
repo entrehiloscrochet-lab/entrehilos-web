@@ -11,7 +11,6 @@ import {
   Lock,
   ArrowRight,
   ExternalLink,
-  Sparkles,
 } from "lucide-react";
 
 interface InstallPromptEvent {

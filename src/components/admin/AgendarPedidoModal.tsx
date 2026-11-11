@@ -274,6 +274,36 @@ export default function AgendarPedidoModal({
         throw new Error(err.error || "No se pudo agendar el pedido");
       }
 
+      const resData = await res.json().catch(() => ({}));
+
+      // Si el pedido contiene items personalizados o a medida, sincronizar con pedidos_personalizados
+      const customItems = items.filter((it) => it.esPersonalizado);
+      if (customItems.length > 0) {
+        for (const cItem of customItems) {
+          try {
+            await fetch("/api/submit", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "personalizado",
+                data: {
+                  nombre_cliente: clienteNombre.trim(),
+                  telefono: clienteTelefono.trim(),
+                  producto_nombre: cItem.nombre,
+                  producto_precio: cItem.precio || null,
+                  detalles: `Pedido #${resData?.data?.id || "Agendado"} (${origen}). Cantidad: ${cItem.cantidad}${notas ? ` | Notas: ${notas.trim()}` : ""}`,
+                  fecha_entrega: fechaEntrega && fechaEntrega.trim() ? fechaEntrega.trim().split("T")[0] : null,
+                  hora_entrega: horaEntrega && horaEntrega.trim() ? horaEntrega.trim() : null,
+                  estado: estado || "pendiente",
+                },
+              }),
+            });
+          } catch (syncErr) {
+            console.warn("No se pudo sincronizar ítem personalizado:", syncErr);
+          }
+        }
+      }
+
       onSaveSuccess();
       onClose();
     } catch (err) {

@@ -1055,7 +1055,7 @@ export default function PedidosView({
                           </span>
                         ) : tieneAdelanto ? (
                           <span className="font-quicksand text-[10px] text-emerald-700 font-bold block">
-                            Pagado ✓
+                            Pagado (Completo)
                           </span>
                         ) : null}
                       </div>
