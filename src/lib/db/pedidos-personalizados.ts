@@ -14,6 +14,7 @@ export interface PedidoPersonalizado {
   tamano?: string
   extras?: string
   fecha_entrega: string
+  hora_entrega?: string | null
   estado?: string
 }
 

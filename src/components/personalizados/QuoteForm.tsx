@@ -51,6 +51,7 @@ export default function QuoteForm({ productos, onSuccess }: Props) {
   const [tamano, setTamano] = useState("mediano");
   const [extras, setExtras] = useState<string[]>([]);
   const [fechaEntrega, setFechaEntrega] = useState("");
+  const [horaEntrega, setHoraEntrega] = useState("");
 
   const [imagenes, setImagenes] = useState<{ file?: File; url: string; uploading?: boolean }[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -230,25 +231,34 @@ export default function QuoteForm({ productos, onSuccess }: Props) {
 
     try {
       const urlsImagenes = await subirImagenes();
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.from("pedidos_personalizados").insert({
-        nombre_cliente: nombreCliente,
-        telefono: emailCliente,
-        email: emailCliente,
-        producto_id: productoSeleccionado?.id || null,
-        producto_nombre: productoSeleccionado?.nombre || null,
-        producto_precio: productoSeleccionado?.precio || null,
-        detalles: limpiarInput(detalles),
-        colores: null,
-        tamano,
-        extras: extrasFinal || null,
-        fecha_entrega: fechaEntrega,
-        estado: "pendiente",
-        imagenes_url: urlsImagenes.length > 0 ? urlsImagenes : null,
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "personalizado",
+          data: {
+            nombre_cliente: nombreCliente,
+            telefono: emailCliente,
+            email: emailCliente,
+            producto_id: productoSeleccionado?.id || null,
+            producto_nombre: productoSeleccionado?.nombre || null,
+            producto_precio: productoSeleccionado?.precio || null,
+            detalles: limpiarInput(detalles),
+            colores: null,
+            tamano,
+            extras: extrasFinal || null,
+            fecha_entrega: fechaEntrega,
+            hora_entrega: horaEntrega || null,
+            estado: "pendiente",
+            imagenes_url: urlsImagenes.length > 0 ? urlsImagenes : null,
+          },
+        }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || "No se pudo guardar el pedido");
+      }
       setStatus("success");
     } catch (err) {
       console.error(err);
@@ -513,21 +523,38 @@ export default function QuoteForm({ productos, onSuccess }: Props) {
                 </div>
               </div>
 
-              <div>
-                <label className="font-quicksand text-xs font-semibold text-[#4A4A4A] mb-1.5 block">
-                  Fecha de entrega
-                </label>
-                <input
-                  required
-                  type="date"
-                  min={fechaMinima}
-                  value={fechaEntrega}
-                  onChange={(e) => setFechaEntrega(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 font-quicksand text-sm text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] transition-shadow"
-                />
-                <p className="font-quicksand text-[11px] text-gray-400 mt-1">
-                  Mínimo 7 días de producción.
-                </p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-quicksand text-xs font-semibold text-[#4A4A4A] mb-1.5 block">
+                    Fecha de entrega
+                  </label>
+                  <input
+                    required
+                    type="date"
+                    min={fechaMinima}
+                    value={fechaEntrega}
+                    onChange={(e) => setFechaEntrega(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 font-quicksand text-sm text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] transition-shadow"
+                  />
+                  <p className="font-quicksand text-[11px] text-gray-400 mt-1">
+                    Mínimo 7 días de producción.
+                  </p>
+                </div>
+                <div>
+                  <label className="font-quicksand text-xs font-semibold text-[#4A4A4A] mb-1.5 block">
+                    Horario preferido (opcional)
+                  </label>
+                  <select
+                    value={horaEntrega}
+                    onChange={(e) => setHoraEntrega(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 font-quicksand text-sm text-[#4A4A4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] transition-shadow"
+                  >
+                    <option value="">Cualquier momento del día</option>
+                    <option value="Mañana (9:00 am - 1:00 pm)">Mañana (9:00 am - 1:00 pm)</option>
+                    <option value="Tarde (2:00 pm - 6:00 pm)">Tarde (2:00 pm - 6:00 pm)</option>
+                    <option value="Noche (6:00 pm - 8:00 pm)">Noche (6:00 pm - 8:00 pm)</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>

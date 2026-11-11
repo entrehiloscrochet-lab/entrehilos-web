@@ -58,6 +58,7 @@ interface PedidoPersonalizado {
   extras: string | null;
   estado: string;
   fecha_entrega: string | null;
+  hora_entrega?: string | null;
 }
 
 interface Notificacion {
@@ -69,6 +70,14 @@ interface Notificacion {
   created_at: string;
   leido?: boolean;
   es_personalizado?: boolean;
+}
+
+function formatearFechaEntrega(fecha: string | null): string {
+  if (!fecha) return "";
+  const soloFecha = String(fecha).split("T")[0].split(" ")[0].trim();
+  const [y, m, d] = soloFecha.split("-").map(Number);
+  if (!y || !m || !d) return soloFecha;
+  return new Date(y, m - 1, d).toLocaleDateString("es-PE");
 }
 
 const menuItems: { id: Tab; label: string; icon: LucideIcon }[] = [
@@ -1200,7 +1209,8 @@ export default function PerfilPage() {
                                 )}
                                 {p.fecha_entrega && (
                                   <span className="font-quicksand text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full flex items-center gap-1.5">
-                                    <Calendar size={12} /> Entrega estimada: {new Date(p.fecha_entrega).toLocaleDateString("es-PE")}
+                                    <Calendar size={12} /> Entrega estimada: {formatearFechaEntrega(p.fecha_entrega)}
+                                    {p.hora_entrega ? ` · ${p.hora_entrega}` : ""}
                                   </span>
                                 )}
                               </div>
