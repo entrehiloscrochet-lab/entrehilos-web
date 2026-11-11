@@ -1438,6 +1438,13 @@ export default function AdminPage() {
     if (ok) setData((prev) => prev.map((item) => item.id === id ? { ...item, estado } : item));
   };
 
+  const handleActualizarPedido = (id: number | string, updates: Record<string, unknown>) => {
+    setData((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
+    fetchData();
+  };
+
   const handlePersonalizadoEstado = async (id: number | string, estado: string) => {
     const ok = await apiPatch({ action: "personalizado-estado", id, estado });
     if (ok) fetchData();
@@ -6168,6 +6175,7 @@ export default function AdminPage() {
               loading={loading}
               onCambiarEstado={handleCambiarEstado}
               onOpenAgendarModal={() => setAgendarModalOpen(true)}
+              onActualizarPedido={handleActualizarPedido}
             />
             <AgendarPedidoModal
               isOpen={agendarModalOpen}

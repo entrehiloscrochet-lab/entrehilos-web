@@ -523,31 +523,34 @@ export default function AgendarPedidoModal({
                     <p className="font-quicksand text-xs font-bold text-[#C04267]">
                       Encargo personalizado o producto fuera de catálogo:
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         type="text"
                         placeholder="Descripción (ej. Ramo 12 tulipanes fucsia con lazo)"
                         value={customNombre}
                         onChange={(e) => setCustomNombre(e.target.value)}
-                        className="flex-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+                        className="w-full sm:flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
                       />
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        placeholder="Precio S/"
-                        value={customPrecio}
-                        onChange={(e) => setCustomPrecio(e.target.value)}
-                        className="w-24 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
-                      />
-                      <button
-                        type="button"
-                        disabled={!customNombre.trim() || !customPrecio}
-                        onClick={handleAddCustom}
-                        className="px-3 py-1.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-lg font-quicksand font-bold text-xs transition-colors disabled:opacity-50 shrink-0"
-                      >
-                        Añadir
-                      </button>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          placeholder="Precio S/"
+                          value={customPrecio}
+                          onChange={(e) => setCustomPrecio(e.target.value)}
+                          className="flex-1 sm:w-28 px-3 py-2 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+                        />
+                        <button
+                          type="button"
+                          disabled={!customNombre.trim() || !customPrecio}
+                          onClick={handleAddCustom}
+                          className="px-4 py-2 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-lg font-quicksand font-bold text-xs transition-colors disabled:opacity-50 shrink-0 shadow-xs flex items-center justify-center gap-1"
+                        >
+                          <Plus size={13} />
+                          <span>Añadir</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -666,17 +669,17 @@ export default function AgendarPedidoModal({
                     {items.map((it, idx) => (
                       <div
                         key={it.id || idx}
-                        className="flex items-center justify-between p-2.5 hover:bg-gray-50/60"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 gap-2 hover:bg-gray-50/60"
                       >
-                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <div className="flex items-center gap-2 min-w-0 pr-1 flex-1">
                           {it.imagen ? (
                             <img
                               src={it.imagen}
                               alt=""
-                              className="w-8 h-8 rounded-lg object-cover bg-gray-100 shrink-0"
+                              className="w-9 h-9 rounded-lg object-cover bg-gray-100 shrink-0"
                             />
                           ) : (
-                            <div className="w-8 h-8 rounded-lg bg-pink-50 text-[#C04267] flex items-center justify-center shrink-0 text-[10px] font-bold">
+                            <div className="w-9 h-9 rounded-lg bg-pink-50 text-[#C04267] flex items-center justify-center shrink-0 text-[10px] font-bold">
                               {it.esPersonalizado ? "Esp" : "Prod"}
                             </div>
                           )}
@@ -690,39 +693,39 @@ export default function AgendarPedidoModal({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2.5 shrink-0">
+                        <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                           {/* Controles de cantidad (-) num (+) */}
                           <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50 overflow-hidden">
                             <button
                               type="button"
                               onClick={() => handleUpdateCantidad(idx, -1)}
-                              className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                              className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
                             >
-                              <Minus size={11} />
+                              <Minus size={12} />
                             </button>
-                            <span className="w-7 text-center font-quicksand text-xs font-bold text-gray-800">
+                            <span className="w-8 text-center font-quicksand text-xs font-bold text-gray-800">
                               {it.cantidad}
                             </span>
                             <button
                               type="button"
                               onClick={() => handleUpdateCantidad(idx, 1)}
-                              className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                              className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
                             >
-                              <Plus size={11} />
+                              <Plus size={12} />
                             </button>
                           </div>
 
-                          <span className="font-quicksand text-xs font-bold text-gray-900 w-16 text-right">
+                          <span className="font-quicksand text-xs font-bold text-gray-900 min-w-16 text-right">
                             S/ {(it.precio * it.cantidad).toFixed(2)}
                           </span>
 
                           <button
                             type="button"
                             onClick={() => handleRemoveItem(idx)}
-                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                             title="Eliminar"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </div>

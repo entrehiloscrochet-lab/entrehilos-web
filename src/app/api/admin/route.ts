@@ -212,6 +212,92 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  if (action === "actualizar-pedido") {
+    const {
+      estado,
+      adelanto,
+      saldo_pendiente,
+      metodo_pago,
+      fecha_entrega,
+      hora_entrega,
+      notas,
+    } = updates;
+
+    const { data: pedidoData } = await supabaseAdmin
+      .from("pedidos")
+      .select("id, usuario_id, cliente_email, cliente_nombre, estado, total, notas")
+      .eq("id", id)
+      .maybeSingle();
+
+    const updatePayload: Record<string, unknown> = {};
+    if (estado !== undefined) updatePayload.estado = estado;
+    if (adelanto !== undefined) updatePayload.adelanto = Number(adelanto);
+    if (saldo_pendiente !== undefined) updatePayload.saldo_pendiente = Number(saldo_pendiente);
+    if (metodo_pago !== undefined) updatePayload.metodo_pago = metodo_pago;
+    if (fecha_entrega !== undefined) updatePayload.fecha_entrega = fecha_entrega;
+    if (hora_entrega !== undefined) updatePayload.hora_entrega = hora_entrega;
+    if (notas !== undefined) updatePayload.notas = notas;
+
+    let { error } = await supabaseAdmin
+      .from("pedidos")
+      .update(updatePayload)
+      .eq("id", id);
+
+    // Fallback si alguna columna aún no existe en Supabase (ej. fecha_entrega, adelanto)
+    if (error) {
+      console.warn("Reintentando actualizar pedido con fallback estándar:", error.message);
+      const safePayload: Record<string, unknown> = {};
+      if (updatePayload.estado) safePayload.estado = updatePayload.estado;
+      if (updatePayload.metodo_pago) safePayload.metodo_pago = updatePayload.metodo_pago;
+
+      const fallbackNotas = [
+        notas !== undefined ? notas : (pedidoData?.notas || ""),
+        fecha_entrega ? `[Fecha Entrega: ${fecha_entrega} ${hora_entrega || ""}]` : null,
+        adelanto !== undefined ? `[Adelanto: S/${adelanto} | Saldo: S/${saldo_pendiente}]` : null,
+      ].filter(Boolean).join(" | ");
+
+      if (fallbackNotas) safePayload.notas = fallbackNotas;
+
+      const retryRes = await supabaseAdmin
+        .from("pedidos")
+        .update(safePayload)
+        .eq("id", id);
+      error = retryRes.error;
+    }
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (pedidoData && estado && estado !== pedidoData.estado) {
+      try {
+        const notifTitulo = estado === "entregado" ? `Tu Pedido #${id} ha sido entregado`
+          : estado === "enviado" ? `Tu Pedido #${id} va en camino`
+          : estado === "confirmado" ? `Tu Pedido #${id} fue confirmado`
+          : estado === "cancelado" ? `Tu Pedido #${id} fue cancelado`
+          : `Actualización de Pedido #${id}`;
+
+        const notifMensaje = estado === "entregado" ? "Tu detalle tejido a mano fue entregado con éxito. Gracias por confiar en Entre Hilos."
+          : estado === "enviado" ? "Tu pedido ha sido despachado y se encuentra en camino a tu dirección de entrega."
+          : estado === "confirmado" ? "Confirmamos tu pedido y estamos preparándolo en nuestro taller."
+          : estado === "cancelado" ? "Tu pedido ha sido cancelado. Si tienes alguna duda, escríbenos a soporte."
+          : `El estado de tu pedido cambió a ${estado}.`;
+
+        await supabaseAdmin.from("notificaciones").insert([{
+          usuario_id: pedidoData.usuario_id || null,
+          email: pedidoData.cliente_email || null,
+          pedido_id: id,
+          tipo: estado,
+          titulo: notifTitulo,
+          mensaje: notifMensaje,
+          leido: false,
+        }]);
+      } catch (err) {
+        // Ignorar si la tabla notificaciones no existe aún
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  }
+
   if (action === "actualizar-hero") {
     const { error } = await supabaseAdmin
       .from("hero_config")

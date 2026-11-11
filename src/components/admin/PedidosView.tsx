@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   ShoppingBag,
   Plus,
@@ -19,7 +19,133 @@ import {
   Phone,
   Flame,
   Sparkles,
+  CreditCard,
+  Settings2,
 } from "lucide-react";
+import GestionarPedidoModal, { PedidoGestion } from "./GestionarPedidoModal";
+
+// Sonido sintetizado de campana armónica de dos tonos con Web Audio API (cero dependencias externas)
+function reproducirCampanaSonido() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const now = ctx.currentTime;
+    // Campana 1 (587.33 Hz - D5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Campana 2 (880 Hz - A5, armónico superior)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.3, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.6);
+  } catch {
+    // Si el navegador bloquea audio antes de interacción
+  }
+}
+
+// Disparador universal de notificaciones para Android Chrome, WebView, PWA y Desktop
+async function mostrarNotificacionSistema(titulo: string, opciones?: NotificationOptions) {
+  reproducirCampanaSonido();
+
+  // 1. Service Worker showNotification (OBLIGATORIO en Android Chrome donde new Notification() arroja error)
+  if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    try {
+      let reg = await navigator.serviceWorker.getRegistration("/sw-admin.js");
+      if (!reg) {
+        reg = await navigator.serviceWorker.ready;
+      }
+      if (reg && reg.showNotification) {
+        await reg.showNotification(titulo, {
+          icon: "/favicon.ico",
+          badge: "/favicon.ico",
+          ...opciones,
+        });
+        return;
+      }
+    } catch (swErr) {
+      console.warn("ServiceWorker showNotification no disponible, reintentando fallback:", swErr);
+    }
+  }
+
+  // 2. Fallback estándar para navegadores Desktop
+  if (
+    typeof window !== "undefined" &&
+    "Notification" in window &&
+    Notification.permission === "granted"
+  ) {
+    try {
+      new Notification(titulo, {
+        icon: "/favicon.ico",
+        ...opciones,
+      });
+    } catch (notifErr) {
+      console.warn("new Notification constructor falló:", notifErr);
+    }
+  }
+}
+
+export const ESTADO_CONFIG: Record<
+  string,
+  { label: string; badgeClass: string; dotClass: string }
+> = {
+  pendiente: {
+    label: "Pendiente",
+    badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
+    dotClass: "bg-amber-500",
+  },
+  confirmado: {
+    label: "Confirmado",
+    badgeClass: "bg-blue-50 text-blue-800 border-blue-200",
+    dotClass: "bg-blue-500",
+  },
+  en_produccion: {
+    label: "En confección",
+    badgeClass: "bg-purple-50 text-purple-800 border-purple-200",
+    dotClass: "bg-purple-500",
+  },
+  listo: {
+    label: "Listo p/ entrega",
+    badgeClass: "bg-teal-50 text-teal-800 border-teal-200",
+    dotClass: "bg-teal-500",
+  },
+  enviado: {
+    label: "En camino",
+    badgeClass: "bg-indigo-50 text-indigo-800 border-indigo-200",
+    dotClass: "bg-indigo-500",
+  },
+  entregado: {
+    label: "Entregado",
+    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    dotClass: "bg-emerald-500",
+  },
+  cancelado: {
+    label: "Cancelado",
+    badgeClass: "bg-gray-100 text-gray-600 border-gray-200",
+    dotClass: "bg-gray-400",
+  },
+};
 
 export interface UrgenciaEntrega {
   tipo: "atrasado" | "hoy" | "manana" | "proximo" | "futuro" | "completado" | "sin_fecha";
@@ -164,7 +290,9 @@ interface PedidosViewProps {
   loading: boolean;
   onCambiarEstado: (id: string | number, nuevoEstado: string) => void;
   onOpenAgendarModal: () => void;
+  onActualizarPedido?: (id: string | number, updates: Record<string, unknown>) => void;
 }
+
 
 const CANAL_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   tienda: { label: "Tienda Web", badgeClass: "bg-pink-50 text-[#C04267] border-pink-200" },
@@ -223,10 +351,13 @@ export default function PedidosView({
   loading,
   onCambiarEstado,
   onOpenAgendarModal,
+  onActualizarPedido,
 }: PedidosViewProps) {
   const [search, setSearch] = useState("");
   const [filterCanal, setFilterCanal] = useState<string>("todos");
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [selectedPedidoGestion, setSelectedPedidoGestion] = useState<PedidoGestion | null>(null);
+  const [isGestionModalOpen, setIsGestionModalOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -234,6 +365,11 @@ export default function PedidosView({
     } else {
       setNotifPermission("unsupported");
     }
+  }, []);
+
+  const handleOpenGestionModal = useCallback((pedido: Pedido) => {
+    setSelectedPedidoGestion(pedido as PedidoGestion);
+    setIsGestionModalOpen(true);
   }, []);
 
   // Métricas de urgencia de entregas
@@ -274,45 +410,53 @@ export default function PedidosView({
     const sessionKey = `entrehilos_alerta_mostrada_${todayStr}`;
     if (!sessionStorage.getItem(sessionKey)) {
       sessionStorage.setItem(sessionKey, "true");
-      try {
-        const bodyMsg = metricasEntrega.atrasadosCount > 0
+      const bodyMsg =
+        metricasEntrega.atrasadosCount > 0
           ? `¡Atención! Tienes ${metricasEntrega.atrasadosCount} pedido(s) atrasados y ${metricasEntrega.hoyCount} para entregar hoy.`
           : `Tienes ${metricasEntrega.hoyCount} entrega(s) programadas para hoy.`;
-        new Notification("Entre Hilos 🧶 - Agenda de Entregas", {
-          body: bodyMsg,
-          icon: "/favicon.ico",
-        });
-      } catch (err) {
-        console.error("Error disparando notificación:", err);
-      }
+      
+      mostrarNotificacionSistema("Entre Hilos 🧶 - Agenda de Entregas", {
+        body: bodyMsg,
+        tag: `entrehilos-alerta-${todayStr}`,
+      });
     }
   }, [notifPermission, metricasEntrega.hoyCount, metricasEntrega.atrasadosCount]);
 
   const handleActivarNotificaciones = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
-      alert("Tu navegador o dispositivo no soporta notificaciones locales.");
+      alert("Tu dispositivo o navegador actual no soporta notificaciones locales.");
       return;
     }
     try {
       const perm = await Notification.requestPermission();
       setNotifPermission(perm);
       if (perm === "granted") {
-        if (metricasEntrega.hoyCount > 0 || metricasEntrega.atrasadosCount > 0) {
-          new Notification("Entre Hilos 🧶 - Alertas de Entregas", {
-            body: `Tienes ${metricasEntrega.hoyCount} entrega(s) para hoy y ${metricasEntrega.atrasadosCount} vencidas.`,
-            icon: "/favicon.ico",
-          });
-        } else {
-          new Notification("Entre Hilos 🧶", {
-            body: "¡Notificaciones activadas! Te avisaremos de tus pedidos y fechas de entrega.",
-            icon: "/favicon.ico",
-          });
-        }
+        const bodyMsg =
+          metricasEntrega.hoyCount > 0 || metricasEntrega.atrasadosCount > 0
+            ? `Tienes ${metricasEntrega.hoyCount} entrega(s) para hoy y ${metricasEntrega.atrasadosCount} vencidas.`
+            : "¡Notificaciones activadas! Te avisaremos con sonido y alerta cuando se acerque una fecha de entrega.";
+
+        await mostrarNotificacionSistema("Entre Hilos 🧶", {
+          body: bodyMsg,
+          tag: "entrehilos-bienvenida",
+        });
+      } else if (perm === "denied") {
+        alert(
+          "Las notificaciones están bloqueadas en tu navegador. Puedes activarlas haciendo clic en el icono del candado al lado de la barra de direcciones."
+        );
       }
     } catch (e) {
       console.error("Error solicitando permiso:", e);
     }
   };
+
+  const handleProbarNotificacion = async () => {
+    await mostrarNotificacionSistema("Entre Hilos 🧶 - Alerta de Prueba", {
+      body: "¡Las notificaciones están funcionando al 100%! Así sonará y te avisará el sistema.",
+      tag: "entrehilos-test-" + Date.now(),
+    });
+  };
+
 
   // Conteos por canal
   const counts = useMemo(() => {
@@ -415,9 +559,20 @@ export default function PedidosView({
           )}
 
           {notifPermission === "granted" && (
-            <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl font-quicksand font-bold text-xs flex items-center gap-1.5 shadow-2xs">
-              <CheckCircle2 size={14} className="text-emerald-600" />
-              <span>Avisos de celular activos</span>
+            <div className="flex items-center gap-1.5">
+              <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl font-quicksand font-bold text-xs flex items-center gap-1.5 shadow-2xs">
+                <CheckCircle2 size={14} className="text-emerald-600" />
+                <span>Avisos de celular activos</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleProbarNotificacion}
+                className="px-2.5 py-1.5 bg-pink-50 border border-pink-200 hover:bg-pink-100 text-[#C04267] rounded-xl font-quicksand font-bold text-xs flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                title="Probar sonido y notificación en este dispositivo ahora mismo"
+              >
+                <Bell size={13} />
+                <span>Probar</span>
+              </button>
             </div>
           )}
 
@@ -678,42 +833,70 @@ export default function PedidosView({
                     </div>
                   )}
 
-                  {/* Pie de Tarjeta: Totales y Selector de Estado */}
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
-                    <div>
-                      <span className="font-quicksand text-xs font-bold text-gray-900 block">
-                        Total: S/ {Number(row.total || 0).toFixed(2)}
-                      </span>
-                      {tieneAdelanto && (
-                        <span className="font-quicksand text-[10px] text-green-600 font-semibold block">
-                          Adelanto: S/ {adelanto.toFixed(2)}
+                  {/* Pie de Tarjeta: Totales, Estado y Acciones Rápidas */}
+                  <div className="pt-2 border-t border-gray-100 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="font-quicksand text-xs font-bold text-gray-900 block">
+                          Total: S/ {Number(row.total || 0).toFixed(2)}
                         </span>
-                      )}
-                      {saldoPendiente > 0 ? (
-                        <span className="font-quicksand text-[10px] text-amber-600 font-bold block">
-                          Saldo: S/ {saldoPendiente.toFixed(2)}
-                        </span>
-                      ) : tieneAdelanto ? (
-                        <span className="font-quicksand text-[10px] text-green-700 font-bold block">
-                          Cancelado
-                        </span>
-                      ) : null}
+                        {tieneAdelanto && (
+                          <span className="font-quicksand text-[10px] text-green-600 font-semibold block">
+                            Adelanto: S/ {adelanto.toFixed(2)}
+                          </span>
+                        )}
+                        {saldoPendiente > 0 ? (
+                          <span className="font-quicksand text-[10px] text-rose-600 font-bold block">
+                            Saldo: S/ {saldoPendiente.toFixed(2)}
+                          </span>
+                        ) : tieneAdelanto ? (
+                          <span className="font-quicksand text-[10px] text-emerald-700 font-bold block">
+                            Cancelado ✓
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Badge de Estado Actual */}
+                      <div className="text-right">
+                        {(() => {
+                          const estInfo = ESTADO_CONFIG[row.estado || "pendiente"] || ESTADO_CONFIG.pendiente;
+                          return (
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-quicksand font-bold border ${estInfo.badgeClass}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${estInfo.dotClass}`} />
+                              {estInfo.label}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
 
-                    <div className="shrink-0">
-                      <select
-                        value={row.estado || "pendiente"}
-                        onChange={(e) => onCambiarEstado(row.id, e.target.value)}
-                        className="font-quicksand text-xs px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-semibold text-gray-800 focus:outline-none focus:border-[#EE6B8D]"
+                    {/* Botones de Cobro / Completar Venta */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      {saldoPendiente > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenGestionModal(row)}
+                          className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                        >
+                          <DollarSign size={13} />
+                          <span>Cobrar S/ {saldoPendiente.toFixed(2)}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenGestionModal(row)}
+                        className={`px-3 py-2 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer ${
+                          saldoPendiente > 0
+                            ? "bg-pink-50 hover:bg-pink-100 text-[#C04267] border border-pink-200"
+                            : row.estado === "entregado"
+                            ? "flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
+                            : "flex-1 bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
+                        }`}
                       >
-                        <option value="pendiente">Pendiente</option>
-                        <option value="confirmado">Confirmado</option>
-                        <option value="en_produccion">En preparación</option>
-                        <option value="listo">Listo</option>
-                        <option value="enviado">Enviado</option>
-                        <option value="entregado">Entregado</option>
-                        <option value="cancelado">Cancelado</option>
-                      </select>
+                        <Sparkles size={13} />
+                        <span>{row.estado === "entregado" ? "Gestionar" : "Completar Venta"}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -848,21 +1031,45 @@ export default function PedidosView({
                         ) : null}
                       </td>
 
-                      {/* Estado */}
-                      <td className="px-3 py-3">
-                        <select
-                          value={row.estado || "pendiente"}
-                          onChange={(e) => onCambiarEstado(row.id, e.target.value)}
-                          className="font-quicksand text-xs px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-semibold text-gray-800 focus:outline-none focus:border-[#EE6B8D]"
-                        >
-                          <option value="pendiente">Pendiente</option>
-                          <option value="confirmado">Confirmado</option>
-                          <option value="en_produccion">En preparación</option>
-                          <option value="listo">Listo</option>
-                          <option value="enviado">Enviado</option>
-                          <option value="entregado">Entregado</option>
-                          <option value="cancelado">Cancelado</option>
-                        </select>
+                      {/* Estado y Gestión */}
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="space-y-1.5">
+                          <div>
+                            {(() => {
+                              const estInfo = ESTADO_CONFIG[row.estado || "pendiente"] || ESTADO_CONFIG.pendiente;
+                              return (
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-quicksand font-bold border ${estInfo.badgeClass}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${estInfo.dotClass}`} />
+                                  {estInfo.label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {saldoPendiente > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenGestionModal(row)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-quicksand font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                                title="Registrar cobro de saldo y método de pago"
+                              >
+                                <DollarSign size={12} />
+                                <span>Cobrar</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenGestionModal(row)}
+                              className="px-2.5 py-1 bg-pink-50 hover:bg-pink-100 text-[#C04267] border border-pink-200 rounded-lg font-quicksand font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Gestionar estado, aplazar entrega, método de pago o completar venta"
+                            >
+                              <Sparkles size={12} />
+                              <span>{row.estado === "entregado" ? "Gestionar" : "Completar Venta"}</span>
+                            </button>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Contacto WhatsApp */}
@@ -889,6 +1096,24 @@ export default function PedidosView({
           </div>
         </>
       )}
+
+      {/* Modal de Cobro, Métodos de Pago y Completar Venta */}
+      <GestionarPedidoModal
+        isOpen={isGestionModalOpen}
+        onClose={() => {
+          setIsGestionModalOpen(false);
+          setSelectedPedidoGestion(null);
+        }}
+        pedido={selectedPedidoGestion}
+        onSaveSuccess={(id, updatedFields) => {
+          if (onActualizarPedido) {
+            onActualizarPedido(id, updatedFields);
+          } else if (updatedFields.estado && typeof updatedFields.estado === "string") {
+            onCambiarEstado(id, updatedFields.estado);
+          }
+        }}
+      />
     </div>
   );
 }
+
