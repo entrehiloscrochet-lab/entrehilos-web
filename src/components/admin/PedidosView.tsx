@@ -18,7 +18,6 @@ import {
   DollarSign,
   Phone,
   Flame,
-  Sparkles,
   CreditCard,
   Settings2,
 } from "lucide-react";
@@ -415,7 +414,7 @@ export default function PedidosView({
           ? `¡Atención! Tienes ${metricasEntrega.atrasadosCount} pedido(s) atrasados y ${metricasEntrega.hoyCount} para entregar hoy.`
           : `Tienes ${metricasEntrega.hoyCount} entrega(s) programadas para hoy.`;
       
-      mostrarNotificacionSistema("Entre Hilos 🧶 - Agenda de Entregas", {
+      mostrarNotificacionSistema("Entre Hilos - Agenda de Entregas", {
         body: bodyMsg,
         tag: `entrehilos-alerta-${todayStr}`,
       });
@@ -434,9 +433,9 @@ export default function PedidosView({
         const bodyMsg =
           metricasEntrega.hoyCount > 0 || metricasEntrega.atrasadosCount > 0
             ? `Tienes ${metricasEntrega.hoyCount} entrega(s) para hoy y ${metricasEntrega.atrasadosCount} vencidas.`
-            : "¡Notificaciones activadas! Te avisaremos con sonido y alerta cuando se acerque una fecha de entrega.";
+            : "Notificaciones activadas. Te avisaremos con sonido y alerta cuando se acerque una fecha de entrega.";
 
-        await mostrarNotificacionSistema("Entre Hilos 🧶", {
+        await mostrarNotificacionSistema("Entre Hilos", {
           body: bodyMsg,
           tag: "entrehilos-bienvenida",
         });
@@ -451,8 +450,8 @@ export default function PedidosView({
   };
 
   const handleProbarNotificacion = async () => {
-    await mostrarNotificacionSistema("Entre Hilos 🧶 - Alerta de Prueba", {
-      body: "¡Las notificaciones están funcionando al 100%! Así sonará y te avisará el sistema.",
+    await mostrarNotificacionSistema("Entre Hilos - Alerta de Prueba", {
+      body: "Las notificaciones estan funcionando correctamente en tu dispositivo.",
       tag: "entrehilos-test-" + Date.now(),
     });
   };
@@ -613,7 +612,7 @@ export default function PedidosView({
                   )}
                   {metricasEntrega.hoyCount > 0 && (
                     <span className="font-extrabold text-[#C04267] bg-pink-100/90 px-2.5 py-0.5 rounded-lg border border-pink-300 flex items-center gap-1">
-                      <Sparkles size={12} className="text-[#EE6B8D]" />
+                      <Calendar size={12} className="text-[#EE6B8D]" />
                       {metricasEntrega.hoyCount} entrega(s) para HOY
                     </span>
                   )}
@@ -651,7 +650,7 @@ export default function PedidosView({
           {[
             { id: "todos", label: "Todos", count: counts.todos, isUrgent: false },
             ...(metricasEntrega.proximos48hCount > 0
-              ? [{ id: "urgentes", label: "🚨 Próximos (48h)", count: metricasEntrega.proximos48hCount, isUrgent: true }]
+              ? [{ id: "urgentes", label: "Próximos (48h)", count: metricasEntrega.proximos48hCount, isUrgent: true }]
               : []),
             { id: "tienda", label: "Tienda Web", count: counts.tienda, isUrgent: false },
             { id: "whatsapp", label: "WhatsApp", count: counts.whatsapp, isUrgent: false },
@@ -870,32 +869,29 @@ export default function PedidosView({
                       </div>
                     </div>
 
-                    {/* Botones de Cobro / Completar Venta */}
-                    <div className="flex items-center gap-2 pt-0.5">
-                      {saldoPendiente > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenGestionModal(row)}
-                          className="flex-1 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
-                        >
-                          <DollarSign size={13} />
-                          <span>Cobrar S/ {saldoPendiente.toFixed(2)}</span>
-                        </button>
-                      )}
-
+                    {/* Botón único de Acción / Gestión */}
+                    <div className="pt-1">
                       <button
                         type="button"
                         onClick={() => handleOpenGestionModal(row)}
-                        className={`px-3 py-2 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer ${
+                        className={`w-full py-2.5 px-3 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.99] cursor-pointer ${
                           saldoPendiente > 0
-                            ? "bg-pink-50 hover:bg-pink-100 text-[#C04267] border border-pink-200"
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
                             : row.estado === "entregado"
-                            ? "flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
-                            : "flex-1 bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
+                            ? "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
+                            : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
                         }`}
                       >
-                        <Sparkles size={13} />
-                        <span>{row.estado === "entregado" ? "Gestionar" : "Completar Venta"}</span>
+                        {saldoPendiente > 0 ? (
+                          <>
+                            <DollarSign size={14} />
+                            <span>Cobrar Saldo (S/ {saldoPendiente.toFixed(2)}) y Gestionar</span>
+                          </>
+                        ) : row.estado === "entregado" ? (
+                          <span>Ver / Gestionar Pedido</span>
+                        ) : (
+                          <span>Completar Venta / Gestionar</span>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1046,27 +1042,29 @@ export default function PedidosView({
                             })()}
                           </div>
 
-                          <div className="flex items-center gap-1.5">
-                            {saldoPendiente > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenGestionModal(row)}
-                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-quicksand font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
-                                title="Registrar cobro de saldo y método de pago"
-                              >
-                                <DollarSign size={12} />
-                                <span>Cobrar</span>
-                              </button>
-                            )}
-
+                          <div>
                             <button
                               type="button"
                               onClick={() => handleOpenGestionModal(row)}
-                              className="px-2.5 py-1 bg-pink-50 hover:bg-pink-100 text-[#C04267] border border-pink-200 rounded-lg font-quicksand font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-                              title="Gestionar estado, aplazar entrega, método de pago o completar venta"
+                              className={`px-3 py-1.5 rounded-lg font-quicksand font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                saldoPendiente > 0
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                  : row.estado === "entregado"
+                                  ? "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
+                                  : "bg-[#EE6B8D] hover:bg-[#C04267] text-white shadow-xs"
+                              }`}
+                              title="Gestionar estado, pagos y entrega"
                             >
-                              <Sparkles size={12} />
-                              <span>{row.estado === "entregado" ? "Gestionar" : "Completar Venta"}</span>
+                              {saldoPendiente > 0 ? (
+                                <>
+                                  <DollarSign size={13} />
+                                  <span>Cobrar y Gestionar</span>
+                                </>
+                              ) : row.estado === "entregado" ? (
+                                <span>Ver / Gestionar</span>
+                              ) : (
+                                <span>Completar Venta</span>
+                              )}
                             </button>
                           </div>
                         </div>

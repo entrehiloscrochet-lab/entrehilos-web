@@ -17,7 +17,6 @@ import {
   Check,
   Search,
   MapPin,
-  Sparkles,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
