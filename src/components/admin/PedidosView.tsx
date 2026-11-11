@@ -305,10 +305,43 @@ const CANAL_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   otro: { label: "Otro", badgeClass: "bg-gray-100 text-gray-700 border-gray-200" },
 };
 
+export function formatFechaEntrega(fechaStr?: string | null): string {
+  if (!fechaStr) return "";
+  const dateOnly = String(fechaStr).split("T")[0].split(" ")[0].trim();
+  const parts = dateOnly.split("-");
+  if (parts.length !== 3) return dateOnly;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const localDate = new Date(y, m, d);
+  return localDate.toLocaleDateString("es-PE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export function formatFechaEntregaCorta(fechaStr?: string | null): string {
+  if (!fechaStr) return "";
+  const dateOnly = String(fechaStr).split("T")[0].split(" ")[0].trim();
+  const parts = dateOnly.split("-");
+  if (parts.length !== 3) return dateOnly;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const localDate = new Date(y, m, d);
+  return localDate.toLocaleDateString("es-PE", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 function parseRowData(row: Pedido) {
   let origen = (row.origen || "tienda").toLowerCase();
-  let fechaEntrega = row.fecha_entrega || null;
-  let horaEntrega = row.hora_entrega || null;
+  let fechaEntrega = row.fecha_entrega
+    ? String(row.fecha_entrega).split("T")[0].split(" ")[0].trim()
+    : null;
+  let horaEntrega = row.hora_entrega ? String(row.hora_entrega).trim() : null;
   let adelanto = row.adelanto !== undefined && row.adelanto !== null ? Number(row.adelanto) : 0;
   let saldoPendiente = row.saldo_pendiente !== undefined && row.saldo_pendiente !== null
     ? Number(row.saldo_pendiente)
@@ -320,10 +353,12 @@ function parseRowData(row: Pedido) {
       origen = origMatch[1].trim().toLowerCase();
     }
     const fechaMatch = row.notas.match(/\[Fecha Entrega:\s*([^\]]+)\]/i);
-    if (fechaMatch && !row.fecha_entrega) {
+    if (fechaMatch && !fechaEntrega) {
       const parts = fechaMatch[1].trim().split(" ");
-      fechaEntrega = parts[0];
-      horaEntrega = parts.slice(1).join(" ");
+      fechaEntrega = parts[0].split("T")[0].trim();
+      if (parts.length > 1 && !horaEntrega) {
+        horaEntrega = parts.slice(1).join(" ");
+      }
     }
     const adelantoMatch = row.notas.match(/\[Adelanto:\s*S\/?(\d+(\.\d+)?)(\s*\|\s*Saldo:\s*S\/?(\d+(\.\d+)?))?\]/i);
     if (adelantoMatch) {
@@ -367,7 +402,15 @@ export default function PedidosView({
   }, []);
 
   const handleOpenGestionModal = useCallback((pedido: Pedido) => {
-    setSelectedPedidoGestion(pedido as PedidoGestion);
+    const parsed = parseRowData(pedido);
+    setSelectedPedidoGestion({
+      ...pedido,
+      fecha_entrega: parsed.fechaEntrega,
+      hora_entrega: parsed.horaEntrega,
+      adelanto: parsed.adelanto,
+      saldo_pendiente: parsed.saldoPendiente,
+      notas: parsed.cleanNotas,
+    } as PedidoGestion);
     setIsGestionModalOpen(true);
   }, []);
 
@@ -513,9 +556,7 @@ export default function PedidosView({
     const num = rawTel.startsWith("51") ? rawTel : `51${rawTel}`;
     const cliente = row.cliente_nombre || "Cliente";
     const { fechaEntrega, saldoPendiente } = parseRowData(row);
-    const fecha = fechaEntrega
-      ? new Date(fechaEntrega).toLocaleDateString("es-PE", { day: "numeric", month: "short" })
-      : "";
+    const fecha = fechaEntrega ? formatFechaEntregaCorta(fechaEntrega) : "";
 
     let msg = `Hola ${cliente}, te escribimos de Entre Hilos respecto a tu pedido #${row.id}`;
     if (fecha) msg += ` agendado para entrega el ${fecha}`;
@@ -784,12 +825,7 @@ export default function PedidosView({
                         {fechaEntrega ? (
                           <div className="flex items-center justify-end gap-1 text-xs font-quicksand text-gray-800 font-bold">
                             <Calendar size={12} className="text-[#EE6B8D]" />
-                            <span>
-                              {new Date(fechaEntrega).toLocaleDateString("es-PE", {
-                                day: "numeric",
-                                month: "short",
-                              })}
-                            </span>
+                            <span>{formatFechaEntregaCorta(fechaEntrega)}</span>
                           </div>
                         ) : (
                           <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
@@ -968,13 +1004,7 @@ export default function PedidosView({
                           {fechaEntrega ? (
                             <div className="flex items-center gap-1.5 text-xs font-quicksand text-gray-800 font-bold">
                               <Calendar size={13} className="text-[#EE6B8D]" />
-                              <span>
-                                {new Date(fechaEntrega).toLocaleDateString("es-PE", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </span>
+                              <span>{formatFechaEntrega(fechaEntrega)}</span>
                             </div>
                           ) : (
                             <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>

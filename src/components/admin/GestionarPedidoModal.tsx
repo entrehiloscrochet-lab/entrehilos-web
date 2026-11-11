@@ -89,7 +89,10 @@ export default function GestionarPedidoModal({
   useEffect(() => {
     if (!pedido) return;
 
-    let initFecha = pedido.fecha_entrega || "";
+    let initFecha = "";
+    if (pedido.fecha_entrega) {
+      initFecha = String(pedido.fecha_entrega).split("T")[0].split(" ")[0].trim();
+    }
     let initHora = pedido.hora_entrega || "";
     let initAdelanto =
       pedido.adelanto !== undefined && pedido.adelanto !== null ? Number(pedido.adelanto) : 0;
@@ -98,8 +101,10 @@ export default function GestionarPedidoModal({
       const fechaMatch = pedido.notas.match(/\[Fecha Entrega:\s*([^\]]+)\]/i);
       if (fechaMatch && !initFecha) {
         const parts = fechaMatch[1].trim().split(" ");
-        initFecha = parts[0];
-        initHora = parts.slice(1).join(" ");
+        initFecha = parts[0].split("T")[0].trim();
+        if (parts.length > 1 && !initHora) {
+          initHora = parts.slice(1).join(" ");
+        }
       }
       const adelantoMatch = pedido.notas.match(
         /\[Adelanto:\s*S\/?(\d+(\.\d+)?)(\s*\|\s*Saldo:\s*S\/?(\d+(\.\d+)?))?\]/i
@@ -137,7 +142,14 @@ export default function GestionarPedidoModal({
   };
 
   const handlePresetFecha = (dias: number) => {
-    const base = fechaEntrega ? new Date(fechaEntrega) : new Date();
+    let base: Date;
+    if (fechaEntrega && fechaEntrega.includes("-")) {
+      const parts = fechaEntrega.split("-").map(Number);
+      base = new Date(parts[0], parts[1] - 1, parts[2]);
+    } else {
+      const now = new Date();
+      base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
     base.setDate(base.getDate() + dias);
     setFechaEntrega(formatDateISO(base));
   };
@@ -145,6 +157,10 @@ export default function GestionarPedidoModal({
   const handleGuardarCambios = async () => {
     setSaving(true);
     setErrorMsg(null);
+
+    const cleanFecha = fechaEntrega && fechaEntrega.trim() ? fechaEntrega.trim().split("T")[0] : null;
+    const cleanHora = horaEntrega && horaEntrega.trim() ? horaEntrega.trim() : null;
+    const cleanNotas = notas && notas.trim() ? notas.trim() : null;
 
     try {
       const payload = {
@@ -155,9 +171,9 @@ export default function GestionarPedidoModal({
           adelanto: adelantoNum,
           saldo_pendiente: saldoActual,
           metodo_pago: metodoPago,
-          fecha_entrega: fechaEntrega || null,
-          hora_entrega: horaEntrega.trim() || null,
-          notas: notas.trim() || null,
+          fecha_entrega: cleanFecha,
+          hora_entrega: cleanHora,
+          notas: cleanNotas,
         },
       };
 

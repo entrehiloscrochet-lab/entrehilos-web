@@ -252,11 +252,11 @@ export default function AgendarPedidoModal({
         total: totalCalculado,
         adelanto: adelantoNum,
         saldo_pendiente: saldoPendiente,
-        fecha_entrega: fechaEntrega || null,
-        hora_entrega: horaEntrega.trim() || null,
+        fecha_entrega: fechaEntrega && fechaEntrega.trim() ? fechaEntrega.trim().split("T")[0] : null,
+        hora_entrega: horaEntrega && horaEntrega.trim() ? horaEntrega.trim() : null,
         metodo_pago: metodoPago,
         estado,
-        notas: notas.trim() || null,
+        notas: notas && notas.trim() ? notas.trim() : null,
       };
 
       const res = await fetch("/api/admin", {

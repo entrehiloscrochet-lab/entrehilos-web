@@ -234,9 +234,17 @@ export async function PATCH(request: NextRequest) {
     if (adelanto !== undefined) updatePayload.adelanto = Number(adelanto);
     if (saldo_pendiente !== undefined) updatePayload.saldo_pendiente = Number(saldo_pendiente);
     if (metodo_pago !== undefined) updatePayload.metodo_pago = metodo_pago;
-    if (fecha_entrega !== undefined) updatePayload.fecha_entrega = fecha_entrega;
-    if (hora_entrega !== undefined) updatePayload.hora_entrega = hora_entrega;
-    if (notas !== undefined) updatePayload.notas = notas;
+    if (fecha_entrega !== undefined) {
+      const cleanFecha = fecha_entrega ? String(fecha_entrega).split("T")[0].trim() : null;
+      updatePayload.fecha_entrega = cleanFecha || null;
+    }
+    if (hora_entrega !== undefined) {
+      const cleanHora = hora_entrega ? String(hora_entrega).trim() : null;
+      updatePayload.hora_entrega = cleanHora || null;
+    }
+    if (notas !== undefined) {
+      updatePayload.notas = notas ? String(notas).trim() : null;
+    }
 
     let { error } = await supabaseAdmin
       .from("pedidos")
@@ -630,6 +638,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nombre de cliente e ítems son requeridos" }, { status: 400 });
     }
 
+    const cleanFecha = fecha_entrega ? String(fecha_entrega).split("T")[0].trim() : null;
+    const cleanHora = hora_entrega ? String(hora_entrega).trim() : null;
+    const cleanNotas = notas ? String(notas).trim() : null;
+
     const { data, error } = await supabaseAdmin
       .from("pedidos")
       .insert({
@@ -642,11 +654,11 @@ export async function POST(request: NextRequest) {
         total: Number(total) || 0,
         adelanto: Number(adelanto) || 0,
         saldo_pendiente: Number(saldo_pendiente) ?? Math.max(0, (Number(total) || 0) - (Number(adelanto) || 0)),
-        fecha_entrega: fecha_entrega || null,
-        hora_entrega: hora_entrega || null,
+        fecha_entrega: cleanFecha || null,
+        hora_entrega: cleanHora || null,
         metodo_pago: metodo_pago || "yape",
         estado: estado || "pendiente",
-        notas: notas || null,
+        notas: cleanNotas || null,
       })
       .select()
       .single();

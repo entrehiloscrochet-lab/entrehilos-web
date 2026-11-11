@@ -21,6 +21,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Invalid type: ${type}` }, { status: 400 });
   }
 
+  if (type === "pedido" && data && typeof data === "object") {
+    if (data.fecha_entrega !== undefined) {
+      data.fecha_entrega = data.fecha_entrega ? String(data.fecha_entrega).split("T")[0].trim() : null;
+    }
+    if (data.hora_entrega !== undefined) {
+      data.hora_entrega = data.hora_entrega ? String(data.hora_entrega).trim() : null;
+    }
+  }
+
   let { error } = await supabaseAdmin.from(table).insert([data]);
 
   // Si es un pedido y falló posiblemente por columnas opcionales aún no migradas (fecha_entrega, etc.)
