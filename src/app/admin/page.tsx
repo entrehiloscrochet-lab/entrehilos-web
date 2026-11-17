@@ -6594,7 +6594,7 @@ export default function AdminPage() {
                         {resenaPool.length === 0 ? (
                           <p className="p-4 text-center font-quicksand text-xs text-gray-400">Cargando productos...</p>
                         ) : resenaFiltered.length === 0 ? (
-                          <p className="p-4 text-center font-quicksand text-xs text-gray-400">No se encontraron productos con "{resenaSearch}"</p>
+                          <p className="p-4 text-center font-quicksand text-xs text-gray-400">No se encontraron productos con &ldquo;{resenaSearch}&rdquo;</p>
                         ) : null}
                       </div>
                     )}
@@ -6710,7 +6710,7 @@ export default function AdminPage() {
                               ))}
                             {clientesDirectory.length === 0 && (
                               <p className="p-3 text-center font-quicksand text-xs text-gray-400">
-                                Aún no hay clientes guardados. Usa "+ Nuevo cliente".
+                                Aún no hay clientes guardados. Usa &ldquo;+ Nuevo cliente&rdquo;.
                               </p>
                             )}
                           </div>
