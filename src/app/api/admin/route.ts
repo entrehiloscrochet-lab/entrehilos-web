@@ -123,7 +123,7 @@ async function upsertManualClientInHomeSections(client: {
     } else {
       await supabaseAdmin.from("home_sections").insert({
         section_key: "clientes_manuales",
-        tipo: "directory",
+        tipo: "content",
         titulo: "Directorio de Clientes",
         items: updatedItems,
         orden: 999,
@@ -251,7 +251,9 @@ export async function GET(request: NextRequest) {
   }
 
   if (tab === "inicio") {
-    const sections = [...(data || [])];
+    const sections = [...(data || [])].filter(
+      (s: SectionDbRow) => s.section_key !== "clientes_manuales"
+    );
 
     const hasProductosRotonda = sections.some((s: SectionDbRow) => s.section_key === "evento_productos_rotonda");
     if (!hasProductosRotonda) {
