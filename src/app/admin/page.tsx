@@ -8,7 +8,7 @@ import {
   UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Camera,
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
   FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil, Menu,
-  PanelLeft, PanelLeftClose, Calculator, Boxes, Filter, ChevronDown, type LucideIcon,
+  PanelLeft, PanelLeftClose, Calculator, Boxes, ChevronDown, type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -441,7 +441,8 @@ export default function AdminPage() {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkTargetSlug, setBulkTargetSlug] = useState("ramos");
   const [bulkSaving, setBulkSaving] = useState(false);
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [openFilterDropdown, setOpenFilterDropdown] = useState<"catalogo" | "eventos" | "paginas" | null>(null);
+  const filterDropdownRef = useRef<HTMLDivElement | null>(null);
   const [expandedCardSlugs, setExpandedCardSlugs] = useState<Set<string>>(new Set());
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<
     { mode: "single"; product: AdminProduct } | { mode: "bulk"; ids: string[] } | null
@@ -453,6 +454,24 @@ export default function AdminPage() {
   const [preciosSaving, setPreciosSaving] = useState<string | null>(null);
   const tempFileRef = useRef<HTMLInputElement | null>(null);
   const tempFileRefMobile = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!openFilterDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setOpenFilterDropdown(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilterDropdown(null);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openFilterDropdown]);
   const sectionImgRef = useRef<HTMLInputElement | null>(null);
   const eventoImgRef = useRef<HTMLInputElement | null>(null);
   const [eventoImgUploading, setEventoImgUploading] = useState(false);
@@ -5088,107 +5107,35 @@ export default function AdminPage() {
             productosVisibles.length > 0 &&
             productosVisibles.every((p) => selectedProductIds.has(p.id));
 
+          const activeCatalogo = CATALOGO_FILTERS.find((f) => f.key === productosFilter && f.key !== "ver-todo");
+          const activeEvento = productosFilter.startsWith("evento-") && productosFilter !== "evento-destacado"
+            ? allAvailableEvents.find((e) => `evento-${e.slug}` === productosFilter)
+            : null;
+          const activePaginaLabel =
+            productosFilter === "page-personalizados"
+              ? "Personalizados"
+              : productosFilter === "evento-destacado" && featuredEvent
+              ? `Destacado`
+              : null;
+
           return (
           <div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3 mb-3 sm:mb-5">
-              <div>
+            {/* Cabecera compacta */}
+            <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+              <div className="min-w-0">
                 <h2 className="font-fredoka text-lg sm:text-xl font-bold text-[#C04267] leading-tight">Productos</h2>
                 {rawProducts.length > 0 && (
-                  <p className="font-quicksand text-[11px] sm:text-xs text-gray-400 mt-0.5">
-                    {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? "s" : ""} en {filterLabel} · {inactiveIds.size} oculto{inactiveIds.size !== 1 ? "s" : ""} de la web
+                  <p className="font-quicksand text-[11px] sm:text-xs text-gray-400 mt-0.5 truncate">
+                    {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? "s" : ""} en {filterLabel} · {inactiveIds.size} oculto{inactiveIds.size !== 1 ? "s" : ""}
                   </p>
                 )}
               </div>
-              <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingProductItem(null);
-                    setProductModalOpen(true);
-                  }}
-                  className="px-3.5 py-2 sm:py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all whitespace-nowrap shrink-0 cursor-pointer"
-                >
-                  <Plus size={15} />
-                  <span>Nuevo Producto</span>
-                </button>
-                <div className="relative flex-1 sm:w-64 md:w-72">
-                  <input
-                    value={productosSearch}
-                    onChange={(e) => setProductosSearch(e.target.value)}
-                    placeholder="Buscar nombre o SKU..."
-                    className="w-full px-3 py-2 sm:py-2.5 border border-gray-200 bg-white rounded-xl font-quicksand text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] pr-8"
-                  />
-                  {productosSearch ? (
-                    <button
-                      type="button"
-                      onClick={() => setProductosSearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                      aria-label="Limpiar búsqueda"
-                    >
-                      <X size={14} />
-                    </button>
-                  ) : (
-                    <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Selector colapsable de Catálogo, Eventos y Páginas (cerrado por defecto) */}
-            <div className="mb-3 sm:mb-4">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFilterPanelOpen((prev) => !prev)}
-                  aria-expanded={filterPanelOpen}
-                  className={`flex-1 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl border bg-white shadow-2xs transition-all cursor-pointer min-w-0 ${
-                    filterPanelOpen ? "border-[#EE6B8D] ring-2 ring-[#EE6B8D]/15" : "border-[#FDE8EF] hover:border-[#EE6B8D]/60"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Filter size={15} className="text-[#EE6B8D] shrink-0" />
-                    <span className="font-quicksand text-xs font-bold text-gray-500 shrink-0 hidden xs:inline">
-                      Filtrar:
-                    </span>
-                    <span className="font-quicksand text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#FDF4F7] text-[#C04267] border border-[#FDE8EF] truncate">
-                      {productosFilter === "ver-todo" ? "Ver Todo" : filterLabel}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {productosFilter !== "ver-todo" && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProductosFilter("ver-todo");
-                          setFilterPanelOpen(false);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.stopPropagation();
-                            setProductosFilter("ver-todo");
-                            setFilterPanelOpen(false);
-                          }
-                        }}
-                        className="text-[11px] font-quicksand font-bold text-gray-400 hover:text-[#C04267] px-1.5 py-0.5 rounded-md hover:bg-pink-50 transition-colors"
-                        title="Restablecer filtro"
-                      >
-                        Limpiar
-                      </span>
-                    )}
-                    <ChevronDown
-                      size={16}
-                      className={`text-gray-400 transition-transform duration-200 ${filterPanelOpen ? "rotate-180 text-[#C04267]" : ""}`}
-                    />
-                  </div>
-                </button>
-
+              <div className="flex items-center gap-2 shrink-0">
                 {productosVisibles.length > 0 && (
                   <button
                     type="button"
                     onClick={() => toggleSelectAllVisible(productosVisibles)}
-                    className={`lg:hidden flex items-center gap-1.5 px-3 py-2.5 rounded-2xl border font-quicksand text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                    className={`lg:hidden flex items-center gap-1.5 px-2.5 py-2 rounded-xl border font-quicksand text-xs font-bold transition-all cursor-pointer ${
                       allVisibleSelected
                         ? "bg-[#FDF4F7] border-[#EE6B8D] text-[#C04267]"
                         : "bg-white border-[#FDE8EF] text-gray-600 hover:border-[#EE6B8D]/60"
@@ -5200,107 +5147,249 @@ export default function AdminPage() {
                     ) : (
                       <Square size={15} className="text-gray-400" />
                     )}
-                    <span className="hidden sm:inline">{allVisibleSelected ? "Deseleccionar" : "Seleccionar todos"}</span>
+                    <span className="hidden sm:inline">{allVisibleSelected ? "Deseleccionar" : "Seleccionar"}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProductItem(null);
+                    setProductModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all whitespace-nowrap cursor-pointer"
+                >
+                  <Plus size={15} />
+                  <span>Nuevo Producto</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Barra unificada: Buscador + 3 Selectores desplegables (Catálogo, Eventos, Páginas) */}
+            <div ref={filterDropdownRef} className="flex flex-col lg:flex-row lg:items-center gap-2 mb-3.5 sm:mb-4">
+              {/* Buscador */}
+              <div className="relative flex-1 min-w-0">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  value={productosSearch}
+                  onChange={(e) => setProductosSearch(e.target.value)}
+                  placeholder="Buscar por nombre o SKU..."
+                  className="w-full pl-9 pr-8 py-2 bg-white border border-[#FDE8EF] rounded-xl font-quicksand text-xs sm:text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-[#EE6B8D] focus:ring-2 focus:ring-[#EE6B8D]/15 shadow-2xs transition-all"
+                />
+                {productosSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setProductosSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                    aria-label="Limpiar búsqueda"
+                  >
+                    <X size={14} />
                   </button>
                 )}
               </div>
 
-              {filterPanelOpen && (
-                <div className="mt-2 bg-white rounded-2xl border border-[#FDE8EF] shadow-md p-3.5 sm:p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
-                  <div>
-                    <p className="font-quicksand text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                      Catálogo
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CATALOGO_FILTERS.map((f) => (
-                        <button
-                          key={f.key}
-                          type="button"
-                          onClick={() => {
-                            setProductosFilter(f.key);
-                            setFilterPanelOpen(false);
-                          }}
-                          className={`font-quicksand text-xs font-semibold px-3 py-1 rounded-full transition-all cursor-pointer ${
-                            productosFilter === f.key
-                              ? "bg-[#EE6B8D] text-white shadow-xs"
-                              : "bg-gray-100 text-gray-600 hover:bg-[#FDE8EF] hover:text-[#C04267]"
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {/* 3 Selectores desplegables compactos */}
+              <div className="grid grid-cols-3 lg:flex lg:items-center gap-1.5 sm:gap-2 shrink-0">
+                {/* 1. Selector Catálogo */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFilterDropdown((prev) => (prev === "catalogo" ? null : "catalogo"))}
+                    className={`w-full lg:w-auto flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border font-quicksand text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]/40 ${
+                      activeCatalogo
+                        ? "bg-[#FDF4F7] border-[#EE6B8D] text-[#C04267] font-bold"
+                        : openFilterDropdown === "catalogo"
+                        ? "bg-white border-[#EE6B8D] text-gray-800 shadow-xs"
+                        : "bg-white border-[#FDE8EF] text-gray-600 hover:border-[#EE6B8D]/60"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <Package size={14} className={activeCatalogo ? "text-[#EE6B8D] shrink-0" : "text-gray-400 shrink-0"} />
+                      <span className="truncate">{activeCatalogo ? activeCatalogo.label : "Catálogo"}</span>
+                    </span>
+                    <ChevronDown
+                      size={13}
+                      className={`shrink-0 text-gray-400 transition-transform duration-150 ${
+                        openFilterDropdown === "catalogo" ? "rotate-180 text-[#C04267]" : ""
+                      }`}
+                    />
+                  </button>
 
-                  <div className="border-t border-gray-100 pt-2.5">
-                    <p className="font-quicksand text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                      Eventos
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
+                  {openFilterDropdown === "catalogo" && (
+                    <div className="absolute left-0 lg:right-0 lg:left-auto top-full mt-1.5 w-48 bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
+                      {CATALOGO_FILTERS.map((f) => {
+                        const selected = productosFilter === f.key;
+                        return (
+                          <button
+                            key={f.key}
+                            type="button"
+                            onClick={() => {
+                              setProductosFilter(f.key);
+                              setOpenFilterDropdown(null);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-left font-quicksand text-xs transition-colors cursor-pointer ${
+                              selected
+                                ? "bg-[#FDF4F7] text-[#C04267] font-bold"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            <span>{f.label}</span>
+                            {selected && <Check size={13} className="text-[#EE6B8D]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Selector Eventos */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFilterDropdown((prev) => (prev === "eventos" ? null : "eventos"))}
+                    className={`w-full lg:w-auto flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border font-quicksand text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]/40 ${
+                      activeEvento
+                        ? "bg-[#FDF4F7] border-[#EE6B8D] text-[#C04267] font-bold"
+                        : openFilterDropdown === "eventos"
+                        ? "bg-white border-[#EE6B8D] text-gray-800 shadow-xs"
+                        : "bg-white border-[#FDE8EF] text-gray-600 hover:border-[#EE6B8D]/60"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <Tag size={14} className={activeEvento ? "text-[#EE6B8D] shrink-0" : "text-gray-400 shrink-0"} />
+                      <span className="truncate">{activeEvento ? activeEvento.label : "Eventos"}</span>
+                    </span>
+                    <ChevronDown
+                      size={13}
+                      className={`shrink-0 text-gray-400 transition-transform duration-150 ${
+                        openFilterDropdown === "eventos" ? "rotate-180 text-[#C04267]" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {openFilterDropdown === "eventos" && (
+                    <div className="absolute left-1/2 -translate-x-1/2 lg:translate-x-0 lg:right-0 lg:left-auto top-full mt-1.5 w-52 max-h-64 overflow-y-auto bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductosFilter("ver-todo");
+                          setOpenFilterDropdown(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-left font-quicksand text-xs transition-colors cursor-pointer border-b border-gray-100 ${
+                          productosFilter === "ver-todo"
+                            ? "bg-[#FDF4F7] text-[#C04267] font-bold"
+                            : "text-gray-500 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span>Todos los eventos</span>
+                        {productosFilter === "ver-todo" && <Check size={13} className="text-[#EE6B8D]" />}
+                      </button>
                       {allAvailableEvents.map((f) => {
                         const filterKey = `evento-${f.slug}`;
-                        const isActive = productosFilter === filterKey;
+                        const selected = productosFilter === filterKey;
                         return (
                           <button
                             key={f.slug}
                             type="button"
                             onClick={() => {
                               setProductosFilter(filterKey);
-                              setFilterPanelOpen(false);
+                              setOpenFilterDropdown(null);
                             }}
-                            className={`font-quicksand text-xs font-semibold px-3 py-1 rounded-full transition-all cursor-pointer ${
-                              isActive
-                                ? "bg-[#EE6B8D] text-white shadow-xs font-bold"
-                                : "bg-gray-100 text-gray-600 hover:bg-[#FDE8EF] hover:text-[#C04267]"
+                            className={`w-full flex items-center justify-between px-3 py-2 text-left font-quicksand text-xs transition-colors cursor-pointer ${
+                              selected
+                                ? "bg-[#FDF4F7] text-[#C04267] font-bold"
+                                : "text-gray-700 hover:bg-gray-50"
                             }`}
                           >
-                            {f.label}
+                            <span className="truncate">{f.label}</span>
+                            {selected && <Check size={13} className="text-[#EE6B8D] shrink-0" />}
                           </button>
                         );
                       })}
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  <div className="border-t border-gray-100 pt-2.5">
-                    <p className="font-quicksand text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                      Páginas
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
+                {/* 3. Selector Páginas */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFilterDropdown((prev) => (prev === "paginas" ? null : "paginas"))}
+                    className={`w-full lg:w-auto flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border font-quicksand text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]/40 ${
+                      activePaginaLabel
+                        ? "bg-[#FDF4F7] border-[#EE6B8D] text-[#C04267] font-bold"
+                        : openFilterDropdown === "paginas"
+                        ? "bg-white border-[#EE6B8D] text-gray-800 shadow-xs"
+                        : "bg-white border-[#FDE8EF] text-gray-600 hover:border-[#EE6B8D]/60"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <Layers size={14} className={activePaginaLabel ? "text-[#EE6B8D] shrink-0" : "text-gray-400 shrink-0"} />
+                      <span className="truncate">{activePaginaLabel || "Páginas"}</span>
+                    </span>
+                    <ChevronDown
+                      size={13}
+                      className={`shrink-0 text-gray-400 transition-transform duration-150 ${
+                        openFilterDropdown === "paginas" ? "rotate-180 text-[#C04267]" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {openFilterDropdown === "paginas" && (
+                    <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductosFilter("ver-todo");
+                          setOpenFilterDropdown(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-left font-quicksand text-xs transition-colors cursor-pointer border-b border-gray-100 ${
+                          productosFilter === "ver-todo"
+                            ? "bg-[#FDF4F7] text-[#C04267] font-bold"
+                            : "text-gray-500 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span>Todas las páginas</span>
+                        {productosFilter === "ver-todo" && <Check size={13} className="text-[#EE6B8D]" />}
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           setProductosFilter("page-personalizados");
-                          setFilterPanelOpen(false);
+                          setOpenFilterDropdown(null);
                         }}
-                        className={`font-quicksand text-xs font-semibold px-3 py-1 rounded-full transition-all cursor-pointer ${
+                        className={`w-full flex items-center justify-between px-3 py-2 text-left font-quicksand text-xs transition-colors cursor-pointer ${
                           productosFilter === "page-personalizados"
-                            ? "bg-[#EE6B8D] text-white shadow-xs"
-                            : "bg-gray-100 text-gray-600 hover:bg-[#FDE8EF] hover:text-[#C04267]"
+                            ? "bg-[#FDF4F7] text-[#C04267] font-bold"
+                            : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        Personalizados
+                        <span>Personalizados</span>
+                        {productosFilter === "page-personalizados" && <Check size={13} className="text-[#EE6B8D]" />}
                       </button>
                       {featuredEvent && (
                         <button
                           type="button"
                           onClick={() => {
                             setProductosFilter("evento-destacado");
-                            setFilterPanelOpen(false);
+                            setOpenFilterDropdown(null);
                           }}
-                          className={`font-quicksand text-xs font-semibold px-3 py-1 rounded-full transition-all cursor-pointer ${
+                          className={`w-full flex items-center justify-between px-3 py-2 text-left font-quicksand text-xs transition-colors cursor-pointer ${
                             productosFilter === "evento-destacado"
-                              ? "bg-[#C04267] text-white shadow-xs"
-                              : "bg-[#FDE8EF] text-[#C04267] hover:bg-[#F3D5E0]"
+                              ? "bg-[#FDF4F7] text-[#C04267] font-bold"
+                              : "text-[#C04267] hover:bg-[#FDF4F7]/60"
                           }`}
                         >
-                          <Star size={11} className="inline mr-1 -mt-0.5" fill="currentColor" />
-                          Destacado: {featuredEvent.nombre}
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Star size={12} fill="currentColor" className="shrink-0" />
+                            <span className="truncate">Destacado: {featuredEvent.nombre}</span>
+                          </span>
+                          {productosFilter === "evento-destacado" && <Check size={13} className="text-[#EE6B8D] shrink-0" />}
                         </button>
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Barra flotante de acciones masivas cuando hay productos seleccionados */}
