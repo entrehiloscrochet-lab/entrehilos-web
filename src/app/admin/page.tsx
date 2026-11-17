@@ -443,6 +443,9 @@ export default function AdminPage() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [openFilterDropdown, setOpenFilterDropdown] = useState<"catalogo" | "eventos" | "paginas" | null>(null);
   const filterDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [portadaDropdownOpen, setPortadaDropdownOpen] = useState<"filtro" | "acciones" | null>(null);
+  const portadaDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [resenaPickerOpen, setResenaPickerOpen] = useState(false);
   const [expandedCardSlugs, setExpandedCardSlugs] = useState<Set<string>>(new Set());
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<
     { mode: "single"; product: AdminProduct } | { mode: "bulk"; ids: string[] } | null
@@ -456,14 +459,20 @@ export default function AdminPage() {
   const tempFileRefMobile = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (!openFilterDropdown) return;
+    if (!openFilterDropdown && !portadaDropdownOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+      if (openFilterDropdown && filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
         setOpenFilterDropdown(null);
+      }
+      if (portadaDropdownOpen && portadaDropdownRef.current && !portadaDropdownRef.current.contains(e.target as Node)) {
+        setPortadaDropdownOpen(null);
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilterDropdown(null);
+      if (e.key === "Escape") {
+        setOpenFilterDropdown(null);
+        setPortadaDropdownOpen(null);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
@@ -471,7 +480,7 @@ export default function AdminPage() {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [openFilterDropdown]);
+  }, [openFilterDropdown, portadaDropdownOpen]);
   const sectionImgRef = useRef<HTMLInputElement | null>(null);
   const eventoImgRef = useRef<HTMLInputElement | null>(null);
   const [eventoImgUploading, setEventoImgUploading] = useState(false);
@@ -1180,10 +1189,17 @@ export default function AdminPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    if ((subTab === "heroes" || subTab === "resenas") && allProducts.length === 0) {
-      fetchVentifyData().then((d) => setAllProducts(d.active)).catch(() => {});
+    if ((subTab === "heroes" || subTab === "resenas") && rawProducts.length === 0) {
+      fetchVentifyData()
+        .then((d) => {
+          setAllProducts(d.all);
+          setRawProducts(d.all);
+          if (d.inactiveIds) setInactiveIds(new Set(d.inactiveIds));
+          if (d.assignments) setAssignments(d.assignments);
+        })
+        .catch(() => {});
     }
-  }, [subTab, allProducts.length]);
+  }, [subTab, rawProducts.length]);
 
   useEffect(() => {
     if (subTab === "productos" || subTab === "pedidos") {
@@ -4692,125 +4708,158 @@ export default function AdminPage() {
               </div>
 
               {/* PESTAÑA 1: Elegir Productos */}
-              {portadaTab === "productos" && (
-                <div className="space-y-4">
-                  {/* Filtro por Categorías / Eventos */}
-                  <div className="flex flex-wrap items-center gap-2 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-2xs">
-                    <span className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mr-1">Filtrar lista:</span>
-                    <button
-                      type="button"
-                      onClick={() => setPortadaCategoryFilter("evento")}
-                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                        portadaCategoryFilter === "evento"
-                          ? "bg-[#EE6B8D] text-white shadow-xs"
-                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
-                      }`}
-                    >
-                      Evento: {currentEventObj?.nombre || "Principal"} ({eventProducts.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPortadaCategoryFilter("todos")}
-                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                        portadaCategoryFilter === "todos"
-                          ? "bg-[#EE6B8D] text-white shadow-xs"
-                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
-                      }`}
-                    >
-                      Todo el Catálogo ({rawProducts.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPortadaCategoryFilter("ramos")}
-                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                        portadaCategoryFilter === "ramos"
-                          ? "bg-[#EE6B8D] text-white shadow-xs"
-                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
-                      }`}
-                    >
-                      Ramos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPortadaCategoryFilter("amigurumis")}
-                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                        portadaCategoryFilter === "amigurumis"
-                          ? "bg-[#EE6B8D] text-white shadow-xs"
-                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
-                      }`}
-                    >
-                      Amigurumis
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPortadaCategoryFilter("cajas")}
-                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                        portadaCategoryFilter === "cajas"
-                          ? "bg-[#EE6B8D] text-white shadow-xs"
-                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
-                      }`}
-                    >
-                      Cajas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPortadaCategoryFilter("personalizados")}
-                      className={`font-quicksand text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                        portadaCategoryFilter === "personalizados"
-                          ? "bg-[#EE6B8D] text-white shadow-xs"
-                          : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-[#C04267]"
-                      }`}
-                    >
-                      Personalizados
-                    </button>
-                  </div>
+              {portadaTab === "productos" && (() => {
+                const portadaFilterOptions = [
+                  { key: "evento", label: `Evento: ${currentEventObj?.nombre || "Principal"} (${eventProducts.length})` },
+                  { key: "todos", label: `Todo el Catálogo (${rawProducts.length})` },
+                  { key: "ramos", label: "Ramos" },
+                  { key: "amigurumis", label: "Amigurumis" },
+                  { key: "cajas", label: "Cajas" },
+                  { key: "personalizados", label: "Personalizados" },
+                ];
+                const activePortadaFilterLabel =
+                  portadaFilterOptions.find((o) => o.key === portadaCategoryFilter)?.label || "Filtrar";
 
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100">
-                    <div className="relative flex-1 max-w-md">
-                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                return (
+                <div className="space-y-3">
+                  {/* Barra compacta: Buscador + Selector de filtro + Acciones rápidas */}
+                  <div ref={portadaDropdownRef} className="flex flex-col lg:flex-row lg:items-center gap-2">
+                    <div className="relative flex-1 min-w-0">
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                       <input
                         type="text"
                         placeholder="Buscar producto por nombre o SKU..."
                         value={portadaProductSearch}
                         onChange={(e) => setPortadaProductSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-xs font-quicksand rounded-xl border border-gray-200 focus:outline-none focus:border-[#EE6B8D]"
+                        className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm font-quicksand bg-white rounded-xl border border-[#FDE8EF] focus:outline-none focus:border-[#EE6B8D] focus:ring-2 focus:ring-[#EE6B8D]/15 shadow-2xs"
                       />
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
-                          const top4Ids = pool.slice(0, 4).map((p) => String(p.id || p.sku));
-                          setPortadaSelectedIds(new Set(top4Ids));
-                        }}
-                        className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-[#C04267] font-quicksand font-bold text-xs rounded-xl border border-pink-200 transition-colors cursor-pointer"
-                      >
-                        Seleccionar primeros 4 de la lista
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
-                          const top3Ids = pool.slice(0, 3).map((p) => String(p.id || p.sku));
-                          setPortadaSelectedIds(new Set(top3Ids));
-                        }}
-                        className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-[#C04267] font-quicksand font-bold text-xs rounded-xl border border-pink-200 transition-colors cursor-pointer"
-                      >
-                        Seleccionar primeros 3 (Modo Tríptico)
-                      </button>
-
-                      {portadaSelectedIds.size > 0 && (
+                      {portadaProductSearch && (
                         <button
                           type="button"
-                          onClick={() => setPortadaSelectedIds(new Set())}
-                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-quicksand font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                          onClick={() => setPortadaProductSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                          aria-label="Limpiar búsqueda"
                         >
-                          Limpiar (Usar automático)
+                          <X size={14} />
                         </button>
                       )}
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:flex lg:items-center gap-1.5 sm:gap-2 shrink-0">
+                      {/* Selector desplegable de filtro */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setPortadaDropdownOpen((prev) => (prev === "filtro" ? null : "filtro"))}
+                          className={`w-full lg:w-auto flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border font-quicksand text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]/40 ${
+                            portadaDropdownOpen === "filtro"
+                              ? "bg-white border-[#EE6B8D] text-gray-800 shadow-xs"
+                              : "bg-[#FDF4F7] border-[#EE6B8D]/50 text-[#C04267]"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <Tag size={13} className="text-[#EE6B8D] shrink-0" />
+                            <span className="truncate">{activePortadaFilterLabel}</span>
+                          </span>
+                          <ChevronDown
+                            size={13}
+                            className={`shrink-0 text-[#C04267] transition-transform duration-150 ${
+                              portadaDropdownOpen === "filtro" ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {portadaDropdownOpen === "filtro" && (
+                          <div className="absolute left-0 lg:right-0 lg:left-auto top-full mt-1.5 w-60 bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
+                            {portadaFilterOptions.map((opt) => {
+                              const selected = portadaCategoryFilter === opt.key;
+                              return (
+                                <button
+                                  key={opt.key}
+                                  type="button"
+                                  onClick={() => {
+                                    setPortadaCategoryFilter(opt.key);
+                                    setPortadaDropdownOpen(null);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2 text-left font-quicksand text-xs transition-colors cursor-pointer ${
+                                    selected
+                                      ? "bg-[#FDF4F7] text-[#C04267] font-bold"
+                                      : "text-gray-700 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  <span className="truncate">{opt.label}</span>
+                                  {selected && <Check size={13} className="text-[#EE6B8D] shrink-0" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Selector desplegable de selección rápida */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setPortadaDropdownOpen((prev) => (prev === "acciones" ? null : "acciones"))}
+                          className={`w-full lg:w-auto flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border font-quicksand text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]/40 ${
+                            portadaDropdownOpen === "acciones"
+                              ? "bg-white border-[#EE6B8D] text-gray-800 shadow-xs"
+                              : "bg-white border-[#FDE8EF] text-gray-600 hover:border-[#EE6B8D]/60"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <CheckSquare size={13} className="text-gray-400 shrink-0" />
+                            <span className="truncate">Selección rápida</span>
+                          </span>
+                          <ChevronDown
+                            size={13}
+                            className={`shrink-0 text-gray-400 transition-transform duration-150 ${
+                              portadaDropdownOpen === "acciones" ? "rotate-180 text-[#C04267]" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {portadaDropdownOpen === "acciones" && (
+                          <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
+                                const top4Ids = pool.slice(0, 4).map((p) => String(p.id || p.sku));
+                                setPortadaSelectedIds(new Set(top4Ids));
+                                setPortadaDropdownOpen(null);
+                              }}
+                              className="w-full px-3 py-2 text-left font-quicksand text-xs font-semibold text-[#C04267] hover:bg-[#FDF4F7] transition-colors cursor-pointer"
+                            >
+                              Seleccionar primeros 4 de la lista
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pool = filteredRawProducts.length > 0 ? filteredRawProducts : eventProducts;
+                                const top3Ids = pool.slice(0, 3).map((p) => String(p.id || p.sku));
+                                setPortadaSelectedIds(new Set(top3Ids));
+                                setPortadaDropdownOpen(null);
+                              }}
+                              className="w-full px-3 py-2 text-left font-quicksand text-xs font-semibold text-[#C04267] hover:bg-[#FDF4F7] transition-colors cursor-pointer"
+                            >
+                              Seleccionar primeros 3 (Modo Tríptico)
+                            </button>
+                            {portadaSelectedIds.size > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPortadaSelectedIds(new Set());
+                                  setPortadaDropdownOpen(null);
+                                }}
+                                className="w-full px-3 py-2 text-left font-quicksand text-xs font-semibold text-gray-500 hover:bg-gray-50 border-t border-gray-100 transition-colors cursor-pointer"
+                              >
+                                Limpiar (Usar automático)
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -4894,7 +4943,8 @@ export default function AdminPage() {
                     })}
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* PESTAÑA 2: Subir Imágenes Directas de Catálogo */}
               {portadaTab === "imagenes" && (
@@ -6404,7 +6454,14 @@ export default function AdminPage() {
               <h2 className="font-fredoka text-xl font-bold text-[#C04267]">Reseñas</h2>
               <button onClick={() => {
                 setShowResenaForm(!showResenaForm);
-                if (!allProducts.length) fetchVentifyData().then((d) => setAllProducts(d.active)).catch(() => {});
+                if (rawProducts.length === 0) {
+                  fetchVentifyData()
+                    .then((d) => {
+                      setAllProducts(d.all);
+                      setRawProducts(d.all);
+                    })
+                    .catch(() => {});
+                }
               }}
                 className="flex items-center gap-2 text-xs text-white bg-[#EE6B8D] hover:bg-[#C04267] px-4 py-2.5 rounded-lg font-quicksand font-semibold transition-colors shadow-sm self-start sm:self-auto"
               >
@@ -6413,34 +6470,64 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {showResenaForm && (
+            {showResenaForm && (() => {
+              const resenaPool = rawProducts.length >= allProducts.length ? rawProducts : allProducts;
+              const resenaFiltered = resenaPool.filter((p) =>
+                !resenaSearch ||
+                p.nombre?.toLowerCase().includes(resenaSearch.toLowerCase()) ||
+                p.sku?.toLowerCase().includes(resenaSearch.toLowerCase())
+              );
+              return (
               <div className="bg-white rounded-2xl border border-[#FDE8EF] shadow-sm p-5 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="font-quicksand text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5 block">
-                      Producto
+                      Producto ({resenaPool.length} disponibles)
                     </label>
                     <div className="relative">
                       <input
                         value={resenaSearch}
-                        onChange={(e) => setResenaSearch(e.target.value)}
-                        placeholder="Buscar producto por nombre o SKU..."
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg font-quicksand text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] pr-10"
+                        onFocus={() => setResenaPickerOpen(true)}
+                        onChange={(e) => {
+                          setResenaSearch(e.target.value);
+                          setResenaPickerOpen(true);
+                        }}
+                        placeholder="Buscar o elegir producto por nombre o SKU..."
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg font-quicksand text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] pr-16"
                       />
-                      <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {resenaSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setResenaSearch("")}
+                            className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer"
+                            aria-label="Limpiar búsqueda"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setResenaPickerOpen((prev) => !prev)}
+                          className="p-1 text-gray-400 hover:text-[#C04267] cursor-pointer"
+                          aria-label="Mostrar lista de productos"
+                        >
+                          <ChevronDown size={16} className={resenaPickerOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+                        </button>
+                      </div>
                     </div>
-                    {resenaSearch && (
-                      <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
-                        {allProducts
-                          .filter((p) =>
-                            !resenaSearch || p.nombre?.toLowerCase().includes(resenaSearch.toLowerCase()) || p.sku?.toLowerCase().includes(resenaSearch.toLowerCase())
-                          )
-                          .slice(0, 20)
-                          .map((p) => (
+                    {(resenaPickerOpen || resenaSearch) && (
+                      <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto bg-white">
+                        {resenaFiltered.slice(0, 50).map((p) => (
                             <button
+                              type="button"
                               key={p.id}
-                              onClick={() => { setResenaProducto(p); setResenaSearch(""); }}
-                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#FDF4F7] transition-colors ${resenaProducto?.id === p.id ? 'bg-[#FDF4F7] border-l-4 border-[#EE6B8D]' : ''}`}
+                              onClick={() => {
+                                setResenaProducto(p);
+                                setResenaSearch("");
+                                setResenaPickerOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#FDF4F7] transition-colors cursor-pointer ${resenaProducto?.id === p.id ? 'bg-[#FDF4F7] border-l-4 border-[#EE6B8D]' : ''}`}
                             >
                               {p.imagen && <img src={p.imagen} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 flex-shrink-0" />}
                               <div className="min-w-0 flex-1">
@@ -6450,9 +6537,11 @@ export default function AdminPage() {
                               {resenaProducto?.id === p.id && <Check size={16} className="text-[#EE6B8D] flex-shrink-0" />}
                             </button>
                           ))}
-                        {allProducts.length === 0 && (
+                        {resenaPool.length === 0 ? (
                           <p className="p-4 text-center font-quicksand text-xs text-gray-400">Cargando productos...</p>
-                        )}
+                        ) : resenaFiltered.length === 0 ? (
+                          <p className="p-4 text-center font-quicksand text-xs text-gray-400">No se encontraron productos con "{resenaSearch}"</p>
+                        ) : null}
                       </div>
                     )}
                     {resenaProducto && (
@@ -6515,7 +6604,8 @@ export default function AdminPage() {
                   </button>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {data.length === 0 && (
               <div className="text-center py-16 bg-white rounded-2xl border border-[#FDE8EF]">
