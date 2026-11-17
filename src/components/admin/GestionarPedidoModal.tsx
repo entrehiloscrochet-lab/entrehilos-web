@@ -13,6 +13,9 @@ import {
   Package,
   Image as ImageIcon,
   Camera,
+  User,
+  MapPin,
+  Search,
 } from "lucide-react";
 import OrderPhotoUploader from "./OrderPhotoUploader";
 import { parsearFotosEntrega } from "@/lib/fotos-pedido";
@@ -86,15 +89,33 @@ export default function GestionarPedidoModal({
 }: GestionarPedidoModalProps) {
   const [estado, setEstado] = useState<string>("pendiente");
   const [metodoPago, setMetodoPago] = useState<string>("yape");
+  const [clienteNombre, setClienteNombre] = useState<string>("");
   const [telefono, setTelefono] = useState<string>("");
+  const [direccionEnvio, setDireccionEnvio] = useState<string>("");
   const [adelanto, setAdelanto] = useState<string>("0");
   const [fechaEntrega, setFechaEntrega] = useState<string>("");
   const [horaEntrega, setHoraEntrega] = useState<string>("");
   const [notas, setNotas] = useState<string>("");
   const [fotosEntrega, setFotosEntrega] = useState<string[]>([]);
 
+  const [clientesDirectory, setClientesDirectory] = useState<
+    Array<{ id: string; nombre: string; telefono?: string; direccion?: string; origen?: string }>
+  >([]);
+  const [showClientPicker, setShowClientPicker] = useState(false);
+  const [clientPickerSearch, setClientPickerSearch] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch("/api/admin?tab=clientes-directorio")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => {
+        if (Array.isArray(list)) setClientesDirectory(list);
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   useEffect(() => {
     if (!pedido) return;
@@ -134,7 +155,15 @@ export default function GestionarPedidoModal({
 
     setEstado(pedido.estado || "pendiente");
     setMetodoPago(pedido.metodo_pago || "yape");
+    setClienteNombre(pedido.cliente_nombre || "");
     setTelefono(pedido.cliente_telefono || "");
+    setDireccionEnvio(
+      pedido.direccion_envio && pedido.direccion_envio !== "Coordinar por WhatsApp"
+        ? pedido.direccion_envio
+        : ""
+    );
+    setShowClientPicker(false);
+    setClientPickerSearch("");
     setAdelanto(String(initAdelanto));
     setFechaEntrega(initFecha);
     setHoraEntrega(initHora);
@@ -184,7 +213,9 @@ export default function GestionarPedidoModal({
         id: pedido.id,
         updates: {
           estado,
+          cliente_nombre: clienteNombre.trim() || pedido.cliente_nombre || "Cliente",
           cliente_telefono: telefono.trim(),
+          direccion_envio: direccionEnvio.trim() || pedido.direccion_envio || "Coordinar por WhatsApp",
           adelanto: adelantoNum,
           saldo_pendiente: saldoActual,
           metodo_pago: metodoPago,
@@ -220,40 +251,40 @@ export default function GestionarPedidoModal({
   const numWa = rawTel ? (rawTel.startsWith("51") ? rawTel : `51${rawTel}`) : "";
   const waUrl = numWa
     ? `https://wa.me/${numWa}?text=${encodeURIComponent(
-        `Hola ${pedido.cliente_nombre || "Cliente"}, te escribimos de Entre Hilos respecto a tu pedido #${pedido.id}.`
+        `Hola ${clienteNombre || pedido.cliente_nombre || "Cliente"}, te escribimos de Entre Hilos respecto a tu pedido #${pedido.id}.`
       )}`
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
       <div
-        className="bg-white w-full max-w-xl rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white w-full max-w-xl rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera limpia y equilibrada */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-fredoka text-lg font-bold text-gray-900">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-2 shrink-0 bg-white">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-fredoka text-base sm:text-lg font-bold text-gray-900 leading-tight">
                 Pedido #{pedido.id}
               </h2>
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-pink-50 text-[#C04267] border border-pink-100">
+              <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-pink-50 text-[#C04267] border border-pink-100">
                 {pedido.origen ? pedido.origen.toUpperCase() : "TIENDA"}
               </span>
             </div>
-            <p className="font-quicksand text-xs text-gray-500 mt-0.5">
-              Cliente: <span className="font-semibold text-gray-800">{pedido.cliente_nombre || "Cliente web"}</span>
+            <p className="font-quicksand text-xs text-gray-500 mt-0.5 truncate">
+              Cliente: <span className="font-semibold text-gray-800">{clienteNombre || "Cliente web"}</span>
               {telefono ? ` · ${telefono}` : " · Sin teléfono"}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             {waUrl && (
               <a
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 text-xs font-bold font-quicksand flex items-center gap-1 transition-colors"
+                className="hidden sm:flex px-2.5 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 text-xs font-bold font-quicksand items-center gap-1 transition-colors"
                 title="Abrir WhatsApp"
               >
                 <MessageSquare size={13} />
@@ -272,7 +303,7 @@ export default function GestionarPedidoModal({
         </div>
 
         {/* Contenido scrolleable con proporción limpia */}
-        <div className="p-5 space-y-4 overflow-y-auto font-quicksand text-xs">
+        <div className="p-3.5 sm:p-5 space-y-3.5 sm:space-y-4 overflow-y-auto font-quicksand text-xs">
           {errorMsg && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
               <AlertCircle size={15} className="shrink-0" />
@@ -280,11 +311,87 @@ export default function GestionarPedidoModal({
             </div>
           )}
 
-          {/* 0. CONTACTO / WHATSAPP */}
-          <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-2">
-            <label className="font-fredoka text-sm font-bold text-gray-800 block">
-              Contacto / WhatsApp
-            </label>
+          {/* 0. DATOS DEL CLIENTE Y CONTACTO (editable + selector de guardados) */}
+          <div className="p-3.5 sm:p-4 rounded-xl border border-gray-200 bg-white space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className="font-fredoka text-sm font-bold text-gray-800">
+                Cliente y Contacto
+              </label>
+              {clientesDirectory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowClientPicker((prev) => !prev)}
+                  className="text-[11px] font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Search size={11} />
+                  <span>Elegir guardado ({clientesDirectory.length})</span>
+                </button>
+              )}
+            </div>
+
+            {showClientPicker && (
+              <div className="bg-gray-50 border border-pink-200 rounded-xl p-2 space-y-1.5">
+                <input
+                  type="text"
+                  value={clientPickerSearch}
+                  onChange={(e) => setClientPickerSearch(e.target.value)}
+                  placeholder="Buscar cliente por nombre o teléfono..."
+                  className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white font-quicksand focus:outline-none focus:border-[#EE6B8D]"
+                />
+                <div className="max-h-36 overflow-y-auto divide-y divide-gray-100 bg-white rounded-lg border border-gray-100">
+                  {clientesDirectory
+                    .filter((c) => {
+                      const q = clientPickerSearch.toLowerCase().trim();
+                      if (!q) return true;
+                      return (
+                        c.nombre.toLowerCase().includes(q) ||
+                        (c.telefono || "").includes(q)
+                      );
+                    })
+                    .slice(0, 30)
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setClienteNombre(c.nombre);
+                          if (c.telefono) setTelefono(c.telefono);
+                          if (c.direccion) setDireccionEnvio(c.direccion);
+                          setShowClientPicker(false);
+                          setClientPickerSearch("");
+                        }}
+                        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-[#FDF4F7] transition-colors cursor-pointer"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-quicksand text-xs font-bold text-gray-800 truncate">{c.nombre}</p>
+                          {(c.telefono || c.direccion) && (
+                            <p className="font-quicksand text-[10px] text-gray-400 truncate">
+                              {[c.telefono, c.direccion].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                        {c.origen && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
+                            {c.origen}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <div className="relative">
+              <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={clienteNombre}
+                onChange={(e) => setClienteNombre(e.target.value)}
+                placeholder="Nombre completo del cliente"
+                className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+              />
+            </div>
+
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -292,7 +399,7 @@ export default function GestionarPedidoModal({
                   type="tel"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
-                  placeholder="Ej. 902578295"
+                  placeholder="Teléfono / WhatsApp (ej. 902578295)"
                   className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
                 />
               </div>
@@ -303,7 +410,7 @@ export default function GestionarPedidoModal({
                 onClick={(e) => {
                   if (!waUrl) e.preventDefault();
                 }}
-                className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors ${
+                className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors shrink-0 ${
                   waUrl
                     ? "bg-green-50 text-green-700 hover:bg-green-100 border-green-200"
                     : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
@@ -314,9 +421,17 @@ export default function GestionarPedidoModal({
                 <span>WhatsApp</span>
               </a>
             </div>
-            <p className="text-[10px] text-gray-400">
-              Escribe el número y guarda los cambios para habilitar el botón de WhatsApp en la lista.
-            </p>
+
+            <div className="relative">
+              <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={direccionEnvio}
+                onChange={(e) => setDireccionEnvio(e.target.value)}
+                placeholder="Dirección o punto de entrega (opcional)"
+                className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+              />
+            </div>
           </div>
 
           {/* PRODUCTOS DEL PEDIDO (con foto de referencia) */}
@@ -589,14 +704,14 @@ export default function GestionarPedidoModal({
           )}
         </div>
 
-        {/* Pie del modal: Botones proporcionados y sin confusiones */}
-        <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-2 shrink-0">
+        {/* Pie del modal: Responsive limpio en móvil y desktop */}
+        <div className="px-4 sm:px-5 py-3 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={() => {
               setEstado("cancelado");
             }}
-            className={`px-3 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 sm:py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap text-center cursor-pointer ${
               estado === "cancelado"
                 ? "bg-rose-100 text-rose-700"
                 : "text-gray-500 hover:text-rose-600"
@@ -605,11 +720,11 @@ export default function GestionarPedidoModal({
             Cancelar Pedido
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-bold text-xs transition-colors cursor-pointer"
+              className="px-4 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-bold text-xs whitespace-nowrap transition-colors cursor-pointer"
             >
               Cerrar
             </button>
@@ -618,9 +733,9 @@ export default function GestionarPedidoModal({
               type="button"
               disabled={saving}
               onClick={handleGuardarCambios}
-              className="px-5 py-2 rounded-lg bg-[#EE6B8D] hover:bg-[#C04267] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+              className="px-4 sm:px-5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg bg-[#EE6B8D] hover:bg-[#C04267] text-white font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap shadow-xs transition-all disabled:opacity-50 cursor-pointer"
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {saving ? <Loader2 size={14} className="animate-spin shrink-0" /> : <Check size={14} className="shrink-0" />}
               <span>{saving ? "Guardando..." : "Guardar Cambios"}</span>
             </button>
           </div>

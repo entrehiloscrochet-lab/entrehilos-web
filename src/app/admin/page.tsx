@@ -8,7 +8,7 @@ import {
   UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Camera,
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
   FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil, Menu,
-  PanelLeft, PanelLeftClose, Calculator, Boxes, ChevronDown, type LucideIcon,
+  PanelLeft, PanelLeftClose, Calculator, Boxes, ChevronDown, Award, type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -133,7 +133,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 type MainTab = "dashboard" | "catalogo" | "pedidos" | "produccion" | "clientes" | "diseno" | "eventos" | "atencion";
 
-type SubTab = "resumen" | "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "suscriptores" | "catalogos" | "produccion_panel";
+type SubTab = "resumen" | "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "top_clientes" | "suscriptores" | "catalogos" | "produccion_panel";
 
 const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: LucideIcon; desc: string }[]> = {
   dashboard: [
@@ -156,6 +156,7 @@ const SUBTABS_BY_MAIN: Record<MainTab, { id: SubTab; label: string; icon: Lucide
     { id: "produccion_panel", label: "Gestión de Producción y Costos", icon: Calculator, desc: "BOM, escandallo, recetas, campañas y punto de equilibrio" },
   ],
   clientes: [
+    { id: "top_clientes", label: "Top Clientes", icon: Award, desc: "Clientes frecuentes y de mayor valor en pedidos" },
     { id: "usuarios", label: "Usuarios Registrados", icon: UserCheck, desc: "Cuentas de clientes con perfil registrado" },
     { id: "mensajes", label: "Mensajes de Contacto", icon: MessageSquare, desc: "Consultas enviadas desde el formulario" },
     { id: "reclamaciones", label: "Libro de Reclamaciones", icon: ClipboardList, desc: "Reclamos y quejas formales de clientes" },
@@ -455,6 +456,8 @@ export default function AdminPage() {
   const [resenaClienteTelefono, setResenaClienteTelefono] = useState("");
   const [resenaClienteDireccion, setResenaClienteDireccion] = useState("");
   const [resenaGuardarCliente, setResenaGuardarCliente] = useState(true);
+  const [topClientesSort, setTopClientesSort] = useState<"pedidos" | "valor" | "recientes">("pedidos");
+  const [topClientesSearch, setTopClientesSearch] = useState("");
   const [expandedCardSlugs, setExpandedCardSlugs] = useState<Set<string>>(new Set());
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<
     { mode: "single"; product: AdminProduct } | { mode: "bulk"; ids: string[] } | null
@@ -1184,7 +1187,8 @@ export default function AdminPage() {
     if ((mainTab === "dashboard" && subTab === "resumen") || mainTab === "produccion") { setLoading(false); return; }
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin?tab=${subTab}`);
+      const apiTab = subTab === "top_clientes" ? "pedidos" : subTab;
+      const res = await fetch(`/api/admin?tab=${apiTab}`);
       const json = await res.json();
       setData(Array.isArray(json) ? json : []);
     } catch (e) {
@@ -7021,7 +7025,309 @@ export default function AdminPage() {
           </div>
         )}
 
-        {mainTab !== "dashboard" && mainTab !== "produccion" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && !loading && (
+        {mainTab === "clientes" && subTab === "top_clientes" && !loading && (() => {
+          const statsMap = new Map<
+            string,
+            {
+              key: string;
+              nombre: string;
+              telefono: string;
+              direccion: string;
+              pedidosCount: number;
+              totalGastado: number;
+              ultimoPedido: string;
+            }
+          >();
+
+          (Array.isArray(data) ? data : []).forEach((row) => {
+            if (String(row.estado || "").toLowerCase() === "cancelado") return;
+            const rawName = String(row.cliente_nombre || "").trim();
+            if (!rawName) return;
+            const key = rawName
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLowerCase()
+              .trim();
+            const totalRow = Number(row.total || 0);
+            const telRow = String(row.cliente_telefono || "").trim();
+            const dirRow = String(row.direccion_envio || "").trim();
+            const fechaRow = String(row.created_at || "");
+
+            const existing = statsMap.get(key);
+            if (!existing) {
+              statsMap.set(key, {
+                key,
+                nombre: rawName,
+                telefono: telRow,
+                direccion: dirRow && dirRow !== "Coordinar por WhatsApp" ? dirRow : "",
+                pedidosCount: 1,
+                totalGastado: totalRow,
+                ultimoPedido: fechaRow,
+              });
+            } else {
+              existing.pedidosCount += 1;
+              existing.totalGastado += totalRow;
+              if (!existing.telefono && telRow) existing.telefono = telRow;
+              if (!existing.direccion && dirRow && dirRow !== "Coordinar por WhatsApp") {
+                existing.direccion = dirRow;
+              }
+              if (fechaRow && (!existing.ultimoPedido || fechaRow > existing.ultimoPedido)) {
+                existing.ultimoPedido = fechaRow;
+              }
+            }
+          });
+
+          const allRanked = Array.from(statsMap.values());
+          const recurrentesCount = allRanked.filter((c) => c.pedidosCount >= 2).length;
+          const totalIngresos = allRanked.reduce((acc, c) => acc + c.totalGastado, 0);
+
+          const filteredRanked = allRanked
+            .filter((c) => {
+              const q = topClientesSearch.toLowerCase().trim();
+              if (!q) return true;
+              return c.nombre.toLowerCase().includes(q) || c.telefono.includes(q);
+            })
+            .sort((a, b) => {
+              if (topClientesSort === "valor") {
+                return b.totalGastado - a.totalGastado || b.pedidosCount - a.pedidosCount;
+              }
+              if (topClientesSort === "recientes") {
+                return (b.ultimoPedido || "").localeCompare(a.ultimoPedido || "");
+              }
+              return b.pedidosCount - a.pedidosCount || b.totalGastado - a.totalGastado;
+            });
+
+          return (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-fredoka text-lg sm:text-xl font-bold text-[#C04267]">
+                    Top Clientes y Frecuencia
+                  </h2>
+                  <p className="font-quicksand text-xs text-gray-500 mt-0.5">
+                    Ranking calculado automáticamente con todos los pedidos (tienda y agendados, sin cancelados).
+                  </p>
+                </div>
+              </div>
+
+              {/* KPIs rápidos */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="bg-white rounded-2xl border border-[#FDE8EF] p-3 sm:p-4 shadow-2xs">
+                  <p className="font-quicksand text-[10px] sm:text-xs font-bold text-gray-400 uppercase">Clientes únicos</p>
+                  <p className="font-fredoka text-lg sm:text-2xl font-bold text-gray-900 mt-0.5">{allRanked.length}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[#FDE8EF] p-3 sm:p-4 shadow-2xs">
+                  <p className="font-quicksand text-[10px] sm:text-xs font-bold text-gray-400 uppercase">Recurrentes (2+)</p>
+                  <p className="font-fredoka text-lg sm:text-2xl font-bold text-[#C04267] mt-0.5">{recurrentesCount}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[#FDE8EF] p-3 sm:p-4 shadow-2xs">
+                  <p className="font-quicksand text-[10px] sm:text-xs font-bold text-gray-400 uppercase">Valor total</p>
+                  <p className="font-fredoka text-lg sm:text-2xl font-bold text-emerald-600 mt-0.5">
+                    S/ {totalIngresos.toFixed(0)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Barra de búsqueda + orden */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input
+                    value={topClientesSearch}
+                    onChange={(e) => setTopClientesSearch(e.target.value)}
+                    placeholder="Buscar cliente por nombre o teléfono..."
+                    className="w-full pl-9 pr-8 py-2 bg-white border border-[#FDE8EF] rounded-xl font-quicksand text-xs sm:text-sm focus:outline-none focus:border-[#EE6B8D]"
+                  />
+                  {topClientesSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setTopClientesSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 sm:flex items-center gap-1.5 shrink-0">
+                  {[
+                    { id: "pedidos" as const, label: "Más pedidos" },
+                    { id: "valor" as const, label: "Mayor valor" },
+                    { id: "recientes" as const, label: "Recientes" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setTopClientesSort(opt.id)}
+                      className={`px-3 py-2 rounded-xl font-quicksand text-xs font-bold border transition-all cursor-pointer whitespace-nowrap ${
+                        topClientesSort === opt.id
+                          ? "bg-[#EE6B8D] text-white border-[#EE6B8D] shadow-xs"
+                          : "bg-white text-gray-600 border-[#FDE8EF] hover:border-[#EE6B8D]/60"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filteredRanked.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-[#FDE8EF] p-10 text-center font-quicksand text-xs text-gray-400">
+                  No se encontraron clientes con pedidos registrados.
+                </div>
+              ) : (
+                <>
+                  {/* Tarjetas Móvil / Tablet (< lg) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-2.5">
+                    {filteredRanked.map((c, idx) => {
+                      const ticketProm = c.totalGastado / Math.max(1, c.pedidosCount);
+                      const rawTel = c.telefono.replace(/\D/g, "");
+                      const waNum = rawTel ? (rawTel.startsWith("51") ? rawTel : `51${rawTel}`) : "";
+                      return (
+                        <div
+                          key={c.key}
+                          className="bg-white rounded-2xl border border-[#FDE8EF] p-3.5 shadow-2xs space-y-2.5"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                className={`w-7 h-7 rounded-xl font-fredoka text-xs font-bold flex items-center justify-center shrink-0 ${
+                                  idx === 0
+                                    ? "bg-amber-100 text-amber-700 border border-amber-200"
+                                    : idx === 1
+                                    ? "bg-gray-100 text-gray-700 border border-gray-200"
+                                    : idx === 2
+                                    ? "bg-orange-100 text-orange-700 border border-orange-200"
+                                    : "bg-pink-50 text-[#C04267]"
+                                }`}
+                              >
+                                #{idx + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-quicksand text-xs font-bold text-gray-900 truncate">{c.nombre}</p>
+                                <p className="font-quicksand text-[11px] text-gray-400 truncate">
+                                  {c.telefono || "Sin teléfono"}
+                                </p>
+                              </div>
+                            </div>
+                            {waNum && (
+                              <a
+                                href={`https://wa.me/${waNum}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 rounded-lg bg-[#25D366]/10 text-[#25D366] font-quicksand text-[11px] font-bold shrink-0"
+                              >
+                                WhatsApp
+                              </a>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 text-center">
+                            <div>
+                              <span className="font-quicksand text-[10px] text-gray-400 block">Pedidos</span>
+                              <span className="font-fredoka text-sm font-bold text-[#C04267]">{c.pedidosCount}</span>
+                            </div>
+                            <div>
+                              <span className="font-quicksand text-[10px] text-gray-400 block">Total</span>
+                              <span className="font-fredoka text-sm font-bold text-emerald-600">
+                                S/ {c.totalGastado.toFixed(2)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-quicksand text-[10px] text-gray-400 block">Promedio</span>
+                              <span className="font-fredoka text-sm font-bold text-gray-700">
+                                S/ {ticketProm.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tabla Desktop (hidden lg:block) */}
+                  <div className="hidden lg:block bg-white rounded-2xl border border-[#FDE8EF] shadow-sm overflow-x-auto">
+                    <table className="w-full text-left text-sm min-w-full">
+                      <thead>
+                        <tr className="border-b border-[#FDE8EF] bg-gray-50/50">
+                          <th className="px-4 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider">#</th>
+                          <th className="px-4 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider">Cliente</th>
+                          <th className="px-4 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider">Teléfono</th>
+                          <th className="px-4 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider text-center">Pedidos</th>
+                          <th className="px-4 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider text-right">Total Comprado</th>
+                          <th className="px-4 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider text-right">Ticket Promedio</th>
+                          <th className="px-4 py-3 font-quicksand text-xs text-gray-500 uppercase tracking-wider text-right">Último Pedido</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredRanked.map((c, idx) => {
+                          const ticketProm = c.totalGastado / Math.max(1, c.pedidosCount);
+                          const rawTel = c.telefono.replace(/\D/g, "");
+                          const waNum = rawTel ? (rawTel.startsWith("51") ? rawTel : `51${rawTel}`) : "";
+                          return (
+                            <tr key={c.key} className="border-b border-gray-50 hover:bg-[#FDF4F7]/50 transition-colors">
+                              <td className="px-4 py-3">
+                                <span
+                                  className={`inline-flex items-center justify-center w-6 h-6 rounded-lg font-fredoka text-xs font-bold ${
+                                    idx === 0
+                                      ? "bg-amber-100 text-amber-700"
+                                      : idx === 1
+                                      ? "bg-gray-100 text-gray-700"
+                                      : idx === 2
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-pink-50 text-[#C04267]"
+                                  }`}
+                                >
+                                  {idx + 1}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="font-quicksand text-xs font-bold text-gray-900">{c.nombre}</p>
+                                {c.direccion && (
+                                  <p className="font-quicksand text-[11px] text-gray-400 truncate max-w-[220px]">{c.direccion}</p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 font-quicksand text-xs text-gray-600">
+                                {waNum ? (
+                                  <a
+                                    href={`https://wa.me/${waNum}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[#25D366] hover:underline font-semibold"
+                                  >
+                                    {c.telefono}
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-400 italic">Sin tel.</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-block px-2.5 py-0.5 rounded-full bg-pink-50 text-[#C04267] font-fredoka text-xs font-bold border border-pink-100">
+                                  {c.pedidosCount}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right font-fredoka text-xs font-bold text-emerald-600">
+                                S/ {c.totalGastado.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-quicksand text-xs text-gray-600">
+                                S/ {ticketProm.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-quicksand text-xs text-gray-500 whitespace-nowrap">
+                                {formatDate(c.ultimoPedido)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
+
+        {mainTab !== "dashboard" && mainTab !== "produccion" && subTab !== "heroes" && subTab !== "inicio" && subTab !== "eventos" && subTab !== "catalogos" && subTab !== "resenas" && subTab !== "productos" && subTab !== "precios" && subTab !== "pedidos" && subTab !== "top_clientes" && !loading && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h2 className="font-fredoka text-xl font-bold text-[#C04267] capitalize">
