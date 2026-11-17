@@ -214,3 +214,55 @@ export async function saveProduct(productData: {
 
   return newProduct;
 }
+
+/**
+ * Elimina uno o varios productos del sistema (Supabase + fallback local)
+ */
+export async function deleteProductsByIds(productIds: string[]): Promise<{ deletedCount: number }> {
+  const cleanIds = Array.from(new Set(productIds.map((id) => String(id).trim()).filter(Boolean)));
+  if (cleanIds.length === 0) {
+    return { deletedCount: 0 };
+  }
+
+  // 1. Eliminar de Supabase public.productos
+  const { error: prodError } = await supabaseAdmin
+    .from('productos')
+    .delete()
+    .in('id', cleanIds);
+
+  if (prodError) {
+    console.warn('Error eliminando en Supabase public.productos:', prodError.message);
+  }
+
+  // 2. Limpiar asignaciones en producto_catalogos y productos_inactivos
+  try {
+    await supabaseAdmin
+      .from('producto_catalogos')
+      .delete()
+      .in('producto_id', cleanIds);
+  } catch (e) {
+    console.warn('Error limpiando producto_catalogos:', e);
+  }
+
+  try {
+    await supabaseAdmin
+      .from('productos_inactivos')
+      .delete()
+      .in('producto_id', cleanIds);
+  } catch (e) {
+    console.warn('Error limpiando productos_inactivos:', e);
+  }
+
+  // 3. Eliminar de fallback local productos_custom.json si existe ahí
+  const idSet = new Set(cleanIds);
+  const currentCustom = getCustomProductsFromFile();
+  const filteredCustom = currentCustom.filter((p) => !idSet.has(p.id));
+  if (filteredCustom.length !== currentCustom.length) {
+    saveCustomProductsToFile(filteredCustom);
+  }
+
+  // 4. Invalidar cachés en memoria
+  invalidateProductCaches();
+
+  return { deletedCount: cleanIds.length };
+}

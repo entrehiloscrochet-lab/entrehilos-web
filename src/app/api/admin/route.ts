@@ -644,6 +644,24 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true, producto: saved });
   }
 
+  if (action === "eliminar-producto") {
+    const productoId = updates?.producto_id || id;
+    if (!productoId) return NextResponse.json({ error: "producto_id requerido" }, { status: 400 });
+    const { deleteProductsByIds } = await import("@/lib/productos-db");
+    const result = await deleteProductsByIds([String(productoId)]);
+    return NextResponse.json({ success: true, ...result });
+  }
+
+  if (action === "eliminar-productos-masivo") {
+    const productoIds = updates?.producto_ids;
+    if (!Array.isArray(productoIds) || productoIds.length === 0) {
+      return NextResponse.json({ error: "producto_ids requerido" }, { status: 400 });
+    }
+    const { deleteProductsByIds } = await import("@/lib/productos-db");
+    const result = await deleteProductsByIds(productoIds.map(String));
+    return NextResponse.json({ success: true, ...result });
+  }
+
   if (action === "actualizar-pedido-agendado") {
     const { error } = await supabaseAdmin
       .from("pedidos")
