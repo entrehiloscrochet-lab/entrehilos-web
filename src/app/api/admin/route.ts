@@ -387,7 +387,9 @@ export async function PATCH(request: NextRequest) {
       metodo_pago,
       fecha_entrega,
       hora_entrega,
+      cliente_nombre,
       cliente_telefono,
+      direccion_envio,
       notas,
       fotos_entrega,
     } = updates;
@@ -403,8 +405,14 @@ export async function PATCH(request: NextRequest) {
     if (adelanto !== undefined) updatePayload.adelanto = Number(adelanto);
     if (saldo_pendiente !== undefined) updatePayload.saldo_pendiente = Number(saldo_pendiente);
     if (metodo_pago !== undefined) updatePayload.metodo_pago = metodo_pago;
+    if (cliente_nombre !== undefined && String(cliente_nombre).trim()) {
+      updatePayload.cliente_nombre = String(cliente_nombre).trim();
+    }
     if (cliente_telefono !== undefined) {
       updatePayload.cliente_telefono = String(cliente_telefono).trim();
+    }
+    if (direccion_envio !== undefined) {
+      updatePayload.direccion_envio = String(direccion_envio).trim() || "Coordinar por WhatsApp";
     }
     if (fecha_entrega !== undefined) {
       updatePayload.fecha_entrega = normalizarFechaEntrega(fecha_entrega);
