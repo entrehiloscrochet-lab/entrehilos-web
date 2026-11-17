@@ -57,8 +57,174 @@ const DEFAULT_EVENTOS = [
   { id: -7, nombre: "San Valentín", slug: "san-valentin", featured: false, activo: true },
 ];
 
+interface DirectoryClient {
+  id: string;
+  nombre: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  origen: "Manual" | "Registrado" | "Pedido";
+}
+
+function normalizeClientKey(name: string): string {
+  return (name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+async function upsertManualClientInHomeSections(client: {
+  nombre: string;
+  telefono?: string | null;
+  email?: string | null;
+  direccion?: string | null;
+}): Promise<DirectoryClient | null> {
+  const cleanName = (client.nombre || "").trim();
+  if (!cleanName) return null;
+  const key = normalizeClientKey(cleanName);
+
+  try {
+    const { data: existingRow } = await supabaseAdmin
+      .from("home_sections")
+      .select("id, items")
+      .eq("section_key", "clientes_manuales")
+      .maybeSingle();
+
+    const currentItems: Array<Record<string, unknown>> = Array.isArray(existingRow?.items)
+      ? (existingRow.items as Array<Record<string, unknown>>)
+      : [];
+
+    const idx = currentItems.findIndex(
+      (item) => normalizeClientKey(String(item?.nombre || "")) === key
+    );
+
+    const newEntry: DirectoryClient = {
+      id: idx >= 0 && currentItems[idx].id ? String(currentItems[idx].id) : `cli_${Date.now()}`,
+      nombre: cleanName,
+      telefono: (client.telefono || (idx >= 0 ? String(currentItems[idx].telefono || "") : "")).trim() || undefined,
+      email: (client.email || (idx >= 0 ? String(currentItems[idx].email || "") : "")).trim() || undefined,
+      direccion: (client.direccion || (idx >= 0 ? String(currentItems[idx].direccion || "") : "")).trim() || undefined,
+      origen: "Manual",
+    };
+
+    const updatedItems = [...currentItems];
+    if (idx >= 0) {
+      updatedItems[idx] = { ...currentItems[idx], ...newEntry };
+    } else {
+      updatedItems.unshift(newEntry as unknown as Record<string, unknown>);
+    }
+
+    if (existingRow?.id) {
+      await supabaseAdmin
+        .from("home_sections")
+        .update({ items: updatedItems, updated_at: new Date().toISOString() })
+        .eq("id", existingRow.id);
+    } else {
+      await supabaseAdmin.from("home_sections").insert({
+        section_key: "clientes_manuales",
+        tipo: "directory",
+        titulo: "Directorio de Clientes",
+        items: updatedItems,
+        orden: 999,
+        activo: false,
+      });
+    }
+
+    return newEntry;
+  } catch (e) {
+    console.warn("No se pudo guardar cliente manual en home_sections:", e);
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const tab = request.nextUrl.searchParams.get("tab") || "suscriptores";
+
+  if (tab === "clientes-directorio") {
+    const [profilesRes, pedidosRes, manualRes] = await Promise.all([
+      supabaseAdmin.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("pedidos")
+        .select("cliente_nombre, cliente_telefono, cliente_email, direccion_envio")
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabaseAdmin
+        .from("home_sections")
+        .select("items")
+        .eq("section_key", "clientes_manuales")
+        .maybeSingle(),
+    ]);
+
+    const merged = new Map<string, DirectoryClient>();
+
+    const addOrMerge = (entry: DirectoryClient) => {
+      const cleanName = (entry.nombre || "").trim();
+      if (!cleanName) return;
+      const key = normalizeClientKey(cleanName);
+      const existing = merged.get(key);
+      if (!existing) {
+        merged.set(key, { ...entry, nombre: cleanName });
+      } else {
+        merged.set(key, {
+          ...existing,
+          telefono: existing.telefono || entry.telefono,
+          email: existing.email || entry.email,
+          direccion: existing.direccion || entry.direccion,
+        });
+      }
+    };
+
+    // 1. Clientes manuales guardados
+    const manualItems = Array.isArray(manualRes.data?.items) ? manualRes.data.items : [];
+    for (const item of manualItems as Array<Record<string, unknown>>) {
+      addOrMerge({
+        id: String(item.id || `cli_${Math.random()}`),
+        nombre: String(item.nombre || ""),
+        telefono: item.telefono ? String(item.telefono) : undefined,
+        email: item.email ? String(item.email) : undefined,
+        direccion: item.direccion ? String(item.direccion) : undefined,
+        origen: "Manual",
+      });
+    }
+
+    // 2. Usuarios registrados en la web
+    if (Array.isArray(profilesRes.data)) {
+      for (const p of profilesRes.data as Array<Record<string, unknown>>) {
+        const nombre = String(p.full_name || p.nombre || p.name || p.email || "").trim();
+        addOrMerge({
+          id: `prof_${p.id}`,
+          nombre,
+          telefono: p.phone ? String(p.phone) : p.telefono ? String(p.telefono) : undefined,
+          email: p.email ? String(p.email) : undefined,
+          direccion: p.direccion ? String(p.direccion) : undefined,
+          origen: "Registrado",
+        });
+      }
+    }
+
+    // 3. Clientes que ya tienen pedidos (web o agendados)
+    if (Array.isArray(pedidosRes.data)) {
+      for (const ped of pedidosRes.data as Array<Record<string, unknown>>) {
+        const nombre = String(ped.cliente_nombre || "").trim();
+        const dir = ped.direccion_envio ? String(ped.direccion_envio) : undefined;
+        addOrMerge({
+          id: `ped_${normalizeClientKey(nombre)}`,
+          nombre,
+          telefono: ped.cliente_telefono ? String(ped.cliente_telefono) : undefined,
+          email: ped.cliente_email ? String(ped.cliente_email) : undefined,
+          direccion: dir && dir !== "Coordinar por WhatsApp" ? dir : undefined,
+          origen: "Pedido",
+        });
+      }
+    }
+
+    const list = Array.from(merged.values()).sort((a, b) =>
+      a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+    );
+    return NextResponse.json(list);
+  }
+
   const table = TABLES[tab];
   if (!table) return NextResponse.json({ error: "Invalid tab" }, { status: 400 });
 
@@ -678,6 +844,20 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, producto, clave, titulo, subtitulo, descripcion, badge, precio, producto_sku, tipo, imagen_url, imagen_url_mobile, link_url, nombre, slug, resena } = body;
 
+  if (action === "guardar-cliente-manual") {
+    const cliente = body.cliente || body;
+    if (!cliente?.nombre || !String(cliente.nombre).trim()) {
+      return NextResponse.json({ error: "Nombre del cliente requerido" }, { status: 400 });
+    }
+    const saved = await upsertManualClientInHomeSections({
+      nombre: String(cliente.nombre),
+      telefono: cliente.telefono ? String(cliente.telefono) : null,
+      email: cliente.email ? String(cliente.email) : null,
+      direccion: cliente.direccion ? String(cliente.direccion) : null,
+    });
+    return NextResponse.json({ success: true, cliente: saved });
+  }
+
   if (action === "crear-producto" || action === "guardar-producto") {
     const prodData = producto || body;
     if (!prodData || !prodData.nombre || prodData.precio === undefined) {
@@ -763,9 +943,21 @@ export async function POST(request: NextRequest) {
       if (fbError) {
         return NextResponse.json({ error: fbError.message }, { status: 500 });
       }
+      await upsertManualClientInHomeSections({
+        nombre: cliente_nombre,
+        telefono: cliente_telefono,
+        email: cliente_email,
+        direccion: direccion_envio !== "Coordinar por WhatsApp" ? direccion_envio : null,
+      });
       return NextResponse.json({ success: true, data: fbData });
     }
 
+    await upsertManualClientInHomeSections({
+      nombre: cliente_nombre,
+      telefono: cliente_telefono,
+      email: cliente_email,
+      direccion: direccion_envio !== "Coordinar por WhatsApp" ? direccion_envio : null,
+    });
     return NextResponse.json({ success: true, data });
   }
 

@@ -22,6 +22,9 @@ import {
   Settings2,
   Camera,
   X,
+  Star,
+  Loader2,
+  Check,
 } from "lucide-react";
 import GestionarPedidoModal, { PedidoGestion } from "./GestionarPedidoModal";
 import { parsearFotosEntrega, quitarMarcadorFotos } from "@/lib/fotos-pedido";
@@ -404,6 +407,71 @@ export default function PedidosView({
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
   const [selectedPedidoGestion, setSelectedPedidoGestion] = useState<PedidoGestion | null>(null);
   const [isGestionModalOpen, setIsGestionModalOpen] = useState(false);
+
+  // Modal de reseña rápida desde un pedido
+  const [resenaModalPedido, setResenaModalPedido] = useState<Pedido | null>(null);
+  const [resenaModalProductIdx, setResenaModalProductIdx] = useState(0);
+  const [resenaModalNombre, setResenaModalNombre] = useState("");
+  const [resenaModalRating, setResenaModalRating] = useState(5);
+  const [resenaModalComentario, setResenaModalComentario] = useState("");
+  const [resenaModalSaving, setResenaModalSaving] = useState(false);
+  const [resenaModalMsg, setResenaModalMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const handleOpenResenaModal = useCallback((pedido: Pedido) => {
+    setResenaModalPedido(pedido);
+    setResenaModalProductIdx(0);
+    setResenaModalNombre(pedido.cliente_nombre || "Cliente");
+    setResenaModalRating(5);
+    setResenaModalComentario("");
+    setResenaModalMsg(null);
+  }, []);
+
+  const handleGuardarResenaPedido = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resenaModalPedido) return;
+    const productosPedido: PedidoItem[] = Array.isArray(resenaModalPedido.items)
+      ? (resenaModalPedido.items as PedidoItem[])
+      : [];
+    const chosen = productosPedido[resenaModalProductIdx] || productosPedido[0];
+    const productoId = chosen?.id || `pedido-${resenaModalPedido.id}`;
+    const productoNombre = chosen?.nombre || `Pedido #${resenaModalPedido.id}`;
+    const productoSku = null;
+
+    setResenaModalSaving(true);
+    setResenaModalMsg(null);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resena: {
+            producto_id: String(productoId),
+            producto_sku: productoSku,
+            producto_nombre: productoNombre,
+            nombre_cliente: resenaModalNombre.trim() || "Cliente",
+            calificacion: resenaModalRating,
+            comentario: resenaModalComentario.trim() || null,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "No se pudo guardar la reseña");
+      }
+      setResenaModalMsg({ type: "ok", text: "Reseña publicada correctamente." });
+      setTimeout(() => {
+        setResenaModalPedido(null);
+        setResenaModalMsg(null);
+      }, 900);
+    } catch (err) {
+      setResenaModalMsg({
+        type: "err",
+        text: err instanceof Error ? err.message : "Error al guardar reseña",
+      });
+    } finally {
+      setResenaModalSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -1074,12 +1142,12 @@ export default function PedidosView({
                       </div>
                     </div>
 
-                    {/* Botón único de Acción / Gestión */}
-                    <div className="pt-1">
+                    {/* Botones de Acción / Gestión + Dejar Reseña */}
+                    <div className="pt-1 flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleOpenGestionModal(row)}
-                        className={`w-full py-2.5 px-3 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.99] cursor-pointer ${
+                        className={`flex-1 py-2.5 px-3 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.99] cursor-pointer ${
                           esFinalizado
                             ? "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
                             : saldoPendiente > 0
@@ -1097,6 +1165,15 @@ export default function PedidosView({
                         ) : (
                           <span>Completar Venta / Gestionar</span>
                         )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenResenaModal(row)}
+                        title="Registrar reseña de este pedido"
+                        className="py-2.5 px-3 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all shrink-0 cursor-pointer"
+                      >
+                        <Star size={14} className="text-amber-500" fill="currentColor" />
+                        <span>Reseña</span>
                       </button>
                     </div>
                   </div>
@@ -1258,7 +1335,7 @@ export default function PedidosView({
                             })()}
                           </div>
 
-                          <div>
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleOpenGestionModal(row)}
@@ -1281,6 +1358,15 @@ export default function PedidosView({
                               ) : (
                                 <span>Completar Venta</span>
                               )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenResenaModal(row)}
+                              title="Registrar reseña manual de este pedido"
+                              className="px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-quicksand font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Star size={13} className="text-amber-500" fill="currentColor" />
+                              <span>Reseña</span>
                             </button>
                           </div>
                         </div>
@@ -1327,6 +1413,163 @@ export default function PedidosView({
           }
         }}
       />
+
+      {/* Modal rápido para registrar reseña desde un pedido */}
+      {resenaModalPedido && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !resenaModalSaving) {
+              setResenaModalPedido(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-[#FDE8EF] overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-amber-50/70 via-white to-pink-50/40">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <Star size={17} fill="currentColor" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-fredoka text-base font-bold text-gray-900 truncate">
+                    Registrar reseña del pedido #{resenaModalPedido.id}
+                  </h3>
+                  <p className="font-quicksand text-[11px] text-gray-500 truncate">
+                    Se publicará en la tienda y en Clientes → Reseñas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={resenaModalSaving}
+                onClick={() => setResenaModalPedido(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarResenaPedido} className="p-5 space-y-4">
+              {(() => {
+                const prods: PedidoItem[] = Array.isArray(resenaModalPedido.items)
+                  ? (resenaModalPedido.items as PedidoItem[])
+                  : [];
+                if (prods.length === 0) return null;
+                return (
+                  <div>
+                    <label className="block font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                      Producto del pedido
+                    </label>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {prods.map((item: PedidoItem, idx: number) => (
+                        <button
+                          key={`${item.id}-${idx}`}
+                          type="button"
+                          onClick={() => setResenaModalProductIdx(idx)}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-left font-quicksand text-xs transition-all cursor-pointer ${
+                            resenaModalProductIdx === idx
+                              ? "bg-[#FDF4F7] border-[#EE6B8D] text-[#C04267] font-bold"
+                              : "bg-white border-gray-200 text-gray-700 hover:border-pink-200"
+                          }`}
+                        >
+                          <span className="truncate">{item.nombre}</span>
+                          {resenaModalProductIdx === idx && <Check size={14} className="text-[#EE6B8D] shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="block font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Nombre del cliente
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={resenaModalNombre}
+                  onChange={(e) => setResenaModalNombre(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl font-quicksand text-xs sm:text-sm focus:outline-none focus:border-[#EE6B8D]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Calificación
+                </label>
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setResenaModalRating(i)}
+                      className="p-0.5 cursor-pointer"
+                    >
+                      <Star
+                        size={24}
+                        className={i <= resenaModalRating ? "text-[#F5A623]" : "text-gray-200"}
+                        fill={i <= resenaModalRating ? "#F5A623" : "none"}
+                      />
+                    </button>
+                  ))}
+                  <span className="font-quicksand text-xs font-bold text-gray-500 ml-2">
+                    {resenaModalRating}/5
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Comentario (opcional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={resenaModalComentario}
+                  onChange={(e) => setResenaModalComentario(e.target.value)}
+                  placeholder="Ej: ¡Le encantó el ramo! Muy buena atención..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl font-quicksand text-xs sm:text-sm focus:outline-none focus:border-[#EE6B8D] resize-none"
+                />
+              </div>
+
+              {resenaModalMsg && (
+                <div
+                  className={`px-3 py-2 rounded-xl font-quicksand text-xs font-semibold ${
+                    resenaModalMsg.type === "ok"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-red-50 text-red-600 border border-red-200"
+                  }`}
+                >
+                  {resenaModalMsg.text}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  disabled={resenaModalSaving}
+                  onClick={() => setResenaModalPedido(null)}
+                  className="px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 font-quicksand text-xs font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={resenaModalSaving}
+                  className="px-4 py-2 rounded-xl bg-[#EE6B8D] hover:bg-[#C04267] text-white font-quicksand text-xs font-bold flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {resenaModalSaving ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Check size={14} />
+                  )}
+                  <span>{resenaModalSaving ? "Publicando..." : "Publicar reseña"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

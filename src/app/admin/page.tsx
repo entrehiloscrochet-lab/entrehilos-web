@@ -446,6 +446,15 @@ export default function AdminPage() {
   const [portadaDropdownOpen, setPortadaDropdownOpen] = useState<"filtro" | "acciones" | null>(null);
   const portadaDropdownRef = useRef<HTMLDivElement | null>(null);
   const [resenaPickerOpen, setResenaPickerOpen] = useState(false);
+  const [clientesDirectory, setClientesDirectory] = useState<
+    Array<{ id: string; nombre: string; telefono?: string; email?: string; direccion?: string; origen?: string }>
+  >([]);
+  const [resenaClientMode, setResenaClientMode] = useState<"existente" | "nuevo">("existente");
+  const [resenaClientSearch, setResenaClientSearch] = useState("");
+  const [resenaClientDropdownOpen, setResenaClientDropdownOpen] = useState(false);
+  const [resenaClienteTelefono, setResenaClienteTelefono] = useState("");
+  const [resenaClienteDireccion, setResenaClienteDireccion] = useState("");
+  const [resenaGuardarCliente, setResenaGuardarCliente] = useState(true);
   const [expandedCardSlugs, setExpandedCardSlugs] = useState<Set<string>>(new Set());
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<
     { mode: "single"; product: AdminProduct } | { mode: "bulk"; ids: string[] } | null
@@ -1199,6 +1208,14 @@ export default function AdminPage() {
         })
         .catch(() => {});
     }
+    if (subTab === "resenas") {
+      fetch("/api/admin?tab=clientes-directorio")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((list) => {
+          if (Array.isArray(list)) setClientesDirectory(list);
+        })
+        .catch(() => {});
+    }
   }, [subTab, rawProducts.length]);
 
   useEffect(() => {
@@ -1797,6 +1814,36 @@ export default function AdminPage() {
       alert("La calificación debe estar entre 1 y 5 estrellas");
       return;
     }
+    const nombreFinal = resenaNombre.trim() || "Equipo Entre Hilos";
+    if (resenaClientMode === "nuevo" && resenaGuardarCliente && resenaNombre.trim()) {
+      try {
+        const cliRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "guardar-cliente-manual",
+            cliente: {
+              nombre: resenaNombre.trim(),
+              telefono: resenaClienteTelefono.trim() || null,
+              direccion: resenaClienteDireccion.trim() || null,
+            },
+          }),
+        });
+        if (cliRes.ok) {
+          const cliData = await cliRes.json().catch(() => null);
+          if (cliData?.cliente) {
+            setClientesDirectory((prev) => {
+              const exists = prev.some(
+                (c) => c.nombre.toLowerCase() === cliData.cliente.nombre.toLowerCase()
+              );
+              return exists ? prev : [cliData.cliente, ...prev];
+            });
+          }
+        }
+      } catch {
+        // continuar con la creación de reseña
+      }
+    }
     const res = await fetch("/api/admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1805,7 +1852,7 @@ export default function AdminPage() {
           producto_id: resenaProducto.id,
           producto_sku: resenaProducto.sku,
           producto_nombre: resenaProducto.nombre,
-          nombre_cliente: resenaNombre.trim() || "Equipo Entre Hilos",
+          nombre_cliente: nombreFinal,
           calificacion: resenaCalificacion,
           comentario: resenaComentario.trim() || null,
         },
@@ -1815,6 +1862,9 @@ export default function AdminPage() {
       setShowResenaForm(false);
       setResenaProducto(null);
       setResenaNombre("");
+      setResenaClienteTelefono("");
+      setResenaClienteDireccion("");
+      setResenaClientSearch("");
       setResenaCalificacion(0);
       setResenaComentario("");
       setResenaSearch("");
@@ -6555,13 +6605,161 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label className="font-quicksand text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5 block">Nombre del cliente</label>
-                    <input
-                      value={resenaNombre}
-                      onChange={(e) => setResenaNombre(e.target.value)}
-                      placeholder="Ej: María G."
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg font-quicksand text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D]"
-                    />
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <label className="font-quicksand text-xs font-bold text-gray-600 uppercase tracking-wider">
+                        Cliente
+                      </label>
+                      <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-[11px] font-quicksand font-bold">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResenaClientMode("existente");
+                            setResenaClientDropdownOpen(true);
+                          }}
+                          className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                            resenaClientMode === "existente"
+                              ? "bg-white text-[#C04267] shadow-2xs"
+                              : "text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          Existente ({clientesDirectory.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResenaClientMode("nuevo");
+                            setResenaClientDropdownOpen(false);
+                          }}
+                          className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                            resenaClientMode === "nuevo"
+                              ? "bg-white text-[#C04267] shadow-2xs"
+                              : "text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          + Nuevo cliente
+                        </button>
+                      </div>
+                    </div>
+
+                    {resenaClientMode === "existente" ? (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <input
+                            value={resenaClientSearch}
+                            onFocus={() => setResenaClientDropdownOpen(true)}
+                            onChange={(e) => {
+                              setResenaClientSearch(e.target.value);
+                              setResenaClientDropdownOpen(true);
+                            }}
+                            placeholder={resenaNombre ? `Seleccionado: ${resenaNombre}` : "Buscar cliente registrado o de pedidos..."}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg font-quicksand text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D] pr-8"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setResenaClientDropdownOpen((prev) => !prev)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#C04267] cursor-pointer"
+                          >
+                            <ChevronDown size={15} className={resenaClientDropdownOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+                          </button>
+                        </div>
+
+                        {resenaClientDropdownOpen && (
+                          <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto bg-white divide-y divide-gray-100">
+                            {clientesDirectory
+                              .filter((c) => {
+                                const q = resenaClientSearch.toLowerCase().trim();
+                                if (!q) return true;
+                                return (
+                                  c.nombre.toLowerCase().includes(q) ||
+                                  (c.telefono || "").includes(q) ||
+                                  (c.email || "").toLowerCase().includes(q)
+                                );
+                              })
+                              .slice(0, 40)
+                              .map((c) => (
+                                <button
+                                  type="button"
+                                  key={c.id}
+                                  onClick={() => {
+                                    setResenaNombre(c.nombre);
+                                    setResenaClientSearch("");
+                                    setResenaClientDropdownOpen(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-[#FDF4F7] transition-colors cursor-pointer ${
+                                    resenaNombre === c.nombre ? "bg-[#FDF4F7]" : ""
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="font-quicksand text-xs font-bold text-gray-800 truncate">{c.nombre}</p>
+                                    {(c.telefono || c.email) && (
+                                      <p className="font-quicksand text-[10px] text-gray-400 truncate">
+                                        {[c.telefono, c.email].filter(Boolean).join(" · ")}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {c.origen && (
+                                    <span className="text-[10px] font-quicksand font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
+                                      {c.origen}
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            {clientesDirectory.length === 0 && (
+                              <p className="p-3 text-center font-quicksand text-xs text-gray-400">
+                                Aún no hay clientes guardados. Usa "+ Nuevo cliente".
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {resenaNombre && (
+                          <div className="bg-[#FDF4F7] border border-[#FDE8EF] rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+                            <span className="font-quicksand text-xs font-bold text-[#C04267] truncate">
+                              Cliente: {resenaNombre}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setResenaNombre("")}
+                              className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <input
+                          value={resenaNombre}
+                          onChange={(e) => setResenaNombre(e.target.value)}
+                          placeholder="Nombre completo del cliente *"
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg font-quicksand text-sm focus:outline-none focus:ring-2 focus:ring-[#EE6B8D]"
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            value={resenaClienteTelefono}
+                            onChange={(e) => setResenaClienteTelefono(e.target.value)}
+                            placeholder="Teléfono / WhatsApp (opcional)"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg font-quicksand text-xs focus:outline-none focus:ring-2 focus:ring-[#EE6B8D]"
+                          />
+                          <input
+                            value={resenaClienteDireccion}
+                            onChange={(e) => setResenaClienteDireccion(e.target.value)}
+                            placeholder="Dirección (opcional)"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg font-quicksand text-xs focus:outline-none focus:ring-2 focus:ring-[#EE6B8D]"
+                          />
+                        </div>
+                        <label className="flex items-center gap-2 font-quicksand text-xs text-gray-600 cursor-pointer pt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={resenaGuardarCliente}
+                            onChange={(e) => setResenaGuardarCliente(e.target.checked)}
+                            className="rounded border-gray-300 text-[#EE6B8D] focus:ring-[#EE6B8D]"
+                          />
+                          <span>Guardar cliente para elegirlo en futuros pedidos</span>
+                        </label>
+                      </div>
+                    )}
                   </div>
 
                   <div>

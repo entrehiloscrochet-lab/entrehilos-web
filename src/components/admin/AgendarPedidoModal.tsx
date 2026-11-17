@@ -97,6 +97,23 @@ export default function AgendarPedidoModal({
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Directorio de clientes existentes (registrados, pedidos previos y manuales)
+  const [clientesDirectory, setClientesDirectory] = useState<
+    Array<{ id: string; nombre: string; telefono?: string; direccion?: string; origen?: string }>
+  >([]);
+  const [showClientPicker, setShowClientPicker] = useState(false);
+  const [clientPickerSearch, setClientPickerSearch] = useState("");
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    fetch("/api/admin?tab=clientes-directorio")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => {
+        if (Array.isArray(list)) setClientesDirectory(list);
+      })
+      .catch(() => {});
+  }, [isOpen]);
+
   // Carga automática del catálogo si no viniera precargado
   React.useEffect(() => {
     if (availableProducts && availableProducts.length > 0) {
@@ -386,10 +403,71 @@ export default function AgendarPedidoModal({
 
               {/* 2. Datos del Cliente */}
               <div className="bg-gray-50/70 p-3 sm:p-3.5 rounded-xl border border-gray-200/70 space-y-2.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 font-quicksand">
-                  <User size={14} className="text-[#EE6B8D]" />
-                  <span>Datos del Cliente</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 font-quicksand">
+                    <User size={14} className="text-[#EE6B8D]" />
+                    <span>Datos del Cliente</span>
+                  </div>
+                  {clientesDirectory.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowClientPicker((prev) => !prev)}
+                      className="text-[11px] font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Search size={11} />
+                      <span>Elegir guardado ({clientesDirectory.length})</span>
+                    </button>
+                  )}
                 </div>
+
+                {showClientPicker && (
+                  <div className="bg-white border border-pink-200 rounded-xl p-2 space-y-1.5 shadow-xs">
+                    <input
+                      type="text"
+                      value={clientPickerSearch}
+                      onChange={(e) => setClientPickerSearch(e.target.value)}
+                      placeholder="Buscar cliente por nombre o teléfono..."
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand focus:outline-none focus:border-[#EE6B8D]"
+                    />
+                    <div className="max-h-36 overflow-y-auto divide-y divide-gray-100">
+                      {clientesDirectory
+                        .filter((c) => {
+                          const q = normalize(clientPickerSearch);
+                          if (!q) return true;
+                          return normalize(c.nombre).includes(q) || (c.telefono || "").includes(q);
+                        })
+                        .slice(0, 30)
+                        .map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setClienteNombre(c.nombre);
+                              if (c.telefono) setClienteTelefono(c.telefono);
+                              if (c.direccion) setDireccionEnvio(c.direccion);
+                              setShowClientPicker(false);
+                              setClientPickerSearch("");
+                            }}
+                            className="w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left hover:bg-[#FDF4F7] rounded-lg transition-colors cursor-pointer"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-quicksand text-xs font-bold text-gray-800 truncate">{c.nombre}</p>
+                              {(c.telefono || c.direccion) && (
+                                <p className="font-quicksand text-[10px] text-gray-400 truncate">
+                                  {[c.telefono, c.direccion].filter(Boolean).join(" · ")}
+                                </p>
+                              )}
+                            </div>
+                            {c.origen && (
+                              <span className="text-[9px] font-quicksand font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
+                                {c.origen}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <input
