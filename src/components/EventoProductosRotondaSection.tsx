@@ -167,7 +167,7 @@ export default function EventoProductosRotondaSection({
   // - Si tiene ÚNICAMENTE 3 productos o imágenes (= 3): se muestran exactamente 3 (1 adelante y dos a los costados), SIN duplicar
   // - Si tiene menos de 3 (1 o 2): duplicar cíclicamente hasta 3 para permitir el giro
   let displayItems = [...baseItems];
-  if (displayItems.length < 3) {
+  if (baseItems.length > 0 && displayItems.length < 3) {
     while (displayItems.length < 3) {
       displayItems = [...displayItems, ...baseItems];
     }

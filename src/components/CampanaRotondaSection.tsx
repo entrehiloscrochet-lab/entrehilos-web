@@ -110,7 +110,7 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
 
   // Si hay menos de 4 fotos, duplicar cíclicamente las del mismo evento para conservar la rotación 3D
   let items: RotondaItem[] = [...baseItems];
-  if (items.length < 4) {
+  if (baseItems.length > 0 && items.length < 4) {
     while (items.length < 4) {
       items = [...items, ...baseItems];
     }
