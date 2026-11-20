@@ -5994,14 +5994,27 @@ export default function AdminPage() {
                 });
                 setAssignments((prev) => {
                   const filtered = prev.filter((a) => a.producto_id !== savedProduct.id);
-                  const newAss: ProductoCatalogoAssignment[] = activeSlugs.map((slug) => ({
+                  const defaultSlugs = getDefaultProductSlugs({
+                    sku: savedProduct.sku,
+                    nombre: savedProduct.nombre,
+                    categoriaOriginal: savedProduct.categoriaOriginal,
+                  });
+                  const excludedSlugs = defaultSlugs.filter((s) => !activeSlugs.includes(s));
+                  const includedAss: ProductoCatalogoAssignment[] = activeSlugs.map((slug) => ({
                     id: Date.now() + Math.random(),
                     producto_id: savedProduct.id,
                     sku: savedProduct.sku || null,
                     categoria_slug: slug,
                     incluir: true,
                   }));
-                  return [...filtered, ...newAss];
+                  const excludedAss: ProductoCatalogoAssignment[] = excludedSlugs.map((slug) => ({
+                    id: Date.now() + Math.random(),
+                    producto_id: savedProduct.id,
+                    sku: savedProduct.sku || null,
+                    categoria_slug: slug,
+                    incluir: false,
+                  }));
+                  return [...filtered, ...includedAss, ...excludedAss];
                 });
               }}
             />

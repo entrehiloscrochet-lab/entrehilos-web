@@ -21,6 +21,7 @@ import {
   CATALOGOS_TIENDA,
   CatalogoDef,
   EVENTOS_BASE,
+  getDefaultProductSlugs,
   getProductActiveSlugs,
   getSlugBadgeInfo,
   ProductoCatalogoAssignment,
@@ -256,6 +257,14 @@ export default function ProductFormModal({
       const resJson = await res.json();
       const saved = resJson.producto;
 
+      // Calcular qué catálogos por defecto fueron desmarcados para guardarlos como excluidos (incluir: false)
+      const defaultSlugs = getDefaultProductSlugs({
+        sku: saved.sku,
+        nombre: saved.nombre,
+        categoriaOriginal: saved.categoriaOriginal || saved.categoria_original || product?.categoriaOriginal,
+      });
+      const slugsExcluidos = defaultSlugs.filter((s) => !selectedSlugs.includes(s));
+
       // Actualizar asignaciones en producto_catalogos
       await fetch("/api/admin", {
         method: "PATCH",
@@ -265,7 +274,7 @@ export default function ProductFormModal({
           producto_id: saved.id,
           sku: saved.sku || null,
           slugs_incluidos: selectedSlugs,
-          slugs_excluidos: [],
+          slugs_excluidos: slugsExcluidos,
         }),
       });
 
