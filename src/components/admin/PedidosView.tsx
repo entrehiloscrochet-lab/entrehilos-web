@@ -554,10 +554,13 @@ export default function PedidosView({
       const perm = await Notification.requestPermission();
       setNotifPermission(perm);
       if (perm === "granted") {
+        const { subscribeAdminToPush } = await import("@/lib/push-client");
+        await subscribeAdminToPush();
+
         const bodyMsg =
           metricasEntrega.hoyCount > 0 || metricasEntrega.atrasadosCount > 0
             ? `Tienes ${metricasEntrega.hoyCount} entrega(s) para hoy y ${metricasEntrega.atrasadosCount} vencidas.`
-            : "Notificaciones activadas. Te avisaremos con sonido y alerta cuando se acerque una fecha de entrega.";
+            : "Notificaciones activadas. Recibirás avisos de pedidos y usuarios nuevos incluso con la app cerrada.";
 
         await mostrarNotificacionSistema("Entre Hilos", {
           body: bodyMsg,
@@ -574,6 +577,22 @@ export default function PedidosView({
   };
 
   const handleProbarNotificacion = async () => {
+    const { subscribeAdminToPush } = await import("@/lib/push-client");
+    await subscribeAdminToPush();
+
+    try {
+      const res = await fetch("/api/admin/push-test", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sent > 0) {
+          reproducirCampanaSonido();
+          return;
+        }
+      }
+    } catch {
+      // Fallback a notificación local si falla el endpoint push
+    }
+
     await mostrarNotificacionSistema("Entre Hilos - Alerta de Prueba", {
       body: "Las notificaciones estan funcionando correctamente en tu dispositivo.",
       tag: "entrehilos-test-" + Date.now(),

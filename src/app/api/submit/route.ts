@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { normalizarFechaEntrega } from "@/lib/fecha-entrega";
+import { sendAdminPushNotification } from "@/lib/push-notifications";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -82,6 +83,56 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error(`Error inserting ${type}:`, error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Enviar notificación Web Push en segundo plano a los administradores
+  try {
+    const payloadData = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+    if (type === "pedido") {
+      const cliente = String(payloadData.cliente_nombre || "Cliente").trim();
+      const totalNum = Number(payloadData.total);
+      const totalText = Number.isFinite(totalNum) ? ` — S/ ${totalNum.toFixed(2)}` : "";
+      const fechaText = payloadData.fecha_entrega ? ` (Entrega: ${payloadData.fecha_entrega})` : "";
+      await sendAdminPushNotification({
+        title: "Nuevo pedido recibido",
+        body: `${cliente}${totalText}${fechaText}`,
+        url: "/admin",
+        tag: `eh-pedido-${Date.now()}`,
+        data: { tipo: "pedido" },
+      });
+    } else if (type === "personalizado") {
+      const cliente = String(payloadData.nombre || payloadData.cliente_nombre || "Cliente").trim();
+      const desc = String(payloadData.descripcion || payloadData.idea || "").trim();
+      const resumen = desc ? `: ${desc.slice(0, 70)}${desc.length > 70 ? "..." : ""}` : "";
+      await sendAdminPushNotification({
+        title: "Nuevo pedido personalizado",
+        body: `${cliente}${resumen}`,
+        url: "/admin",
+        tag: `eh-personalizado-${Date.now()}`,
+        data: { tipo: "personalizado" },
+      });
+    } else if (type === "mensaje") {
+      const nombre = String(payloadData.nombre || "Visitante").trim();
+      const asunto = String(payloadData.asunto || "Nuevo mensaje de contacto").trim();
+      await sendAdminPushNotification({
+        title: "Nuevo mensaje de contacto",
+        body: `${nombre}: ${asunto}`,
+        url: "/admin",
+        tag: `eh-mensaje-${Date.now()}`,
+        data: { tipo: "mensaje" },
+      });
+    } else if (type === "reclamacion") {
+      const nombre = String(payloadData.nombre_completo || payloadData.nombre || "Cliente").trim();
+      await sendAdminPushNotification({
+        title: "Nueva hoja de reclamación",
+        body: `Registrada por ${nombre}`,
+        url: "/admin",
+        tag: `eh-reclamacion-${Date.now()}`,
+        data: { tipo: "reclamacion" },
+      });
+    }
+  } catch (pushErr) {
+    console.warn("[submit] Error enviando push a admins:", pushErr);
   }
 
   return NextResponse.json({ success: true });

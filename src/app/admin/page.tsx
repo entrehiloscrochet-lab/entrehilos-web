@@ -335,16 +335,13 @@ export default function AdminPage() {
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
-      const isStandalone =
+      return (
         window.matchMedia("(display-mode: standalone)").matches ||
         window.matchMedia("(display-mode: fullscreen)").matches ||
         window.matchMedia("(display-mode: minimal-ui)").matches ||
         Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
-        document.referrer.includes("android-app://");
-      if (isStandalone) return true;
-      try {
-        return localStorage.getItem("admin_app_installed") === "true";
-      } catch {}
+        document.referrer.includes("android-app://")
+      );
     }
     return false;
   });
@@ -1103,30 +1100,39 @@ export default function AdminPage() {
       document.head.appendChild(manifestLink);
     }
 
-    // Registrar service worker
+    // Registrar service worker y suscribir Web Push si ya hay permiso
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw-admin.js").catch(() => {});
+      navigator.serviceWorker
+        .register("/sw-admin.js")
+        .then(async (reg) => {
+          reg.update().catch(() => {});
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            const { subscribeAdminToPush } = await import("@/lib/push-client");
+            await subscribeAdminToPush();
+          }
+        })
+        .catch(() => {});
     }
 
-    // Detectar si ya está corriendo en modo standalone o fue instalada previamente
+    // Detectar si está corriendo actualmente dentro de la App instalada (standalone/APK)
     if (typeof window !== "undefined") {
       const isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
         window.matchMedia("(display-mode: fullscreen)").matches ||
         window.matchMedia("(display-mode: minimal-ui)").matches ||
         Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
-        document.referrer.includes("android-app://") ||
-        localStorage.getItem("admin_app_installed") === "true";
-      if (isStandalone) {
-        setIsAppInstalled(true);
+        document.referrer.includes("android-app://");
+      setIsAppInstalled(isStandalone);
+      if (!isStandalone) {
         try {
-          localStorage.setItem("admin_app_installed", "true");
+          localStorage.removeItem("admin_app_installed");
         } catch {}
       }
     }
 
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
+      setIsAppInstalled(false);
       setInstallPrompt(e as BeforeInstallPromptEvent);
     };
 

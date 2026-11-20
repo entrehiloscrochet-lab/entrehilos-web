@@ -55,7 +55,7 @@ export default function LoginPage() {
     setSubmitting(true);
     const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
     const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name } },
@@ -64,6 +64,13 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
       return;
+    }
+    if (data?.user?.id) {
+      fetch("/api/auth/notify-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: data.user.id, nombre: name }),
+      }).catch(() => {});
     }
     setError("Revisa tu correo para confirmar la cuenta.");
   }

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase/server'
+import { sendAdminPushNotification } from '@/lib/push-notifications'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -27,6 +28,34 @@ export async function GET(request: NextRequest) {
             nombre: user.user_metadata?.full_name,
             rol: 'user',
           })
+        }
+
+        const createdAtMs = new Date(user.created_at).getTime()
+        const isNewUser =
+          !profile || (!Number.isNaN(createdAtMs) && Date.now() - createdAtMs < 120_000)
+
+        if (isNewUser) {
+          try {
+            const nombre =
+              (user.user_metadata?.full_name as string | undefined)?.trim() ||
+              user.email?.split('@')[0] ||
+              'Nuevo cliente'
+            await sendAdminPushNotification({
+              title: 'Nuevo usuario registrado',
+              body: user.email
+                ? `${nombre} (${user.email}) se registró con Google.`
+                : `${nombre} se registró en Entre Hilos.`,
+              url: '/admin',
+              tag: `eh-new-user-${user.id}`,
+              data: {
+                tipo: 'nuevo_usuario',
+                userId: user.id,
+                email: user.email || '',
+              },
+            })
+          } catch (pushErr) {
+            console.warn('[auth/callback] Error enviando push de nuevo usuario:', pushErr)
+          }
         }
       }
       return response
