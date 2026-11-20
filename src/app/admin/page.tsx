@@ -4594,12 +4594,17 @@ export default function AdminPage() {
           const eventProducts = rawProducts.filter((p) => isProductInSlug(p, resolvedCurrentEventSlug, assignments));
 
           // Productos filtrados según categoría y búsqueda
+          const effectivePortadaFilter =
+            portadaEventoSlug === "recientes" && portadaCategoryFilter === "evento"
+              ? "todos"
+              : portadaCategoryFilter;
+
           const filteredRawProducts = rawProducts.filter((p) => {
             // Filtro por categoría o evento
-            if (portadaCategoryFilter === "evento") {
+            if (effectivePortadaFilter === "evento") {
               if (!isProductInSlug(p, resolvedCurrentEventSlug, assignments)) return false;
-            } else if (portadaCategoryFilter !== "todos") {
-              if (!isProductInSlug(p, portadaCategoryFilter, assignments)) return false;
+            } else if (effectivePortadaFilter !== "todos") {
+              if (!isProductInSlug(p, effectivePortadaFilter, assignments)) return false;
             }
 
             // Filtro por búsqueda
@@ -4734,7 +4739,9 @@ export default function AdminPage() {
                       onChange={(e) => {
                         const newSlug = e.target.value;
                         setPortadaEventoSlug(newSlug);
-                        if (newSlug !== "auto" && newSlug !== "recientes") {
+                        if (newSlug === "recientes") {
+                          setPortadaCategoryFilter("todos");
+                        } else if (newSlug !== "auto") {
                           const evTarget = eventos.find((ev) => ev.slug === newSlug);
                           if (evTarget) {
                             handleSetMainEvent(evTarget);
@@ -4840,15 +4847,14 @@ export default function AdminPage() {
               {/* PESTAÑA 1: Elegir Productos */}
               {portadaTab === "productos" && (() => {
                 const portadaFilterOptions = [
-                  { key: "evento", label: `Evento: ${currentEventObj?.nombre || "Principal"} (${eventProducts.length})` },
+                  ...(portadaEventoSlug !== "recientes"
+                    ? [{ key: "evento", label: `Evento: ${currentEventObj?.nombre || "Principal"} (${eventProducts.length})` }]
+                    : []),
                   { key: "todos", label: `Todo el Catálogo (${rawProducts.length})` },
-                  { key: "ramos", label: "Ramos" },
-                  { key: "amigurumis", label: "Amigurumis" },
-                  { key: "cajas", label: "Cajas" },
-                  { key: "personalizados", label: "Personalizados" },
+                  ...allCatalogos.map((c) => ({ key: c.slug, label: c.label })),
                 ];
                 const activePortadaFilterLabel =
-                  portadaFilterOptions.find((o) => o.key === portadaCategoryFilter)?.label || "Filtrar";
+                  portadaFilterOptions.find((o) => o.key === effectivePortadaFilter)?.label || "Filtrar";
 
                 return (
                 <div className="space-y-3">
@@ -4902,7 +4908,7 @@ export default function AdminPage() {
                         {portadaDropdownOpen === "filtro" && (
                           <div className="absolute left-0 lg:right-0 lg:left-auto top-full mt-1.5 w-60 bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
                             {portadaFilterOptions.map((opt) => {
-                              const selected = portadaCategoryFilter === opt.key;
+                              const selected = effectivePortadaFilter === opt.key;
                               return (
                                 <button
                                   key={opt.key}
