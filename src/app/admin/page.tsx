@@ -8,8 +8,9 @@ import {
   UserCheck, Upload, X, Check, ChevronRight, Search, Plus, Trash2, Camera,
   Star, Package, Tag, Save, Calendar, Clock, CalendarCheck, AlertCircle, CheckCircle2,
   FileText, Download, FileDown, Layers, CheckSquare, Square, Pencil, Menu,
-  PanelLeft, PanelLeftClose, Calculator, Boxes, ChevronDown, Award, type LucideIcon,
+  PanelLeft, PanelLeftClose, Calculator, Boxes, ChevronDown, Award, QrCode, type LucideIcon,
 } from "lucide-react";
+import QRCode from "qrcode";
 
 import {
   CATALOGOS_TIENDA,
@@ -433,6 +434,8 @@ export default function AdminPage() {
   const [catalogoManagerOpen, setCatalogoManagerOpen] = useState(false);
   const [newCatalogoNombre, setNewCatalogoNombre] = useState("");
   const [savingCatalogo, setSavingCatalogo] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [eventos, setEventos] = useState<AdminRow[]>([]);
   const [assignments, setAssignments] = useState<ProductoCatalogoAssignment[]>([]);
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -1204,6 +1207,46 @@ export default function AdminPage() {
   }, [mainTab, subTab]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const STORE_URL = "https://entre-hilos-crochetsix.vercel.app/";
+
+  const handleOpenQrModal = async () => {
+    setQrModalOpen(true);
+    if (!qrDataUrl) {
+      try {
+        const url = await QRCode.toDataURL(STORE_URL, {
+          width: 1024,
+          margin: 2,
+          color: { dark: "#2E2422", light: "#FFFFFF" },
+        });
+        setQrDataUrl(url);
+      } catch (err) {
+        console.error("Error generando QR:", err);
+      }
+    }
+  };
+
+  const handleDownloadQr = async () => {
+    try {
+      let url = qrDataUrl;
+      if (!url) {
+        url = await QRCode.toDataURL(STORE_URL, {
+          width: 1024,
+          margin: 2,
+          color: { dark: "#2E2422", light: "#FFFFFF" },
+        });
+        setQrDataUrl(url);
+      }
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "entre-hilos-qr.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Error descargando QR:", err);
+    }
+  };
 
   const loadCatalogos = useCallback(async () => {
     try {
@@ -2099,6 +2142,19 @@ export default function AdminPage() {
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={handleOpenQrModal}
+            className="w-11 h-11 rounded-xl bg-[#FDF4F7] text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
+            title="Descargar QR de la tienda"
+            aria-label="Descargar QR de la tienda"
+          >
+            <QrCode size={19} strokeWidth={2} />
+            <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+              QR de la Tienda
+            </span>
+          </button>
+
           <Link
             href="/"
             className="w-11 h-11 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all relative group"
@@ -2139,6 +2195,20 @@ export default function AdminPage() {
               </div>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleOpenQrModal}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[#FDF4F7] border border-[#FDE8EF] text-[#C04267] hover:border-[#EE6B8D] hover:shadow-xs transition-all text-left group cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-lg bg-white border border-pink-200/80 flex items-center justify-center text-[#EE6B8D] shrink-0 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all">
+              <QrCode size={15} strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-xs truncate leading-tight">QR de la Tienda</div>
+              <div className="text-[10px] text-gray-500 truncate">Descargar imagen PNG</div>
+            </div>
+          </button>
 
           <Link
             href="/"
@@ -2198,6 +2268,17 @@ export default function AdminPage() {
               <span>Descargar APK</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleOpenQrModal}
+            className="text-xs font-quicksand font-bold text-[#C04267] hover:bg-pink-100 flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#FDF4F7] border border-[#FDE8EF] transition-colors cursor-pointer"
+            title="QR de la tienda"
+            aria-label="QR de la tienda"
+          >
+            <QrCode size={13} />
+            <span className="hidden xs:inline">QR</span>
+          </button>
 
           <Link
             href="/"
@@ -2276,6 +2357,42 @@ export default function AdminPage() {
                 </button>
               </div>
             )}
+            {/* Acceso rápido a QR de la Tienda (visible en Web y APK) */}
+            <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-white border border-[#FDE8EF] shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-[#FDF4F7] border border-[#FDE8EF] text-[#C04267] flex items-center justify-center shrink-0">
+                  <QrCode size={22} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="font-fredoka text-base font-bold text-[#C04267]">
+                    Código QR de la Tienda Online
+                  </h3>
+                  <p className="font-quicksand text-xs text-gray-500 mt-0.5">
+                    Descarga la imagen QR de <span className="font-mono text-gray-700">entre-hilos-crochetsix.vercel.app</span> para compartir o imprimir en tarjetas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={handleOpenQrModal}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#FDF4F7] hover:bg-pink-100 text-[#C04267] border border-pink-200 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Eye size={14} />
+                  <span>Ver QR</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadQr}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Descargar PNG</span>
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {menuGroups.filter(m => m.id !== "dashboard").map((group) => {
                 const Icon = group.icon;
@@ -7798,6 +7915,72 @@ export default function AdminPage() {
           fetchData();
         }}
       />
+
+      {/* Modal QR de la Tienda */}
+      {qrModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setQrModalOpen(false);
+          }}
+        >
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#FDE8EF] text-center">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-pink-50 text-[#C04267] flex items-center justify-center">
+                  <QrCode size={18} />
+                </div>
+                <h3 className="font-fredoka text-lg font-bold text-gray-900">
+                  QR de Entre Hilos
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQrModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-[#FDF4F7] p-4 rounded-2xl border border-[#FDE8EF] inline-flex items-center justify-center mb-3">
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="Código QR de Entre Hilos"
+                  className="w-56 h-56 rounded-xl bg-white p-2 shadow-xs"
+                />
+              ) : (
+                <div className="w-56 h-56 flex items-center justify-center text-gray-400 text-xs font-quicksand">
+                  Generando QR...
+                </div>
+              )}
+            </div>
+
+            <p className="font-mono text-[11px] text-gray-500 mb-5 break-all">
+              {STORE_URL}
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setQrModalOpen(false)}
+                className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-600 hover:bg-gray-50 font-quicksand text-xs font-bold rounded-xl transition-colors"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadQr}
+                className="flex-1 py-2.5 px-4 bg-[#EE6B8D] hover:bg-[#C04267] text-white font-quicksand text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <Download size={14} />
+                <span>Descargar PNG</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
