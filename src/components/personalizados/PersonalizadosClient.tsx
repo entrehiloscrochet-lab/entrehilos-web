@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import {
   Heart,
-  Heart,
   MessageCircle,
   Star,
   Ruler,
