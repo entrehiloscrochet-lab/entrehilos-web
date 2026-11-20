@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Sparkles, Eye, ArrowRight, MessageCircle } from "lucide-react";
-import { isProductInSlug } from "@/lib/catalogos";
+import { ChevronLeft, ChevronRight, Eye, ArrowRight, MessageCircle } from "lucide-react";
+import { CATALOGOS_TIENDA, CatalogoDef, getSlugBadgeInfo, isProductInSlug } from "@/lib/catalogos";
 import { Product } from "@/lib/ventify";
 
 interface RotondaEvento {
@@ -77,11 +77,23 @@ export default function EventoProductosRotondaSection({
   onQuickView,
 }: EventoProductosRotondaSectionProps) {
   const seccionInactiva = Boolean(section && section.activo === false);
+  const [catalogosList, setCatalogosList] = useState<CatalogoDef[]>(CATALOGOS_TIENDA);
 
-  // 1. Determinar el EVENTO PRINCIPAL:
-  // Prioriza el evento marcado como featured: true (evento principal activo en la tienda y navbar)
+  useEffect(() => {
+    fetch("/api/catalogos")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (Array.isArray(data?.catalogos)) setCatalogosList(data.catalogos);
+      })
+      .catch(() => {});
+  }, []);
+
+  const configuredSlug = section?.items?.evento_slug;
+  const isRecientesMode = configuredSlug === "recientes";
+
+  // 1. Determinar el EVENTO PRINCIPAL (o modo "recientes" sin evento):
   const eventoPrincipal = (() => {
-    const configuredSlug = section?.items?.evento_slug;
+    if (isRecientesMode) return null;
     if (configuredSlug && configuredSlug !== "auto" && Array.isArray(eventosData) && eventosData.length > 0) {
       const found = eventosData.find((e) => e.slug?.toLowerCase() === configuredSlug.toLowerCase());
       if (found) return found;
@@ -96,8 +108,8 @@ export default function EventoProductosRotondaSection({
     return eventoActual || null;
   })();
 
-  const eventoSlug = (eventoPrincipal?.slug || "dia-del-novio").toLowerCase();
-  const eventoNombre = eventoPrincipal?.nombre || "Campaña Especial";
+  const eventoSlug = isRecientesMode ? "recientes" : (eventoPrincipal?.slug || "dia-del-novio").toLowerCase();
+  const eventoNombre = isRecientesMode ? "Últimos Pedidos" : (eventoPrincipal?.nombre || "Campaña Especial");
 
   // 2. Obtener imágenes de catálogo subidas manualmente desde el Admin
   const rawCustomImages = section?.items?.custom_catalog_images;
@@ -118,12 +130,14 @@ export default function EventoProductosRotondaSection({
     : 8;
 
   // Filtrar productos: si el admin eligió productos específicos, tomamos esos;
+  // en modo "recientes" tomamos los últimos productos activos;
   // de lo contrario, tomamos automáticamente los productos vinculados al evento principal
   let matchingProducts = (products || []).filter((p) => {
     if (p.is_active === false) return false;
     if (selectedSet.size > 0) {
       return selectedSet.has(p.id) || selectedSet.has(p.sku);
     }
+    if (isRecientesMode) return true;
     if (Array.isArray(p.catalogos) && p.catalogos.includes(eventoSlug)) return true;
     return isProductInSlug(p, eventoSlug);
   });
@@ -148,12 +162,27 @@ export default function EventoProductosRotondaSection({
     isProduct: false,
   }));
 
+  const getProductBadgeLabel = (p: Product): string => {
+    const slugs = Array.isArray(p.catalogos) ? p.catalogos : [];
+    const catalogMatch = slugs.find((s) => catalogosList.some((c) => c.slug === s && c.slug !== "personalizados"));
+    if (catalogMatch) {
+      return getSlugBadgeInfo(catalogMatch, eventosData, catalogosList).label;
+    }
+    const nonEventSlug = slugs.find((s) => s !== eventoSlug);
+    if (nonEventSlug) {
+      return getSlugBadgeInfo(nonEventSlug, eventosData, catalogosList).label;
+    }
+    if (p.categoria && p.categoria !== "General") return p.categoria;
+    if (slugs.length > 0) return getSlugBadgeInfo(slugs[0], eventosData, catalogosList).label;
+    return isRecientesMode ? "Pedido Reciente" : eventoNombre;
+  };
+
   const productItems: DisplayItem[] = matchingProducts.map((p) => ({
     id: String(p.id || p.sku),
     nombre: p.nombre,
     precio: Number(p.precio || 0),
     imagen: p.imagen || "/logo.png",
-    categoria: p.categoria || eventoNombre,
+    categoria: getProductBadgeLabel(p),
     descripcion: p.descripcion || "",
     isProduct: true,
     rawProduct: p,
@@ -230,17 +259,23 @@ export default function EventoProductosRotondaSection({
   // Textos y títulos de la sección
   const titulo = section?.titulo && section.titulo.trim() !== ""
     ? section.titulo.replace("{evento}", eventoNombre)
+    : isRecientesMode
+    ? "Últimos Pedidos y Creaciones"
     : `Colección ${eventoNombre}`;
 
   const subtitulo = section?.subtitulo && section.subtitulo.trim() !== ""
     ? section.subtitulo.replace("{evento}", eventoNombre)
+    : isRecientesMode
+    ? "Recién Hechos · Entre Hilos"
     : `Catálogo Especial · ${eventoNombre}`;
 
   const descripcion = section?.descripcion && section.descripcion.trim() !== ""
     ? section.descripcion.replace("{evento}", eventoNombre)
+    : isRecientesMode
+    ? "Descubre los detalles y pedidos recién tejidos a mano que acaban de salir de nuestro taller."
     : `Descubre los ramos, arreglos y creaciones exclusivas tejidas a mano para celebrar en grande esta temporada.`;
 
-  const eventoLink = `/evento/${eventoSlug}`;
+  const eventoLink = isRecientesMode ? "/catalogo/ramos" : `/evento/${eventoSlug}`;
 
   return (
     <section
@@ -434,8 +469,7 @@ export default function EventoProductosRotondaSection({
 
                 {/* Badges superiores: Categoría/Campaña a la izquierda, Precio a la derecha */}
                 <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-[#C04267] font-lato font-bold text-[11px] shadow-sm">
-                    <Sparkles size={11} className="text-[#EE6B8D]" />
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-[#C04267] font-lato font-bold text-[11px] shadow-sm">
                     {item.categoria || eventoNombre}
                   </span>
 
@@ -485,7 +519,7 @@ export default function EventoProductosRotondaSection({
                           onClick={(e) => e.stopPropagation()}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white text-[#C04267] hover:bg-pink-50 font-quicksand text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
                         >
-                          <Sparkles size={13} className="text-[#EE6B8D]" />
+                          <MessageCircle size={13} className="text-[#EE6B8D]" />
                           <span>Consultar</span>
                         </a>
                       )}
@@ -560,7 +594,7 @@ export default function EventoProductosRotondaSection({
             href={eventoLink}
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#EE6B8D] text-white font-quicksand font-bold text-xs sm:text-sm hover:bg-[#C04267] transition-all shadow-sm hover:shadow-md hover:scale-105"
           >
-            <span>Ver todo el catálogo de {eventoNombre}</span>
+            <span>{isRecientesMode ? "Explorar todo el catálogo" : `Ver todo el catálogo de ${eventoNombre}`}</span>
             <ArrowRight size={15} />
           </Link>
         </div>

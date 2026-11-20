@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import {
-  Sparkles,
+  Heart,
   Heart,
   MessageCircle,
   Star,
@@ -87,7 +87,7 @@ export default function PersonalizadosContent({ productosPersonalizados, heroCon
             <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
               <div className="order-2 md:order-1">
                 <div className="inline-flex items-center gap-2 bg-white/80 border border-[#FDE8EF] text-[#C04267] px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-quicksand font-semibold mb-4 sm:mb-6 shadow-sm">
-                  <Sparkles size={14} />
+                  <Heart size={14} />
                   {items.badge || "Hecho 100% a mano en Perú"}
                 </div>
 

@@ -4707,19 +4707,19 @@ export default function AdminPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-quicksand text-[11px] font-bold uppercase tracking-wider text-[#EE6B8D] bg-[#FDF4F7] px-2.5 py-0.5 rounded-full border border-[#FDE8EF]">
-                          Evento Principal de la Tienda
+                          {portadaEventoSlug === "recientes" ? "Modo Libre (Sin Evento)" : "Evento Principal de la Tienda"}
                         </span>
-                        {currentEventObj?.featured && (
+                        {portadaEventoSlug !== "recientes" && currentEventObj?.featured && (
                           <span className="font-quicksand text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                             Activo y Destacado
                           </span>
                         )}
                       </div>
                       <h3 className="font-fredoka text-lg font-bold text-gray-800 mt-0.5">
-                        {currentEventObj?.nombre || "Evento Principal"}
+                        {portadaEventoSlug === "recientes" ? "Últimos Pedidos y Productos Recientes" : (currentEventObj?.nombre || "Evento Principal")}
                       </h3>
                       <p className="font-quicksand text-xs text-gray-500">
-                        Ruta: <span className="font-mono text-gray-600">/evento/{resolvedCurrentEventSlug}</span>
+                        Ruta: <span className="font-mono text-gray-600">{portadaEventoSlug === "recientes" ? "/catalogo/ramos" : `/evento/${resolvedCurrentEventSlug}`}</span>
                       </p>
                     </div>
                   </div>
@@ -4727,14 +4727,14 @@ export default function AdminPage() {
                   {/* Selector rápido para cambiar el evento de la portada */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                     <label className="font-quicksand text-xs font-semibold text-gray-600">
-                      Asignar evento a mostrar:
+                      Asignar evento o modo:
                     </label>
                     <select
                       value={portadaEventoSlug}
                       onChange={(e) => {
                         const newSlug = e.target.value;
                         setPortadaEventoSlug(newSlug);
-                        if (newSlug !== "auto") {
+                        if (newSlug !== "auto" && newSlug !== "recientes") {
                           const evTarget = eventos.find((ev) => ev.slug === newSlug);
                           if (evTarget) {
                             handleSetMainEvent(evTarget);
@@ -4744,6 +4744,7 @@ export default function AdminPage() {
                       className="px-3 py-2 text-xs font-quicksand font-bold text-gray-700 bg-[#FDF4F7] border border-[#FDE8EF] rounded-xl focus:outline-none focus:border-[#EE6B8D]"
                     >
                       <option value="auto">Automático (Evento Principal Activo)</option>
+                      <option value="recientes">Sin evento (Últimos pedidos / Productos recientes)</option>
                       {eventos.map((ev) => (
                         <option key={ev.id || ev.slug} value={ev.slug || ""}>
                           {ev.nombre} {ev.featured ? "★ (Principal)" : ""}
@@ -4781,6 +4782,11 @@ export default function AdminPage() {
                         {portadaSelectedIds.size > 0 ? (
                           <>
                             <strong>{portadaSelectedIds.size}</strong> productos seleccionados a mano
+                            {portadaCustomImages.length > 0 && ` + ${portadaCustomImages.length} imágenes personalizadas`}.
+                          </>
+                        ) : portadaEventoSlug === "recientes" ? (
+                          <>
+                            Modo libre activo: se mostrarán los productos seleccionados a mano o los últimos productos de la tienda
                             {portadaCustomImages.length > 0 && ` + ${portadaCustomImages.length} imágenes personalizadas`}.
                           </>
                         ) : (

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from "next/image";
-import { X, Plus, Minus, ChevronRight, Sparkles, Ruler, Calendar, Clock, AlertCircle } from "lucide-react";
+import { X, Plus, Minus, ChevronRight, Heart, Ruler, Calendar, Clock, AlertCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Product } from "@/lib/ventify";
 import { useCart } from "@/context/CartContext";
@@ -362,7 +362,7 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
             {product.sku.startsWith('Amigu-') && (
               <div className="px-6 pb-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <Sparkles size={16} style={{ color: '#EE6B8D' }} />
+                  <Heart size={16} style={{ color: '#EE6B8D' }} />
                   <span className="font-lato text-sm font-semibold" style={{ color: BRAND.ink }}>
                     Personaliza tu pedido
                   </span>
@@ -432,7 +432,7 @@ export default function QuickViewDrawer({ product, onClose }: QuickViewDrawerPro
             {!product.sku.startsWith('Amigu-') && availableExtras.length > 0 && (
               <div className="px-6 pb-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <Sparkles size={16} style={{ color: '#EE6B8D' }} />
+                  <Heart size={16} style={{ color: '#EE6B8D' }} />
                   <span className="font-lato text-sm font-semibold" style={{ color: BRAND.ink }}>
                     Personaliza tu regalo
                   </span>

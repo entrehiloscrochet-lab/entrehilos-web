@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Sparkles, Maximize2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 
 export interface RotondaItem {
   imagen: string;
@@ -344,8 +344,7 @@ export default function CampanaRotondaSection({ section, eventoActual }: Campana
 
                 {/* Badge superior de Campaña */}
                 <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-[#C04267] font-lato font-bold text-[11px] shadow-sm">
-                    <Sparkles size={11} className="text-[#EE6B8D]" />
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-[#C04267] font-lato font-bold text-[11px] shadow-sm">
                     {item.etiqueta || eventoActual?.nombre || "Campaña"}
                   </span>
 

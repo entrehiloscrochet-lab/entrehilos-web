@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, Sparkles, Package, Truck, MessageCircle } from "lucide-react";
+import { Heart, Award, Package, Truck, MessageCircle } from "lucide-react";
 
 const BRAND = {
   canvas: '#FBF6EF',
@@ -18,7 +18,7 @@ const BRAND = {
 const values = [
   { icon: Heart, label: 'Hecho con Amor', desc: 'Cada puntada refleja nuestra pasión por el arte del tejido a mano', color: BRAND.rose },
   { icon: Package, label: 'Calidad Premium', desc: 'Solo hilos de algodón de la más alta calidad', color: BRAND.moss },
-  { icon: Sparkles, label: 'Diseños Únicos', desc: 'Creaciones originales adaptadas a ti', color: BRAND.gold },
+  { icon: Award, label: 'Diseños Únicos', desc: 'Creaciones originales adaptadas a ti', color: BRAND.gold },
   { icon: Truck, label: 'Envío Seguro', desc: 'Empaque especial para que llegue perfecto', color: BRAND.clay },
 ];
 

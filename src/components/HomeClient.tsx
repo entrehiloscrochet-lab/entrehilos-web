@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Product } from "@/lib/ventify";
-import { Sparkles, Heart, Package, Truck, ChevronDown } from "lucide-react";
+import { Heart, Package, Truck, ChevronDown } from "lucide-react";
 import { useState, useEffect, type ComponentProps } from "react";
 import QuickViewDrawer from "@/components/QuickViewDrawer";
 import CampanaRotondaSection from "@/components/CampanaRotondaSection";
@@ -475,7 +475,7 @@ function ShowcaseSection({ section, products }: { section: HomeSection; products
                     <div className="w-full h-full flex items-center justify-center">
                       <div className="text-center p-4">
                         <div className="w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center" style={{ backgroundColor: BRAND.roseSoft }}>
-                          <Sparkles size={24} style={{ color: BRAND.rose }} />
+                          <Heart size={24} style={{ color: BRAND.rose }} />
                         </div>
                       </div>
                     </div>
@@ -727,7 +727,7 @@ export default function HomeClient({ products, sections, heroData, eventosData }
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 relative">
               {[
-                { icon: Sparkles, label: 'Calidad Premium', desc: 'Hilos de algodón de la más alta calidad', color: BRAND.rose, rotate: '-rotate-2' },
+                { icon: Heart, label: 'Calidad Premium', desc: 'Hilos de algodón de la más alta calidad', color: BRAND.rose, rotate: '-rotate-2' },
                 { icon: Heart, label: 'Hecho a Mano', desc: 'Cada pieza tejida con dedicación', color: BRAND.clay, rotate: 'rotate-2' },
                 { icon: Package, label: 'Personalizable', desc: 'Diseños adaptados a tus necesidades', color: BRAND.moss, rotate: '-rotate-2' },
                 { icon: Truck, label: 'Envío Seguro', desc: 'Empaque especial y protegido', color: BRAND.gold, rotate: 'rotate-2' },

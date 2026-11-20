@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, CheckCircle2, MapPin, Phone, User, Mail, Truck, Lock, ShieldCheck, ChevronDown, Check, Calendar, Clock, Sparkles } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, CheckCircle2, MapPin, Phone, User, Mail, Truck, Lock, ShieldCheck, ChevronDown, Check, Calendar, Clock, Heart } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/components/Toast";
 import { getUsuarioId } from "@/lib/anon-id";
@@ -623,7 +623,7 @@ export default function CartPage() {
 
                       <div>
                         <label className="font-quicksand text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1.5">
-                          <Sparkles size={12} className="text-[#EE6B8D]" /> Motivo u ocasión especial (opcional)
+                          <Heart size={12} className="text-[#EE6B8D]" /> Motivo u ocasión especial (opcional)
                         </label>
                         <input
                           type="text"
@@ -635,7 +635,7 @@ export default function CartPage() {
                       </div>
 
                       <p className="font-quicksand text-[11px] text-[#8a5a68] italic flex items-center gap-1.5">
-                        <span>✨</span>
+                        <span>·</span>
                         <span>
                           Cada pieza a crochet es elaborada a mano con mucho detalle. Si la fecha es muy cercana, confirmaremos contigo por WhatsApp la factibilidad según agenda del taller.
                         </span>
