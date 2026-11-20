@@ -273,6 +273,7 @@ export async function getAllVentifyProducts(): Promise<Product[]> {
       method: 'GET',
       headers: getHeaders(),
       cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {

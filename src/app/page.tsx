@@ -1,7 +1,14 @@
 import { getVentifyProducts } from "@/lib/ventify";
 import HomeClient from "@/components/HomeClient";
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
 
 async function getHomeSections() {
   try {
@@ -53,9 +60,17 @@ async function getEventosHero() {
 }
 
 export default async function Home() {
-  const products = await getVentifyProducts();
-  const sections = await getHomeSections();
-  const heroData = await getHeroConfig();
-  const eventosData = await getEventosHero();
+  const [productsRes, sectionsRes, heroRes, eventosRes] = await Promise.allSettled([
+    withTimeout(getVentifyProducts(), 5000, []),
+    withTimeout(getHomeSections(), 5000, []),
+    withTimeout(getHeroConfig(), 5000, []),
+    withTimeout(getEventosHero(), 5000, []),
+  ]);
+
+  const products = productsRes.status === 'fulfilled' ? productsRes.value : [];
+  const sections = sectionsRes.status === 'fulfilled' ? sectionsRes.value : [];
+  const heroData = heroRes.status === 'fulfilled' ? heroRes.value : [];
+  const eventosData = eventosRes.status === 'fulfilled' ? eventosRes.value : [];
+
   return <HomeClient products={products} sections={sections} heroData={heroData} eventosData={eventosData} />;
 }
