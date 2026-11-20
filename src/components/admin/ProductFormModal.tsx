@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import {
   CATALOGOS_TIENDA,
+  CatalogoDef,
   EVENTOS_BASE,
   getProductActiveSlugs,
   getSlugBadgeInfo,
@@ -39,6 +40,7 @@ interface ProductFormModalProps {
   product: Product | null; // null para crear nuevo, objeto para editar
   assignments: ProductoCatalogoAssignment[];
   eventos: EventoFormOption[];
+  catalogos?: CatalogoDef[];
   inactiveIds: Set<string>;
   onSaveSuccess: (savedProduct: Product, activeSlugs: string[], isActive: boolean) => void;
 }
@@ -49,6 +51,7 @@ export default function ProductFormModal({
   product,
   assignments,
   eventos,
+  catalogos,
   inactiveIds,
   onSaveSuccess,
 }: ProductFormModalProps) {
@@ -595,7 +598,7 @@ export default function ProductFormModal({
                 Catálogos Principales:
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
-                {CATALOGOS_TIENDA.map((cat) => {
+                {(catalogos && catalogos.length > 0 ? catalogos : CATALOGOS_TIENDA).map((cat) => {
                   const isChecked = selectedSlugs.includes(cat.slug);
                   return (
                     <button

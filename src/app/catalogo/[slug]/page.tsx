@@ -8,7 +8,14 @@ import { isProductInSlug } from "@/lib/catalogos";
 import ProductCard from "@/components/ProductCard";
 import QuickViewDrawer from "@/components/QuickViewDrawer";
 
-type TabType = 'Ramos' | 'Amigurumis' | 'Cajas' | 'HotWheels' | 'Ver Todo';
+type TabType = string;
+
+const DEFAULT_CATALOGO_ITEMS = [
+  { slug: 'ramos', label: 'Ramos' },
+  { slug: 'amigurumis', label: 'Amigurumis' },
+  { slug: 'cajas', label: 'Cajas' },
+  { slug: 'hotwheels', label: 'HotWheels' },
+];
 
 const BRAND = {
   canvas: '#FBF6EF',
@@ -54,6 +61,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('Ver Todo');
+  const [catalogosList, setCatalogosList] = useState(DEFAULT_CATALOGO_ITEMS);
   const [isEvent, setIsEvent] = useState(false);
 
   useEffect(() => {
@@ -69,20 +77,37 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       const { slug } = await params;
       setCurrentSlug(slug);
 
-      const allSupported = [...events, ...Object.keys(categories)];
-      if (!allSupported.includes(slug)) {
+      let dynamicCatalogos = DEFAULT_CATALOGO_ITEMS;
+      try {
+        const res = await fetch('/api/catalogos', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.catalogos)) {
+            dynamicCatalogos = data.catalogos
+              .filter((c: { slug?: string }) => c.slug && c.slug !== 'personalizados')
+              .map((c: { slug: string; label: string }) => ({ slug: c.slug, label: c.label }));
+          }
+        }
+      } catch {
+        // usar defaults
+      }
+      setCatalogosList(dynamicCatalogos);
+
+      const isEventSlug = events.includes(slug);
+      const matchedCatalogo = dynamicCatalogos.find((c) => c.slug === slug);
+
+      if (!isEventSlug && !matchedCatalogo) {
         notFound();
         return;
       }
 
-      const isEventSlug = events.includes(slug);
       setIsEvent(isEventSlug);
 
       const products = await getVentifyProducts();
       setAllProducts(products);
 
-      if (!isEventSlug && slug in categories) {
-        setActiveTab(categories[slug]);
+      if (!isEventSlug && matchedCatalogo) {
+        setActiveTab(matchedCatalogo.label);
       }
 
       setLoading(false);
@@ -106,17 +131,13 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   };
 
   const getProductsByTab = (tab: TabType) => {
-    const tabSlugMap: Record<TabType, string> = {
-      'Ramos': 'ramos',
-      'Amigurumis': 'amigurumis',
-      'Cajas': 'cajas',
-      'HotWheels': 'hotwheels',
-      'Ver Todo': '',
-    };
     if (tab === 'Ver Todo') {
       return allProducts;
     }
-    return filterByCatalogSlug(tabSlugMap[tab]);
+    const found = catalogosList.find((c) => c.label === tab);
+    const targetSlug = found ? found.slug : categories[tab.toLowerCase()] ? tab.toLowerCase() : '';
+    if (!targetSlug) return allProducts;
+    return filterByCatalogSlug(targetSlug);
   };
 
   const getEventProducts = (slug: string) => filterByCatalogSlug(slug);
@@ -200,7 +221,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       <section className="py-6 sm:py-8 px-4 overflow-x-auto sm:flex-wrap sm:justify-center gap-3 sm:gap-4 whitespace-nowrap sm:whitespace-normal" style={{ backgroundColor: BRAND.canvas }}>
         <div className="max-w-7xl mx-auto w-full">
           <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-            {(['Ramos', 'Amigurumis', 'Cajas', 'HotWheels', 'Ver Todo'] as TabType[]).map((tab) => {
+            {[...catalogosList.map((c) => c.label), 'Ver Todo'].map((tab) => {
               const isActive = activeTab === tab;
               return (
                 <button

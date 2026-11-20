@@ -13,7 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getVentifyProducts } from "@/lib/ventify";
 import { Product } from "@/lib/ventify";
 
-const categorias = [
+const DEFAULT_CATEGORIAS = [
   { href: "/catalogo/ramos", label: "Ramos" },
   { href: "/catalogo/amigurumis", label: "Amigurumis" },
   { href: "/catalogo/cajas", label: "Cajas" },
@@ -94,6 +94,7 @@ export default function Navbar() {
   descripcion?: string;
 }
 const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
+  const [categorias, setCategorias] = useState(DEFAULT_CATEGORIAS);
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -107,6 +108,23 @@ const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
       setProducts(allProducts);
     };
     loadProducts();
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/catalogos")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data?.catalogos)) {
+          const items = data.catalogos
+            .filter((c: { slug?: string }) => c.slug && c.slug !== "personalizados")
+            .map((c: { slug: string; label: string }) => ({
+              href: `/catalogo/${c.slug}`,
+              label: c.label,
+            }));
+          if (items.length > 0) setCategorias(items);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

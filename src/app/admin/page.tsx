@@ -13,6 +13,7 @@ import {
 
 import {
   CATALOGOS_TIENDA,
+  CatalogoDef,
   EVENTOS_BASE,
   getProductActiveSlugs,
   isProductInSlug,
@@ -271,15 +272,13 @@ function filterProductos(products: AdminProduct[], filter: string, assignments: 
     return filterByEventSlug(products, slug, assignments);
   }
 
+  if (filter.startsWith("cat-")) {
+    const slug = filter.replace("cat-", "");
+    const list = products.filter((p) => isProductInSlug(p, slug, assignments));
+    return slug === "ramos" ? list.sort((a, b) => b.stock - a.stock) : list;
+  }
+
   switch (filter) {
-    case "cat-ramos":
-      return products.filter((p) => isProductInSlug(p, "ramos", assignments)).sort((a, b) => b.stock - a.stock);
-    case "cat-amigurumis":
-      return products.filter((p) => isProductInSlug(p, "amigurumis", assignments));
-    case "cat-cajas":
-      return products.filter((p) => isProductInSlug(p, "cajas", assignments));
-    case "cat-hotwheels":
-      return products.filter((p) => isProductInSlug(p, "hotwheels", assignments));
     case "page-personalizados":
       return products.filter((p) => isProductInSlug(p, "personalizados", assignments));
     default:
@@ -429,6 +428,11 @@ export default function AdminPage() {
   const [inactiveIds, setInactiveIds] = useState<Set<string>>(new Set());
   const [productosSearch, setProductosSearch] = useState("");
   const [productosFilter, setProductosFilter] = useState("ver-todo");
+  const [allCatalogos, setAllCatalogos] = useState<CatalogoDef[]>(CATALOGOS_TIENDA);
+  const [customCatalogoSlugs, setCustomCatalogoSlugs] = useState<string[]>([]);
+  const [catalogoManagerOpen, setCatalogoManagerOpen] = useState(false);
+  const [newCatalogoNombre, setNewCatalogoNombre] = useState("");
+  const [savingCatalogo, setSavingCatalogo] = useState(false);
   const [eventos, setEventos] = useState<AdminRow[]>([]);
   const [assignments, setAssignments] = useState<ProductoCatalogoAssignment[]>([]);
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -1200,6 +1204,72 @@ export default function AdminPage() {
   }, [mainTab, subTab]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const loadCatalogos = useCallback(async () => {
+    try {
+      const res = await fetch("/api/catalogos", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.catalogos)) setAllCatalogos(data.catalogos);
+        if (Array.isArray(data?.customSlugs)) setCustomCatalogoSlugs(data.customSlugs);
+      }
+    } catch {
+      // mantener defaults
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authorized) {
+      loadCatalogos();
+    }
+  }, [authorized, loadCatalogos]);
+
+  const handleCreateCatalogo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const label = newCatalogoNombre.trim();
+    if (!label) return;
+    setSavingCatalogo(true);
+    try {
+      const res = await fetch("/api/catalogos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data?.error || "No se pudo crear el catálogo");
+        return;
+      }
+      if (Array.isArray(data?.catalogos)) setAllCatalogos(data.catalogos);
+      if (Array.isArray(data?.customSlugs)) setCustomCatalogoSlugs(data.customSlugs);
+      setNewCatalogoNombre("");
+    } catch {
+      alert("Error de conexión al crear el catálogo");
+    } finally {
+      setSavingCatalogo(false);
+    }
+  };
+
+  const handleDeleteCatalogo = async (slug: string, label: string) => {
+    if (!confirm(`¿Eliminar el catálogo "${label}"?`)) return;
+    try {
+      const res = await fetch(`/api/catalogos?slug=${encodeURIComponent(slug)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data?.error || "No se pudo eliminar el catálogo");
+        return;
+      }
+      if (Array.isArray(data?.catalogos)) setAllCatalogos(data.catalogos);
+      if (Array.isArray(data?.customSlugs)) setCustomCatalogoSlugs(data.customSlugs);
+      if (productosFilter === `cat-${slug}`) {
+        setProductosFilter("ver-todo");
+      }
+    } catch {
+      alert("Error al eliminar el catálogo");
+    }
+  };
 
   useEffect(() => {
     if ((subTab === "heroes" || subTab === "resenas") && rawProducts.length === 0) {
@@ -5183,6 +5253,13 @@ export default function AdminPage() {
             return Array.from(map.entries()).map(([slug, label]) => ({ slug, label }));
           })();
 
+          const dynamicCatalogoFilters = [
+            ...allCatalogos
+              .filter((c) => c.slug !== "personalizados")
+              .map((c) => ({ key: `cat-${c.slug}`, label: c.label })),
+            { key: "ver-todo", label: "Ver Todo" },
+          ];
+
           const featuredEvent = eventos.find((e) => e.featured);
           const featuredEventSlug = featuredEvent?.slug;
           const productosFiltrados = productosFilter === "evento-destacado"
@@ -5197,7 +5274,7 @@ export default function AdminPage() {
             if (productosFilter === "evento-destacado" && featuredEvent) return featuredEvent.nombre;
             if (productosFilter === "ver-todo") return "todo el catálogo";
             if (productosFilter === "page-personalizados") return "Personalizados";
-            const cat = CATALOGO_FILTERS.find((f) => f.key === productosFilter);
+            const cat = dynamicCatalogoFilters.find((f) => f.key === productosFilter);
             if (cat) return cat.label;
             if (productosFilter.startsWith("evento-")) {
               const slug = productosFilter.replace("evento-", "");
@@ -5211,7 +5288,7 @@ export default function AdminPage() {
             productosVisibles.length > 0 &&
             productosVisibles.every((p) => selectedProductIds.has(p.id));
 
-          const activeCatalogo = CATALOGO_FILTERS.find((f) => f.key === productosFilter && f.key !== "ver-todo");
+          const activeCatalogo = dynamicCatalogoFilters.find((f) => f.key === productosFilter && f.key !== "ver-todo");
           const activeEvento = productosFilter.startsWith("evento-") && productosFilter !== "evento-destacado"
             ? allAvailableEvents.find((e) => `evento-${e.slug}` === productosFilter)
             : null;
@@ -5319,8 +5396,8 @@ export default function AdminPage() {
                   </button>
 
                   {openFilterDropdown === "catalogo" && (
-                    <div className="absolute left-0 lg:right-0 lg:left-auto top-full mt-1.5 w-48 bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
-                      {CATALOGO_FILTERS.map((f) => {
+                    <div className="absolute left-0 lg:right-0 lg:left-auto top-full mt-1.5 w-52 bg-white rounded-xl border border-[#FDE8EF] shadow-lg py-1.5 z-30">
+                      {dynamicCatalogoFilters.map((f) => {
                         const selected = productosFilter === f.key;
                         return (
                           <button
@@ -5336,11 +5413,24 @@ export default function AdminPage() {
                                 : "text-gray-700 hover:bg-gray-50"
                             }`}
                           >
-                            <span>{f.label}</span>
-                            {selected && <Check size={13} className="text-[#EE6B8D]" />}
+                            <span className="truncate">{f.label}</span>
+                            {selected && <Check size={13} className="text-[#EE6B8D] shrink-0" />}
                           </button>
                         );
                       })}
+                      <div className="border-t border-gray-100 mt-1 pt-1 px-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenFilterDropdown(null);
+                            setCatalogoManagerOpen(true);
+                          }}
+                          className="w-full flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-left font-quicksand text-xs font-bold text-[#C04267] hover:bg-[#FDF4F7] transition-colors cursor-pointer"
+                        >
+                          <Plus size={13} />
+                          <span>Gestionar catálogos</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -5612,7 +5702,7 @@ export default function AdminPage() {
                         {activeSlugs.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1">
                             {visibleSlugs.map((slug) => {
-                              const badgeInfo = getSlugBadgeInfo(slug, eventos);
+                              const badgeInfo = getSlugBadgeInfo(slug, eventos, allCatalogos);
                               return (
                                 <span
                                   key={slug}
@@ -5774,7 +5864,7 @@ export default function AdminPage() {
                               {activeSlugs.length > 0 ? (
                                 <div className="flex flex-wrap gap-1 max-w-[220px]">
                                   {visibleSlugs.map((slug) => {
-                                    const badgeInfo = getSlugBadgeInfo(slug, eventos);
+                                    const badgeInfo = getSlugBadgeInfo(slug, eventos, allCatalogos);
                                     return (
                                       <span
                                         key={slug}
@@ -5875,6 +5965,7 @@ export default function AdminPage() {
               product={editingProductItem}
               assignments={assignments}
               eventos={eventos}
+              catalogos={allCatalogos}
               inactiveIds={inactiveIds}
               onSaveSuccess={(savedProduct, activeSlugs, isActive) => {
                 setRawProducts((prev) => {
@@ -6035,7 +6126,7 @@ export default function AdminPage() {
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {selectedSlugsForProducto.map((slug) => {
-                            const badgeInfo = getSlugBadgeInfo(slug, eventos);
+                            const badgeInfo = getSlugBadgeInfo(slug, eventos, allCatalogos);
                             return (
                               <span
                                 key={slug}
@@ -6065,7 +6156,7 @@ export default function AdminPage() {
                         Catálogos de tienda
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {CATALOGOS_TIENDA.map((cat) => {
+                        {allCatalogos.map((cat) => {
                           const isChecked = selectedSlugsForProducto.includes(cat.slug);
                           return (
                             <button
@@ -6197,7 +6288,7 @@ export default function AdminPage() {
                       className="w-full px-3 py-2 border border-gray-200 rounded-xl font-quicksand text-xs text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
                     >
                       <optgroup label="Catálogos Principales">
-                        {CATALOGOS_TIENDA.map((c) => (
+                        {allCatalogos.map((c) => (
                           <option key={c.slug} value={c.slug}>
                             {c.label}
                           </option>
@@ -6241,6 +6332,84 @@ export default function AdminPage() {
                     >
                       Cancelar
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal para crear o eliminar catálogos de tienda */}
+            {catalogoManagerOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+                <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#FDE8EF]">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-pink-50 text-[#C04267] flex items-center justify-center">
+                        <Package size={18} />
+                      </div>
+                      <h3 className="font-fredoka text-lg font-bold text-gray-900">
+                        Gestionar Catálogos
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCatalogoManagerOpen(false)}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCreateCatalogo} className="flex gap-2 mb-5">
+                    <input
+                      type="text"
+                      value={newCatalogoNombre}
+                      onChange={(e) => setNewCatalogoNombre(e.target.value)}
+                      placeholder="Ej. Llaveros, Accesorios..."
+                      className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl font-quicksand text-xs text-gray-800 focus:outline-none focus:border-[#EE6B8D]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingCatalogo || !newCatalogoNombre.trim()}
+                      className="px-4 py-2 bg-[#EE6B8D] hover:bg-[#C04267] text-white font-quicksand text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {savingCatalogo ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                      <span>Crear</span>
+                    </button>
+                  </form>
+
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {allCatalogos
+                      .filter((c) => c.slug !== "personalizados")
+                      .map((c) => {
+                        const isCustom = customCatalogoSlugs.includes(c.slug);
+                        return (
+                          <div
+                            key={c.slug}
+                            className="flex items-center justify-between px-3 py-2 rounded-xl border border-gray-100 bg-gray-50/60"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-quicksand font-bold border ${c.colorBadge}`}>
+                                {c.label}
+                              </span>
+                              <span className="font-quicksand text-[11px] text-gray-400 truncate">
+                                /catalogo/{c.slug}
+                              </span>
+                            </div>
+                            {isCustom ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCatalogo(c.slug, c.label)}
+                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Eliminar catálogo"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            ) : (
+                              <span className="font-quicksand text-[10px] text-gray-400 px-2">Base</span>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               </div>

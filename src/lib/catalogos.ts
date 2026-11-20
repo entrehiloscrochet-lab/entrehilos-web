@@ -201,11 +201,12 @@ export function isProductInSlug(
  */
 export function getSlugBadgeInfo(
   slug: string,
-  allEventos: Array<{ slug?: string; nombre?: string; label?: string }> = []
+  allEventos: Array<{ slug?: string; nombre?: string; label?: string }> = [],
+  allCatalogos: CatalogoDef[] = CATALOGOS_TIENDA
 ): { label: string; colorClass: string; isEvent: boolean } {
   const normalized = slug.toLowerCase().trim();
 
-  const tiendaMatch = CATALOGOS_TIENDA.find((c) => c.slug === normalized);
+  const tiendaMatch = allCatalogos.find((c) => c.slug === normalized) || CATALOGOS_TIENDA.find((c) => c.slug === normalized);
   if (tiendaMatch) {
     return {
       label: tiendaMatch.label,
