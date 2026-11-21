@@ -194,7 +194,10 @@ export async function getInactiveProductIds(): Promise<string[]> {
     const supabase = createClient(url, anon, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
-    const { data } = await supabase.from('productos_inactivos').select('producto_id');
+    const { data } = await supabase
+      .from('productos_inactivos')
+      .select('producto_id')
+      .abortSignal(AbortSignal.timeout(4000));
     inactiveIdsCache = (data || []).map((r) => r.producto_id);
     inactiveIdsFetchedAt = Date.now();
     return inactiveIdsCache;
@@ -225,7 +228,10 @@ export async function getProductCatalogAssignments(): Promise<ProductoCatalogoAs
     const supabase = createClient(url, anon, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
-    const { data, error } = await supabase.from('producto_catalogos').select('*');
+    const { data, error } = await supabase
+      .from('producto_catalogos')
+      .select('*')
+      .abortSignal(AbortSignal.timeout(4000));
     if (error) {
       return [];
     }
@@ -273,7 +279,7 @@ export async function getAllVentifyProducts(): Promise<Product[]> {
       method: 'GET',
       headers: getHeaders(),
       cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(4000),
     });
 
     if (!response.ok) {

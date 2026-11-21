@@ -4,10 +4,14 @@ import HomeClient from "@/components/HomeClient";
 export const revalidate = 60;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ]);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms);
+  });
+  promise.catch(() => {});
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  });
 }
 
 async function getHomeSections() {
@@ -16,7 +20,8 @@ async function getHomeSections() {
     const { data } = await supabaseAdmin
       .from("home_sections")
       .select("*")
-      .order("orden", { ascending: true });
+      .order("orden", { ascending: true })
+      .abortSignal(AbortSignal.timeout(4000));
     return data || [];
   } catch {
     return [];
@@ -36,7 +41,8 @@ async function getHeroConfig() {
       .from("hero_config")
       .select("*")
       .in("clave", heroKeys)
-      .order("clave");
+      .order("clave")
+      .abortSignal(AbortSignal.timeout(4000));
     if (!data) return [];
     return heroKeys.map(k => data.find((h: HeroConfigRow) => h.clave === k)).filter(Boolean);
   } catch {
@@ -52,7 +58,8 @@ async function getEventosHero() {
       .select("*")
       .eq("activo", true)
       .order("featured", { ascending: false })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .abortSignal(AbortSignal.timeout(4000));
     return data || [];
   } catch {
     return [];

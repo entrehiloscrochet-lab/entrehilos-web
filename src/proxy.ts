@@ -10,8 +10,20 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse
   }
 
+  const controller = new AbortController()
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
   try {
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            signal: init?.signal
+              ? AbortSignal.any([init.signal, controller.signal])
+              : controller.signal,
+          }),
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -26,14 +38,22 @@ export async function proxy(request: NextRequest) {
       },
     })
 
+    const sessionPromise = supabase.auth.getSession()
+    sessionPromise.catch(() => {})
+
     await Promise.race([
-      supabase.auth.getSession(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Supabase session timeout')), 3000)
-      ),
+      sessionPromise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller.abort(new Error('Supabase session timeout'))
+          reject(new Error('Supabase session timeout'))
+        }, 3000)
+      }),
     ])
   } catch (err) {
     console.error('Error o timeout en proxy al verificar sesión:', err)
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 
   return supabaseResponse
