@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+    // Desactiva el optimizador en servidor (/_next/image) para no consumir
+    // transformaciones, cache writes, Fast Origin Transfer ni CPU en Vercel Hobby.
+    unoptimized: true,
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns: [
       {
         protocol: "https",
@@ -23,6 +27,20 @@ const nextConfig: NextConfig = {
         hostname: "rydogoubjnytzfctfnxz.supabase.co",
       },
     ],
+  },
+  async redirects() {
+    return [
+      {
+        source: "/product/:slug*",
+        destination: "/",
+        permanent: false,
+      },
+      {
+        source: "/admin/:seccion",
+        destination: "/admin?seccion=:seccion",
+        permanent: false,
+      },
+    ];
   },
   async rewrites() {
     return [

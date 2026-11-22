@@ -2,22 +2,28 @@ import fs from 'fs';
 import path from 'path';
 import { supabaseAdmin } from './supabase/server';
 import baseProductsJson from '@/data/productos_base.json';
-import { Product, getProductCatalogAssignments, invalidateProductCaches } from './ventify';
+import { Product, getProductCatalogAssignments, invalidateProductCaches, productCaches, LOCAL_PRODUCTS_CACHE_TTL } from './ventify';
 import { getProductActiveSlugs } from './catalogos';
 
 const CUSTOM_PRODUCTS_PATH = path.join(process.cwd(), 'src/data/productos_custom.json');
 
+// Cache del archivo JSON: evita leer y parsear el archivo en cada request.
+let customProductsFileCache: Product[] | null = null;
+
 function getCustomProductsFromFile(): Product[] {
+  if (customProductsFileCache) return customProductsFileCache;
   try {
     if (fs.existsSync(CUSTOM_PRODUCTS_PATH)) {
       const content = fs.readFileSync(CUSTOM_PRODUCTS_PATH, 'utf8');
       const parsed = JSON.parse(content);
-      return Array.isArray(parsed) ? parsed : [];
+      customProductsFileCache = Array.isArray(parsed) ? parsed : [];
+      return customProductsFileCache;
     }
   } catch (e) {
     console.error('Error leyendo productos_custom.json:', e);
   }
-  return [];
+  customProductsFileCache = [];
+  return customProductsFileCache;
 }
 
 function saveCustomProductsToFile(products: Product[]) {
@@ -27,6 +33,7 @@ function saveCustomProductsToFile(products: Product[]) {
       fs.mkdirSync(dir, { recursive: true });
     }
     fs.writeFileSync(CUSTOM_PRODUCTS_PATH, JSON.stringify(products, null, 2), 'utf8');
+    customProductsFileCache = products;
   } catch (e) {
     console.error('Error guardando productos_custom.json:', e);
   }
@@ -35,8 +42,32 @@ function saveCustomProductsToFile(products: Product[]) {
 /**
  * Obtiene todos los productos combinando la tabla public.productos de Supabase
  * con el catálogo base (49 productos preservados) y productos personalizados.
+ * El resultado se cachea 60s en memoria para no castigar CPU en cada request.
  */
 export async function getAllLocalProducts(): Promise<Product[]> {
+  const now = Date.now();
+  if (productCaches.localProducts && now - productCaches.localProductsFetchedAt < LOCAL_PRODUCTS_CACHE_TTL) {
+    return productCaches.localProducts;
+  }
+  if (productCaches.localProductsPromise) {
+    return productCaches.localProductsPromise;
+  }
+
+  productCaches.localProductsPromise = (async () => {
+    try {
+      const products = await loadLocalProducts();
+      productCaches.localProducts = products;
+      productCaches.localProductsFetchedAt = Date.now();
+      return products;
+    } finally {
+      productCaches.localProductsPromise = null;
+    }
+  })();
+
+  return productCaches.localProductsPromise;
+}
+
+async function loadLocalProducts(): Promise<Product[]> {
   const customProducts = getCustomProductsFromFile();
 
   // Intentar consultar Supabase public.productos
@@ -44,7 +75,8 @@ export async function getAllLocalProducts(): Promise<Product[]> {
     const { data: dbProducts, error } = await supabaseAdmin
       .from('productos')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .abortSignal(AbortSignal.timeout(4000));
 
     if (!error && Array.isArray(dbProducts)) {
       if (dbProducts.length === 0) {

@@ -259,7 +259,8 @@ function filterByEventSlug(products: AdminProduct[], slug: string, assignments: 
 
 async function fetchVentifyData(): Promise<{ all: AdminProduct[]; active: AdminProduct[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> {
   try {
-    const res = await fetch("/api/ventify/products", { cache: "no-store" });
+    // fresh=1 evita la caché del CDN para que el admin vea sus cambios al instante.
+    const res = await fetch("/api/ventify/products?fresh=1", { cache: "no-store" });
     if (!res.ok) return { all: [], active: [], inactiveIds: [], assignments: [] };
     return await res.json();
   } catch {
@@ -473,6 +474,7 @@ export default function AdminPage() {
   const [preciosSaving, setPreciosSaving] = useState<string | null>(null);
   const tempFileRef = useRef<HTMLInputElement | null>(null);
   const tempFileRefMobile = useRef<HTMLInputElement | null>(null);
+  const ventifyLoadedRef = useRef(false);
 
   useEffect(() => {
     if (!openFilterDropdown && !portadaDropdownOpen) return;
@@ -1197,6 +1199,7 @@ export default function AdminPage() {
   };
 
   const fetchData = useCallback(async () => {
+    if (!authorized) return;
     if ((mainTab === "dashboard" && subTab === "resumen") || mainTab === "produccion") { setLoading(false); return; }
     setLoading(true);
     try {
@@ -1210,7 +1213,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [mainTab, subTab]);
+  }, [authorized, mainTab, subTab]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1256,7 +1259,7 @@ export default function AdminPage() {
 
   const loadCatalogos = useCallback(async () => {
     try {
-      const res = await fetch("/api/catalogos", { cache: "no-store" });
+      const res = await fetch("/api/catalogos?fresh=1", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data?.catalogos)) setAllCatalogos(data.catalogos);
@@ -1321,6 +1324,7 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    if (!authorized) return;
     if ((subTab === "heroes" || subTab === "resenas") && rawProducts.length === 0) {
       fetchVentifyData()
         .then((d) => {
@@ -1339,24 +1343,29 @@ export default function AdminPage() {
         })
         .catch(() => {});
     }
-  }, [subTab, rawProducts.length]);
+  }, [authorized, subTab, rawProducts.length]);
 
   useEffect(() => {
+    if (!authorized) return;
     if (subTab === "productos" || subTab === "pedidos") {
-      if (rawProducts.length === 0 || inactiveIds.size === 0 || assignments.length === 0) {
+      if (!ventifyLoadedRef.current) {
+        ventifyLoadedRef.current = true;
         fetchVentifyData().then((d) => {
-          if (rawProducts.length === 0) setRawProducts(d.all);
-          if (inactiveIds.size === 0) setInactiveIds(new Set(d.inactiveIds));
+          setRawProducts(d.all);
+          setInactiveIds(new Set(d.inactiveIds));
           if (d.assignments) setAssignments(d.assignments);
-        }).catch(() => {});
+        }).catch(() => {
+          ventifyLoadedRef.current = false;
+        });
       }
       if (eventos.length === 0) {
         fetch("/api/eventos").then((r) => r.json()).then(setEventos).catch(() => {});
       }
     }
-  }, [subTab, rawProducts.length, inactiveIds.size, assignments.length, eventos.length]);
+  }, [authorized, subTab, eventos.length]);
 
   useEffect(() => {
+    if (!authorized) return;
     if (subTab === "precios") {
       if (amiguProducts.length === 0) {
         fetchVentifyData()
@@ -1364,7 +1373,7 @@ export default function AdminPage() {
           .catch(() => {});
       }
     }
-  }, [subTab, amiguProducts.length]);
+  }, [authorized, subTab, amiguProducts.length]);
 
   useEffect(() => {
     if (subTab !== "precios") return;
@@ -1396,6 +1405,7 @@ export default function AdminPage() {
   }, [subTab, data, amiguProducts.length]);
 
   useEffect(() => {
+    if (!authorized) return;
     if (subTab === "catalogos") {
       fetch("/api/admin?tab=inicio")
         .then((r) => r.json())
@@ -1437,7 +1447,7 @@ export default function AdminPage() {
         })
         .catch(() => {});
     }
-  }, [subTab, rawProducts.length]);
+  }, [authorized, subTab, rawProducts.length]);
 
   const handleSavePortadaConfig = async (
     customImgs?: CatalogImage[],

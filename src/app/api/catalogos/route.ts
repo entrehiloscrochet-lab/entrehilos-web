@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CATALOGOS_TIENDA, CatalogoDef } from "@/lib/catalogos";
 
-export const dynamic = "force-dynamic";
+// El listado de catálogos cambia muy poco: cachear 5 min en el CDN y 1 min en navegador
+// evita invocar la función en cada visita (navbar y páginas de catálogo lo consultan siempre).
+const CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800",
+};
 
 const SECTION_KEY = "catalogos_tienda";
 
@@ -31,6 +36,7 @@ async function getCustomCatalogos(): Promise<CatalogoDef[]> {
       .from("home_sections")
       .select("items")
       .eq("section_key", SECTION_KEY)
+      .abortSignal(AbortSignal.timeout(4000))
       .maybeSingle();
 
     if (error || !data || !Array.isArray(data.items)) return [];
@@ -79,7 +85,8 @@ function mergeCatalogos(custom: CatalogoDef[]): CatalogoDef[] {
   return merged;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   const custom = await getCustomCatalogos();
   const catalogos = mergeCatalogos(custom);
   return NextResponse.json(
@@ -87,7 +94,7 @@ export async function GET() {
       catalogos,
       customSlugs: custom.map((c) => c.slug),
     },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: fresh ? { "Cache-Control": "no-store" } : CACHE_HEADERS }
   );
 }
 
@@ -122,6 +129,11 @@ export async function POST(req: NextRequest) {
 
     const updatedCustom = [...custom, newCatalogo];
     await saveCustomCatalogos(updatedCustom);
+    try {
+      revalidatePath("/");
+    } catch {
+      // fuera de request no aplica
+    }
 
     return NextResponse.json({
       ok: true,
@@ -154,6 +166,11 @@ export async function DELETE(req: NextRequest) {
     const custom = await getCustomCatalogos();
     const updatedCustom = custom.filter((c) => c.slug !== slug);
     await saveCustomCatalogos(updatedCustom);
+    try {
+      revalidatePath("/");
+    } catch {
+      // fuera de request no aplica
+    }
 
     return NextResponse.json({
       ok: true,

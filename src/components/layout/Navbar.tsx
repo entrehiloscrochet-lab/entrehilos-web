@@ -10,8 +10,8 @@ import QuickViewDrawer from "@/components/QuickViewDrawer";
 import CartDrawer from "@/components/CartDrawer";
 import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/context/AuthContext";
-import { getVentifyProducts } from "@/lib/ventify";
-import { Product } from "@/lib/ventify";
+import { getVentifyProducts, Product } from "@/lib/ventify";
+import { fetchCatalogosClient, fetchEventosClient } from "@/lib/storefront-cache";
 
 const DEFAULT_CATEGORIAS = [
   { href: "/catalogo/ramos", label: "Ramos" },
@@ -103,39 +103,43 @@ const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
   };
 
   useEffect(() => {
+    if (!isSearchOpen || products.length > 0) return;
+    let active = true;
     const loadProducts = async () => {
       const allProducts = await getVentifyProducts();
-      setProducts(allProducts);
+      if (active) setProducts(allProducts);
     };
     loadProducts();
-  }, []);
+    return () => { active = false; };
+  }, [isSearchOpen, products.length]);
 
   useEffect(() => {
-    fetch("/api/catalogos")
-      .then((r) => r.json())
+    let active = true;
+    fetchCatalogosClient()
       .then((data) => {
-        if (Array.isArray(data?.catalogos)) {
-          const items = data.catalogos
-            .filter((c: { slug?: string }) => c.slug && c.slug !== "personalizados")
-            .map((c: { slug: string; label: string }) => ({
-              href: `/catalogo/${c.slug}`,
-              label: c.label,
-            }));
-          if (items.length > 0) setCategorias(items);
-        }
+        if (!active || !Array.isArray(data?.catalogos)) return;
+        const items = data.catalogos
+          .filter((c) => c.slug && c.slug !== "personalizados")
+          .map((c) => ({
+            href: `/catalogo/${c.slug}`,
+            label: c.label,
+          }));
+        if (items.length > 0) setCategorias(items);
       })
       .catch(() => {});
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    fetch("/api/eventos")
-      .then((r) => r.json())
+    let active = true;
+    fetchEventosClient<EventoNavbar>()
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (active && Array.isArray(data) && data.length > 0) {
           setEventos(data);
         }
       })
       .catch(() => {});
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

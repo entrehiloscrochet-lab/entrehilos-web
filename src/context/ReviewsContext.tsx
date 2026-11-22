@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 export interface Resena {
   id: number;
@@ -41,8 +42,10 @@ const RATED_KEY = "entrehilos-rated-products";
 const ReviewsContext = createContext<ReviewsContextType | undefined>(undefined);
 
 export function ReviewsProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [ratings, setRatings] = useState<Record<string, ProductRating>>({});
   const [ratedByMe, setRatedByMe] = useState<Record<string, number>>({});
+  const hasLoadedRef = useRef(false);
 
   const loadRatedByMe = useCallback(() => {
     try {
@@ -55,7 +58,9 @@ export function ReviewsProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/resenas?t=" + Date.now());
+      // Sin cache-buster: permite que el CDN sirva la respuesta y no invoque
+      // una función en cada visita. Las reseñas nuevas requieren aprobación.
+      const res = await fetch("/api/resenas");
       const json = await res.json();
       if (!Array.isArray(json)) return;
 
@@ -82,8 +87,22 @@ export function ReviewsProvider({ children }: { children: ReactNode }) {
     // Lectura inicial desde localStorage (sistema externo) al montar el provider.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRatedByMe();
+  }, [loadRatedByMe]);
+
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    if (
+      pathname?.startsWith("/admin") ||
+      pathname === "/login" ||
+      pathname === "/checkout" ||
+      pathname === "/perfil"
+    ) {
+      return;
+    }
+    hasLoadedRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
-  }, [loadRatedByMe, refresh]);
+  }, [pathname, refresh]);
 
   const submitRating = useCallback(async (data: SubmitRatingData) => {
     const res = await fetch("/api/resenas", {

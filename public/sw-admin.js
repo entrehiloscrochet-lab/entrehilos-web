@@ -21,6 +21,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
   // Pass-through de peticiones de red
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))

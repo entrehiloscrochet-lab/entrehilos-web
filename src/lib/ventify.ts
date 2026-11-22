@@ -111,7 +111,8 @@ function adaptVentifyProduct(ventifyProduct: VentifyProduct): Product {
 
 let clientFetchPromise: Promise<{ all: Product[]; active: Product[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> | null = null;
 let clientFetchTime = 0;
-const CLIENT_CACHE_TTL = 30_000;
+// 5 min: evita repetir la petición pesada en cada navegación dentro del mismo cliente.
+const CLIENT_CACHE_TTL = 300_000;
 
 async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[]; inactiveIds: string[]; assignments: ProductoCatalogoAssignment[] }> {
   const now = Date.now();
@@ -124,6 +125,8 @@ async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[];
       const res = await fetch('/api/ventify/products');
       if (!res.ok) {
         console.error('Error HTTP al obtener productos:', res.status);
+        clientFetchPromise = null;
+        clientFetchTime = 0;
         return { all: [], active: [], inactiveIds: [], assignments: [] };
       }
       const data = await res.json();
@@ -147,19 +150,49 @@ async function fetchFromApiProxy(): Promise<{ all: Product[]; active: Product[];
       };
     } catch (err) {
       console.error('Error al conectar con /api/ventify/products:', err);
+      clientFetchPromise = null;
+      clientFetchTime = 0;
       return { all: [], active: [], inactiveIds: [], assignments: [] };
     }
   })();
   return clientFetchPromise;
 }
 
+let serverAnonSupabase: ReturnType<typeof createClient> | null = null;
+function getServerAnonSupabase() {
+  if (serverAnonSupabase) return serverAnonSupabase;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  if (!url || !anon) return null;
+  serverAnonSupabase = createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  return serverAnonSupabase;
+}
+
 let inactiveIdsCache: string[] | null = null;
 let inactiveIdsFetchedAt = 0;
-const INACTIVE_CACHE_TTL = 10_000;
+let inactiveIdsPromise: Promise<string[]> | null = null;
+// 5 min: reduce consultas a Supabase en cada render/request (el admin invalida al editar).
+const INACTIVE_CACHE_TTL = 300_000;
 
 let assignmentsCache: ProductoCatalogoAssignment[] | null = null;
 let assignmentsFetchedAt = 0;
-const ASSIGNMENTS_CACHE_TTL = 10_000;
+let assignmentsPromise: Promise<ProductoCatalogoAssignment[]> | null = null;
+const ASSIGNMENTS_CACHE_TTL = 300_000;
+
+// Caché en memoria del catálogo local completo (Supabase + archivos locales).
+// Evita repetir la consulta `select('*')` y el parseo de JSON en cada request.
+export const productCaches: {
+  localProducts: Product[] | null;
+  localProductsFetchedAt: number;
+  localProductsPromise: Promise<Product[]> | null;
+} = {
+  localProducts: null,
+  localProductsFetchedAt: 0,
+  localProductsPromise: null,
+};
+export const LOCAL_PRODUCTS_CACHE_TTL = 300_000;
 
 /**
  * Invalida las cachés en memoria de productos y asignaciones tanto en servidor como cliente
@@ -167,8 +200,13 @@ const ASSIGNMENTS_CACHE_TTL = 10_000;
 export function invalidateProductCaches() {
   assignmentsCache = null;
   assignmentsFetchedAt = 0;
+  assignmentsPromise = null;
   inactiveIdsCache = null;
   inactiveIdsFetchedAt = 0;
+  inactiveIdsPromise = null;
+  productCaches.localProducts = null;
+  productCaches.localProductsFetchedAt = 0;
+  productCaches.localProductsPromise = null;
   clientFetchPromise = null;
   clientFetchTime = 0;
 }
@@ -187,24 +225,30 @@ export async function getInactiveProductIds(): Promise<string[]> {
   if (inactiveIdsCache && now - inactiveIdsFetchedAt < INACTIVE_CACHE_TTL) {
     return inactiveIdsCache;
   }
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    if (!url || !anon) return [];
-    const supabase = createClient(url, anon, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    });
-    const { data } = await supabase
-      .from('productos_inactivos')
-      .select('producto_id')
-      .abortSignal(AbortSignal.timeout(4000));
-    inactiveIdsCache = (data || []).map((r) => r.producto_id);
-    inactiveIdsFetchedAt = Date.now();
-    return inactiveIdsCache;
-  } catch (e) {
-    console.error('Error cargando productos inactivos:', e);
-    return [];
+  if (inactiveIdsPromise) {
+    return inactiveIdsPromise;
   }
+
+  inactiveIdsPromise = (async () => {
+    try {
+      const supabase = getServerAnonSupabase();
+      if (!supabase) return [];
+      const { data } = await supabase
+        .from('productos_inactivos')
+        .select('producto_id')
+        .abortSignal(AbortSignal.timeout(4000));
+      inactiveIdsCache = (data || []).map((r: { producto_id: string }) => r.producto_id);
+      inactiveIdsFetchedAt = Date.now();
+      return inactiveIdsCache;
+    } catch (e) {
+      console.error('Error cargando productos inactivos:', e);
+      return [];
+    } finally {
+      inactiveIdsPromise = null;
+    }
+  })();
+
+  return inactiveIdsPromise;
 }
 
 /**
@@ -220,28 +264,33 @@ export async function getProductCatalogAssignments(): Promise<ProductoCatalogoAs
   if (assignmentsCache && now - assignmentsFetchedAt < ASSIGNMENTS_CACHE_TTL) {
     return assignmentsCache;
   }
-
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    if (!url || !anon) return [];
-    const supabase = createClient(url, anon, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    });
-    const { data, error } = await supabase
-      .from('producto_catalogos')
-      .select('*')
-      .abortSignal(AbortSignal.timeout(4000));
-    if (error) {
-      return [];
-    }
-    assignmentsCache = data || [];
-    assignmentsFetchedAt = Date.now();
-    return assignmentsCache;
-  } catch (e) {
-    console.error('Error cargando asignaciones de producto_catalogos:', e);
-    return [];
+  if (assignmentsPromise) {
+    return assignmentsPromise;
   }
+
+  assignmentsPromise = (async () => {
+    try {
+      const supabase = getServerAnonSupabase();
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('producto_catalogos')
+        .select('*')
+        .abortSignal(AbortSignal.timeout(4000));
+      if (error) {
+        return [];
+      }
+      assignmentsCache = (data || []) as ProductoCatalogoAssignment[];
+      assignmentsFetchedAt = Date.now();
+      return assignmentsCache;
+    } catch (e) {
+      console.error('Error cargando asignaciones de producto_catalogos:', e);
+      return [];
+    } finally {
+      assignmentsPromise = null;
+    }
+  })();
+
+  return assignmentsPromise;
 }
 
 /**

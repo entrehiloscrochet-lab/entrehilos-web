@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Eye, ArrowRight, MessageCircle } from "lucide-react";
 import { CATALOGOS_TIENDA, CatalogoDef, getSlugBadgeInfo, isProductInSlug } from "@/lib/catalogos";
 import { Product } from "@/lib/ventify";
+import { fetchCatalogosClient } from "@/lib/storefront-cache";
 
 interface RotondaEvento {
   slug?: string;
@@ -80,12 +81,15 @@ export default function EventoProductosRotondaSection({
   const [catalogosList, setCatalogosList] = useState<CatalogoDef[]>(CATALOGOS_TIENDA);
 
   useEffect(() => {
-    fetch("/api/catalogos")
-      .then((r) => (r.ok ? r.json() : null))
+    let active = true;
+    fetchCatalogosClient()
       .then((data) => {
-        if (Array.isArray(data?.catalogos)) setCatalogosList(data.catalogos);
+        if (active && Array.isArray(data?.catalogos)) {
+          setCatalogosList(data.catalogos as CatalogoDef[]);
+        }
       })
       .catch(() => {});
+    return () => { active = false; };
   }, []);
 
   const configuredSlug = section?.items?.evento_slug;

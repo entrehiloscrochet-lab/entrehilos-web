@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invalidateProductCaches } from "@/lib/ventify";
 import { normalizarFechaEntrega } from "@/lib/fecha-entrega";
+
+// Refresca las páginas cacheadas (ISR 5 min) cuando el admin cambia contenido,
+// para que los cambios se vean al instante sin regenerar en cada visita.
+function revalidateStorefront() {
+  try {
+    revalidatePath("/");
+    revalidatePath("/personalizados");
+  } catch {
+    // fuera de request/next start no aplica
+  }
+}
 
 interface EventoDbRow {
   slug: string;
@@ -542,6 +554,7 @@ export async function PATCH(request: NextRequest) {
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -592,6 +605,7 @@ export async function PATCH(request: NextRequest) {
         .from("home_sections")
         .upsert({ ...updates, updated_at: new Date().toISOString() }, { onConflict: "section_key" });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      revalidateStorefront();
       return NextResponse.json({ success: true });
     }
     const { error } = await supabaseAdmin
@@ -599,6 +613,7 @@ export async function PATCH(request: NextRequest) {
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -611,6 +626,7 @@ export async function PATCH(request: NextRequest) {
         .from("eventos")
         .upsert({ ...updates, updated_at: new Date().toISOString() }, { onConflict: "slug" });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      revalidateStorefront();
       return NextResponse.json({ success: true });
     }
     const { error } = await supabaseAdmin
@@ -618,6 +634,7 @@ export async function PATCH(request: NextRequest) {
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -628,6 +645,7 @@ export async function PATCH(request: NextRequest) {
       .update({ destacado_rotonda: true, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -640,6 +658,7 @@ export async function PATCH(request: NextRequest) {
 
     if (typeof id === "number" && id < 0 && updates.slug) {
       await supabaseAdmin.from("eventos").upsert({ slug: updates.slug, nombre: updates.nombre || updates.slug, featured: true }, { onConflict: "slug" });
+      revalidateStorefront();
       return NextResponse.json({ success: true });
     }
 
@@ -648,6 +667,7 @@ export async function PATCH(request: NextRequest) {
       .update({ featured: true, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (err2) return NextResponse.json({ error: err2.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -657,6 +677,7 @@ export async function PATCH(request: NextRequest) {
       .delete()
       .eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -695,6 +716,7 @@ export async function PATCH(request: NextRequest) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
     invalidateProductCaches();
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -763,6 +785,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     invalidateProductCaches();
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -809,6 +832,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     invalidateProductCaches();
+    revalidateStorefront();
     return NextResponse.json({ success: true });
   }
 
@@ -817,6 +841,7 @@ export async function PATCH(request: NextRequest) {
     if (!producto || !producto.id) return NextResponse.json({ error: "producto e id requeridos" }, { status: 400 });
     const { saveProduct } = await import("@/lib/productos-db");
     const saved = await saveProduct(producto);
+    revalidateStorefront();
     return NextResponse.json({ success: true, producto: saved });
   }
 
@@ -825,6 +850,7 @@ export async function PATCH(request: NextRequest) {
     if (!productoId) return NextResponse.json({ error: "producto_id requerido" }, { status: 400 });
     const { deleteProductsByIds } = await import("@/lib/productos-db");
     const result = await deleteProductsByIds([String(productoId)]);
+    revalidateStorefront();
     return NextResponse.json({ success: true, ...result });
   }
 
@@ -835,6 +861,7 @@ export async function PATCH(request: NextRequest) {
     }
     const { deleteProductsByIds } = await import("@/lib/productos-db");
     const result = await deleteProductsByIds(productoIds.map(String));
+    revalidateStorefront();
     return NextResponse.json({ success: true, ...result });
   }
 
@@ -875,6 +902,7 @@ export async function POST(request: NextRequest) {
     }
     const { saveProduct } = await import("@/lib/productos-db");
     const saved = await saveProduct(prodData);
+    revalidateStorefront();
     return NextResponse.json({ success: true, producto: saved });
   }
 
@@ -1009,6 +1037,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json(data);
   }
 
@@ -1053,6 +1082,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidateStorefront();
     return NextResponse.json(data);
   }
 

@@ -1,9 +1,10 @@
 'use client';
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { FileDown } from "lucide-react";
+import { fetchEventosClient } from "@/lib/storefront-cache";
 
 interface EventoCatalog {
   nombre?: string;
@@ -19,7 +20,7 @@ export default function WhatsAppButton() {
   const pathname = usePathname();
   const [showWspTooltip, setShowWspTooltip] = useState(false);
   const [showCatalogTooltip, setShowCatalogTooltip] = useState(false);
-  const [currentEvento, setCurrentEvento] = useState<EventoCatalog | null>(null);
+  const [eventos, setEventos] = useState<EventoCatalog[]>([]);
 
   const whatsappNumber = "51902578295";
   const generalWspMessage = "¡Hola Entre Hilos! Quiero más información sobre sus productos artesanales.";
@@ -27,47 +28,44 @@ export default function WhatsAppButton() {
 
   useEffect(() => {
     let isMounted = true;
-    async function loadEventoData() {
-      try {
-        const res = await fetch("/api/eventos");
-        if (!res.ok) return;
-        const eventos: EventoCatalog[] = await res.json();
-        if (!isMounted || !Array.isArray(eventos) || eventos.length === 0) return;
-
-        const activos = eventos.filter((e) => e.activo !== false && e.catalogo_boton_visible !== false);
-
-        // En página de evento específico: usar ese evento si tiene catálogo
-        if (pathname?.startsWith("/evento/")) {
-          const slug = pathname.replace("/evento/", "").split("/")[0]?.trim();
-          const match = activos.find((e) => e.slug === slug);
-          if (match) {
-            setCurrentEvento(match);
-            return;
-          }
+    fetchEventosClient<EventoCatalog>()
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          setEventos(data);
         }
-
-        // En portada: buscar el mejor evento CON catálogo real cargado
-        // Prioridad: destacado_rotonda con catálogo → featured con catálogo → cualquiera con catálogo
-        const conCatalogo = activos.filter((e) => Boolean(e.catalogo_url));
-
-        const rotondaConCatalogo = conCatalogo.find((e) => e.destacado_rotonda === true);
-        if (rotondaConCatalogo) { setCurrentEvento(rotondaConCatalogo); return; }
-
-        const featuredConCatalogo = conCatalogo.find((e) => e.featured === true);
-        if (featuredConCatalogo) { setCurrentEvento(featuredConCatalogo); return; }
-
-        if (conCatalogo.length > 0) { setCurrentEvento(conCatalogo[0]); return; }
-
-        // Sin catálogo: no mostrar botón (currentEvento = null)
-        setCurrentEvento(null);
-      } catch (err) {
+      })
+      .catch((err) => {
         console.error("Error al cargar evento para catálogo:", err);
-      }
+      });
+    return () => { isMounted = false; };
+  }, []);
+
+  const currentEvento = useMemo(() => {
+    if (!Array.isArray(eventos) || eventos.length === 0) return null;
+
+    const activos = eventos.filter((e) => e.activo !== false && e.catalogo_boton_visible !== false);
+
+    // En página de evento específico: usar ese evento si tiene catálogo
+    if (pathname?.startsWith("/evento/")) {
+      const slug = pathname.replace("/evento/", "").split("/")[0]?.trim();
+      const match = activos.find((e) => e.slug === slug);
+      if (match) return match;
     }
 
-    loadEventoData();
-    return () => { isMounted = false; };
-  }, [pathname]);
+    // En portada: buscar el mejor evento CON catálogo real cargado
+    // Prioridad: destacado_rotonda con catálogo → featured con catálogo → cualquiera con catálogo
+    const conCatalogo = activos.filter((e) => Boolean(e.catalogo_url));
+
+    const rotondaConCatalogo = conCatalogo.find((e) => e.destacado_rotonda === true);
+    if (rotondaConCatalogo) return rotondaConCatalogo;
+
+    const featuredConCatalogo = conCatalogo.find((e) => e.featured === true);
+    if (featuredConCatalogo) return featuredConCatalogo;
+
+    if (conCatalogo.length > 0) return conCatalogo[0];
+
+    return null;
+  }, [eventos, pathname]);
 
   // El botón solo se muestra si hay un evento con catálogo real y el toggle está activo
   const showCatalogButton =

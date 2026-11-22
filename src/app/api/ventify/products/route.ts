@@ -1,10 +1,20 @@
-import { NextResponse } from "next/server";
-import { getAllVentifyProducts, getInactiveProductIds, getProductCatalogAssignments } from "@/lib/ventify";
+import { NextRequest, NextResponse } from "next/server";
+import { getAllVentifyProducts, getInactiveProductIds, getProductCatalogAssignments, invalidateProductCaches } from "@/lib/ventify";
 
-export const dynamic = "force-dynamic";
+// Respuesta cacheada en el CDN de Vercel durante 5 min (y navegador 1 min).
+// Sin esto, cada visita a la tienda invocaba la función y consultaba Supabase.
+const CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800",
+};
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // El panel admin usa ?fresh=1 para leer datos recién guardados sin esperar el CDN ni la caché en memoria.
+  const fresh = request.nextUrl.searchParams.get("fresh") === "1";
+
   try {
+    if (fresh) {
+      invalidateProductCaches();
+    }
     const [all, inactiveIds, assignments] = await Promise.all([
       getAllVentifyProducts(),
       getInactiveProductIds(),
@@ -15,16 +25,14 @@ export async function GET() {
     return NextResponse.json(
       { all, active, inactiveIds, assignments },
       {
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
+        headers: fresh ? { "Cache-Control": "no-store" } : CACHE_HEADERS,
       }
     );
   } catch (e) {
     console.error("Error en proxy de productos Ventify:", e);
     return NextResponse.json(
       { error: "Error obteniendo productos", all: [], active: [], inactiveIds: [], assignments: [] },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

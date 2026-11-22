@@ -7,7 +7,8 @@ export async function GET() {
       .from("resenas")
       .select("*")
       .eq("aprobado", true)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .abortSignal(AbortSignal.timeout(4000));
 
     if (error) {
       if (error.message?.includes("does not exist")) {
@@ -16,10 +17,14 @@ export async function GET() {
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800" },
+    });
   } catch (e) {
     console.error("Error obteniendo reseñas:", e);
-    return NextResponse.json([]);
+    return NextResponse.json([], {
+      headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800" },
+    });
   }
 }
 

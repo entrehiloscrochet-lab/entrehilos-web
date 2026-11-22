@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
+// Los eventos cambian muy poco: cachear 5 min en el CDN evita invocar la función
+// en cada visita (el navbar y el botón de WhatsApp la consultan en todas las páginas).
+const CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800",
+};
 
 interface EventoRow {
   slug: string;
@@ -25,7 +29,8 @@ export async function GET() {
       .from("eventos")
       .select("*")
       .order("featured", { ascending: false })
-      .order("nombre", { ascending: true });
+      .order("nombre", { ascending: true })
+      .abortSignal(AbortSignal.timeout(4000));
 
     const dbEvents = (data || []).filter((e: EventoRow) => e.activo !== false);
 
@@ -35,8 +40,8 @@ export async function GET() {
 
     const allEventos = [...dbEvents, ...missingDefaults];
 
-    return NextResponse.json(allEventos);
+    return NextResponse.json(allEventos, { headers: CACHE_HEADERS });
   } catch {
-    return NextResponse.json(DEFAULT_EVENTOS);
+    return NextResponse.json(DEFAULT_EVENTOS, { headers: CACHE_HEADERS });
   }
 }

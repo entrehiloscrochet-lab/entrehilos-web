@@ -667,8 +667,14 @@ export default function HomeClient({ products, sections, heroData, eventosData }
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    import("@/lib/extras-cache").then(({ loadExtras }) => loadExtras(() => {}));
-  }, []);
+    import("@/lib/extras-cache").then(({ seedExtrasFromProducts, loadExtras }) => {
+      if (products.length > 0) {
+        seedExtrasFromProducts(products);
+      } else {
+        loadExtras(() => {});
+      }
+    });
+  }, [products]);
 
   const rotondaEvento = getRotondaEvento(eventosData);
 
