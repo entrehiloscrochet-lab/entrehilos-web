@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllVentifyProducts, getInactiveProductIds, getProductCatalogAssignments, invalidateProductCaches } from "@/lib/ventify";
 
-// Respuesta cacheada en el CDN de Vercel durante 5 min (y navegador 1 min).
+// Respuesta cacheada en el CDN de Vercel durante 30 min (y navegador 5 min).
 // Sin esto, cada visita a la tienda invocaba la función y consultaba Supabase.
 const CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800",
+  "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=86400",
 };
 
 export async function GET(request: NextRequest) {

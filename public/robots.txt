@@ -8,3 +8,4 @@ Disallow: /login
 Disallow: /auth/
 Disallow: /test-api
 Disallow: /product/
+Disallow: /downloads/

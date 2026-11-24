@@ -1,120 +1,97 @@
-import * as webpush from "web-push";
 import { supabaseAdmin } from "@/lib/supabase/server";
+
+export const ADMIN_ALERT_CHANNEL_ID = "entrehilos_admin_alerts";
 
 export interface AdminPushPayload {
   title: string;
   body: string;
   url?: string;
+  seccion?: string;
+  sub?: string;
+  tipo?: string;
   tag?: string;
   data?: Record<string, unknown>;
 }
 
-let vapidConfigured = false;
-
-function ensureVapidConfigured(): boolean {
-  if (vapidConfigured) return true;
-
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
-  const subject = process.env.VAPID_SUBJECT?.trim() || "mailto:admin@entrehilos.pe";
-
-  if (!publicKey || !privateKey) {
-    console.warn(
-      "[push-notifications] Faltan NEXT_PUBLIC_VAPID_PUBLIC_KEY o VAPID_PRIVATE_KEY; no se pueden enviar Web Push."
-    );
-    return false;
-  }
-
-  webpush.setVapidDetails(subject, publicKey, privateKey);
-  vapidConfigured = true;
-  return true;
-}
-
-interface StoredPushSub {
-  id: number;
-  endpoint: string;
-  p256dh: string;
-  auth: string;
-}
-
-/**
- * Envía una notificación Web Push a todos los dispositivos admin suscritos.
- * Funciona incluso cuando la APK/PWA está cerrada o en segundo plano.
- */
-export async function sendAdminPushNotification(payload: AdminPushPayload): Promise<{
+export interface AdminPushSendResult {
   sent: number;
   failed: number;
   total: number;
-}> {
-  if (!ensureVapidConfigured()) {
-    return { sent: 0, failed: 0, total: 0 };
+  alertId: number | null;
+  configured: boolean;
+}
+
+function resolveSeccionSub(payload: AdminPushPayload): {
+  url: string;
+  seccion: string;
+  sub: string;
+} {
+  const url =
+    payload.url && payload.url.startsWith("/") ? payload.url : "/admin?seccion=pedidos&sub=pedidos";
+  let seccion = payload.seccion?.trim() || "";
+  let sub = payload.sub?.trim() || "";
+
+  if (!seccion || !sub) {
+    try {
+      const parsed = new URL(url, "https://entrehilos.local");
+      if (!seccion) seccion = parsed.searchParams.get("seccion") || "pedidos";
+      if (!sub) sub = parsed.searchParams.get("sub") || "pedidos";
+    } catch {
+      if (!seccion) seccion = "pedidos";
+      if (!sub) sub = "pedidos";
+    }
   }
 
-  const { data: subs, error } = await supabaseAdmin
-    .from("admin_push_subscriptions")
-    .select("id, endpoint, p256dh, auth");
+  return { url, seccion, sub };
+}
 
-  if (error) {
-    console.error("[push-notifications] Error leyendo suscripciones:", error.message);
-    return { sent: 0, failed: 0, total: 0 };
-  }
+/**
+ * Registra una alerta nativa en `public.admin_alerts` dentro de Supabase.
+ * El servicio nativo de la APK Android (`AdminAlertsForegroundService`)
+ * consulta directamente Supabase y muestra la notificación con sonido y vibración.
+ */
+export async function sendAdminPushNotification(
+  payload: AdminPushPayload
+): Promise<AdminPushSendResult> {
+  const { url, seccion, sub } = resolveSeccionSub(payload);
+  const tipo = payload.tipo?.trim() || String(payload.data?.tipo || "general");
 
-  const list = (subs ?? []) as StoredPushSub[];
-  if (list.length === 0) {
-    return { sent: 0, failed: 0, total: 0 };
-  }
-
-  const bodyJson = JSON.stringify({
-    title: payload.title,
-    body: payload.body,
-    url: payload.url || "/admin",
-    tag: payload.tag || `eh-${Date.now()}`,
-    data: payload.data || {},
-  });
-
-  const expiredEndpoints: string[] = [];
-  let sent = 0;
-  let failed = 0;
-
-  await Promise.allSettled(
-    list.map(async (sub) => {
-      try {
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: {
-              p256dh: sub.p256dh,
-              auth: sub.auth,
-            },
-          },
-          bodyJson,
-          {
-            TTL: 60 * 60 * 24, // 24 horas
-            urgency: "high",
-          }
-        );
-        sent++;
-      } catch (err: unknown) {
-        failed++;
-        const statusCode =
-          typeof err === "object" && err !== null && "statusCode" in err
-            ? Number((err as { statusCode?: number }).statusCode)
-            : 0;
-        if (statusCode === 404 || statusCode === 410) {
-          expiredEndpoints.push(sub.endpoint);
-        } else {
-          console.warn("[push-notifications] Fallo enviando a endpoint:", statusCode, err);
-        }
-      }
+  const { data: inserted, error: insertError } = await supabaseAdmin
+    .from("admin_alerts")
+    .insert({
+      tipo,
+      titulo: payload.title,
+      cuerpo: payload.body,
+      url,
+      seccion,
+      sub,
+      tag: payload.tag || null,
+      payload: payload.data || {},
     })
-  );
+    .select("id")
+    .single();
 
-  if (expiredEndpoints.length > 0) {
-    await supabaseAdmin
-      .from("admin_push_subscriptions")
-      .delete()
-      .in("endpoint", expiredEndpoints);
+  if (insertError) {
+    console.error("[push-notifications] Error guardando alerta en admin_alerts:", insertError.message);
+    return { sent: 0, failed: 1, total: 0, alertId: null, configured: true };
   }
 
-  return { sent, failed, total: list.length };
+  const { count, error: countError } = await supabaseAdmin
+    .from("admin_alert_devices")
+    .select("id", { count: "exact", head: true })
+    .eq("active", true);
+
+  if (countError) {
+    console.warn("[push-notifications] Error contando admin_alert_devices:", countError.message);
+  }
+
+  const activeCount = count ?? 0;
+
+  return {
+    sent: activeCount,
+    failed: 0,
+    total: activeCount,
+    alertId: typeof inserted?.id === "number" ? inserted.id : null,
+    configured: true,
+  };
 }

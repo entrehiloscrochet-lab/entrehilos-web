@@ -1,9 +1,9 @@
 import { getVentifyProducts } from "@/lib/ventify";
 import PersonalizadosContent from "@/components/personalizados/PersonalizadosClient";
 
-// Se cachea 30 min (y se invalida on-demand desde el panel admin) para evitar
+// Se cachea 60 min (y se invalida on-demand desde el panel admin) para evitar
 // regenerar en cada visita y consumir CPU gratuito de Vercel.
-export const revalidate = 1800;
+export const revalidate = 3600;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;

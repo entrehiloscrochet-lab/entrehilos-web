@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import GestionarPedidoModal, { PedidoGestion } from "./GestionarPedidoModal";
 import { parsearFotosEntrega, quitarMarcadorFotos } from "@/lib/fotos-pedido";
+import { useToast } from "@/components/Toast";
 
 // Sonido sintetizado de campana armónica de dos tonos con Web Audio API (cero dependencias externas)
 function reproducirCampanaSonido() {
@@ -67,47 +68,6 @@ function reproducirCampanaSonido() {
     osc2.stop(now + 0.6);
   } catch {
     // Si el navegador bloquea audio antes de interacción
-  }
-}
-
-// Disparador universal de notificaciones para Android Chrome, WebView, PWA y Desktop
-async function mostrarNotificacionSistema(titulo: string, opciones?: NotificationOptions) {
-  reproducirCampanaSonido();
-
-  // 1. Service Worker showNotification (OBLIGATORIO en Android Chrome donde new Notification() arroja error)
-  if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-    try {
-      let reg = await navigator.serviceWorker.getRegistration("/sw-admin.js");
-      if (!reg) {
-        reg = await navigator.serviceWorker.ready;
-      }
-      if (reg && reg.showNotification) {
-        await reg.showNotification(titulo, {
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
-          ...opciones,
-        });
-        return;
-      }
-    } catch (swErr) {
-      console.warn("ServiceWorker showNotification no disponible, reintentando fallback:", swErr);
-    }
-  }
-
-  // 2. Fallback estándar para navegadores Desktop
-  if (
-    typeof window !== "undefined" &&
-    "Notification" in window &&
-    Notification.permission === "granted"
-  ) {
-    try {
-      new Notification(titulo, {
-        icon: "/favicon.ico",
-        ...opciones,
-      });
-    } catch (notifErr) {
-      console.warn("new Notification constructor falló:", notifErr);
-    }
   }
 }
 
@@ -398,13 +358,15 @@ export default function PedidosView({
   onOpenAgendarModal,
   onActualizarPedido,
 }: PedidosViewProps) {
+  const { showToast } = useToast();
   const [search, setSearch] = useState("");
   const [filterCanal, setFilterCanal] = useState<string>("todos");
   const [filterEstado, setFilterEstado] = useState<string>("todos");
   const [filterPago, setFilterPago] = useState<string>("todos");
   const [filterFecha, setFilterFecha] = useState<string>("todas");
   const [fechaExacta, setFechaExacta] = useState<string>("");
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [activeDeviceCount, setActiveDeviceCount] = useState<number>(0);
+  const [testingPush, setTestingPush] = useState(false);
   const [selectedPedidoGestion, setSelectedPedidoGestion] = useState<PedidoGestion | null>(null);
   const [isGestionModalOpen, setIsGestionModalOpen] = useState(false);
 
@@ -473,13 +435,21 @@ export default function PedidosView({
     }
   };
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotifPermission(Notification.permission);
-    } else {
-      setNotifPermission("unsupported");
+  const refreshPushState = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/device-token");
+      if (res.ok) {
+        const json = await res.json();
+        setActiveDeviceCount(Number(json.activeDevices) || 0);
+      }
+    } catch {
+      // ignorar si no se pudo consultar
     }
   }, []);
+
+  useEffect(() => {
+    void refreshPushState();
+  }, [refreshPushState]);
 
   const handleOpenGestionModal = useCallback((pedido: Pedido) => {
     const parsed = parseRowData(pedido);
@@ -523,9 +493,8 @@ export default function PedidosView({
     };
   }, [pedidos]);
 
-  // Alerta sonora o notificación en el navegador al detectar pedidos para hoy
+  // Alerta sonora en sesión al detectar entregas urgentes para hoy
   useEffect(() => {
-    if (notifPermission !== "granted") return;
     if (metricasEntrega.hoyCount === 0 && metricasEntrega.atrasadosCount === 0) return;
     if (typeof window === "undefined") return;
 
@@ -533,70 +502,40 @@ export default function PedidosView({
     const sessionKey = `entrehilos_alerta_mostrada_${todayStr}`;
     if (!sessionStorage.getItem(sessionKey)) {
       sessionStorage.setItem(sessionKey, "true");
-      const bodyMsg =
-        metricasEntrega.atrasadosCount > 0
-          ? `¡Atención! Tienes ${metricasEntrega.atrasadosCount} pedido(s) atrasados y ${metricasEntrega.hoyCount} para entregar hoy.`
-          : `Tienes ${metricasEntrega.hoyCount} entrega(s) programadas para hoy.`;
-      
-      mostrarNotificacionSistema("Entre Hilos - Agenda de Entregas", {
-        body: bodyMsg,
-        tag: `entrehilos-alerta-${todayStr}`,
-      });
+      reproducirCampanaSonido();
     }
-  }, [notifPermission, metricasEntrega.hoyCount, metricasEntrega.atrasadosCount]);
+  }, [metricasEntrega.hoyCount, metricasEntrega.atrasadosCount]);
 
-  const handleActivarNotificaciones = async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      alert("Tu dispositivo o navegador actual no soporta notificaciones locales.");
-      return;
-    }
-    try {
-      const perm = await Notification.requestPermission();
-      setNotifPermission(perm);
-      if (perm === "granted") {
-        const { subscribeAdminToPush } = await import("@/lib/push-client");
-        await subscribeAdminToPush();
-
-        const bodyMsg =
-          metricasEntrega.hoyCount > 0 || metricasEntrega.atrasadosCount > 0
-            ? `Tienes ${metricasEntrega.hoyCount} entrega(s) para hoy y ${metricasEntrega.atrasadosCount} vencidas.`
-            : "Notificaciones activadas. Recibirás avisos de pedidos y usuarios nuevos incluso con la app cerrada.";
-
-        await mostrarNotificacionSistema("Entre Hilos", {
-          body: bodyMsg,
-          tag: "entrehilos-bienvenida",
-        });
-      } else if (perm === "denied") {
-        alert(
-          "Las notificaciones están bloqueadas en tu navegador. Puedes activarlas haciendo clic en el icono del candado al lado de la barra de direcciones."
-        );
-      }
-    } catch (e) {
-      console.error("Error solicitando permiso:", e);
-    }
-  };
-
-  const handleProbarNotificacion = async () => {
-    const { subscribeAdminToPush } = await import("@/lib/push-client");
-    await subscribeAdminToPush();
-
+  const handleProbarPush = async () => {
+    setTestingPush(true);
     try {
       const res = await fetch("/api/admin/push-test", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.sent > 0) {
-          reproducirCampanaSonido();
-          return;
-        }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo enviar la alerta de prueba");
       }
-    } catch {
-      // Fallback a notificación local si falla el endpoint push
-    }
+      await refreshPushState();
 
-    await mostrarNotificacionSistema("Entre Hilos - Alerta de Prueba", {
-      body: "Las notificaciones estan funcionando correctamente en tu dispositivo.",
-      tag: "entrehilos-test-" + Date.now(),
-    });
+      if (Number(data.sent) > 0) {
+        reproducirCampanaSonido();
+        showToast(
+          `Alerta de prueba enviada a Supabase (${data.sent} dispositivo(s) Android activo(s)).`,
+          "success"
+        );
+      } else {
+        showToast(
+          "Alerta guardada, pero no hay ningún celular Android admin conectado todavía.",
+          "warning"
+        );
+      }
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Error enviando alerta de prueba",
+        "error"
+      );
+    } finally {
+      setTestingPush(false);
+    }
   };
 
 
@@ -759,35 +698,23 @@ export default function PedidosView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-          {notifPermission !== "granted" && notifPermission !== "unsupported" && (
-            <button
-              type="button"
-              onClick={handleActivarNotificaciones}
-              className="px-3.5 py-2 bg-white border border-pink-200 hover:bg-pink-50 text-[#C04267] rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-              title="Recibe alertas de entregas urgentes en tu celular o PC"
-            >
-              <Bell size={15} className="text-[#EE6B8D]" />
-              <span>Activar Avisos</span>
-            </button>
-          )}
-
-          {notifPermission === "granted" && (
-            <div className="flex items-center gap-1.5">
-              <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl font-quicksand font-bold text-xs flex items-center gap-1.5 shadow-2xs">
-                <CheckCircle2 size={14} className="text-emerald-600" />
-                <span>Avisos de celular activos</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleProbarNotificacion}
-                className="px-2.5 py-1.5 bg-pink-50 border border-pink-200 hover:bg-pink-100 text-[#C04267] rounded-xl font-quicksand font-bold text-xs flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                title="Probar sonido y notificación en este dispositivo ahora mismo"
-              >
-                <Bell size={13} />
-                <span>Probar</span>
-              </button>
+          {activeDeviceCount > 0 && (
+            <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl font-quicksand font-bold text-xs flex items-center gap-1.5 shadow-2xs">
+              <CheckCircle2 size={14} className="text-emerald-600" />
+              <span>{activeDeviceCount} Android conectado{activeDeviceCount > 1 ? "s" : ""}</span>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={handleProbarPush}
+            disabled={testingPush}
+            className="px-3 py-1.5 bg-pink-50 border border-pink-200 hover:bg-pink-100 disabled:opacity-60 text-[#C04267] rounded-xl font-quicksand font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+            title="Enviar notificación de prueba a los celulares Android registrados"
+          >
+            {testingPush ? <Loader2 size={13} className="animate-spin" /> : <Bell size={13} />}
+            <span>Probar Alerta</span>
+          </button>
 
           <button
             type="button"

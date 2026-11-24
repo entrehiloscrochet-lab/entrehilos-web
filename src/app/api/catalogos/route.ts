@@ -3,10 +3,10 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CATALOGOS_TIENDA, CatalogoDef } from "@/lib/catalogos";
 
-// El listado de catálogos cambia muy poco: cachear 5 min en el CDN y 1 min en navegador
+// El listado de catálogos cambia muy poco: cachear 30 min en el CDN y 5 min en navegador
 // evita invocar la función en cada visita (navbar y páginas de catálogo lo consultan siempre).
 const CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800",
+  "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=86400",
 };
 
 const SECTION_KEY = "catalogos_tienda";

@@ -76,7 +76,11 @@ export default function ImagePasteUploader({
 
               const { data: uploadData, error } = await supabase.storage
                 .from("heroes")
-                .upload(fileName, blob, { upsert: true, contentType: "image/webp" });
+                .upload(fileName, blob, {
+                  upsert: true,
+                  contentType: "image/webp",
+                  cacheControl: "31536000",
+                });
 
               if (!error && uploadData) {
                 const { data: pub } = supabase.storage.from("heroes").getPublicUrl(fileName);

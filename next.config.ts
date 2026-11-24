@@ -50,6 +50,31 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async headers() {
+    return [
+      {
+        source: "/downloads/:path*.apk",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/vnd.android.package-archive",
+          },
+          {
+            key: "Content-Disposition",
+            value: 'attachment; filename="entrehilos-admin.apk"',
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=300, must-revalidate",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

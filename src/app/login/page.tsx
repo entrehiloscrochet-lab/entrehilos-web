@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Heart, Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+
+function getSafeNextPath(): string | null {
+  if (typeof window === "undefined") return null;
+  const raw = new URLSearchParams(window.location.search).get("next") || "";
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  return trimmed;
+}
 
 export default function LoginPage() {
   const { signIn, signInWithGoogle } = useAuth();
@@ -18,21 +26,36 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const err = new URLSearchParams(window.location.search).get("error");
+      if (err === "unauthorized") {
+        setError("Esta cuenta no tiene permisos de administrador.");
+      }
+    }
+  }, []);
+
   async function redirectByRole() {
     const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
     const supabase = getSupabaseBrowserClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return router.push("/");
+    if (!user) {
+      router.push("/");
+      return;
+    }
     const { data: profile } = await supabase
       .from("profiles")
       .select("rol")
       .eq("id", user.id)
       .maybeSingle();
+
+    const safeNext = getSafeNextPath();
     if (profile?.rol === "admin" || profile?.rol === "super_admin") {
-      router.push("/admin");
-    } else {
-      router.push("/");
+      router.replace(safeNext && safeNext.startsWith("/admin") ? safeNext : "/admin");
+      return;
     }
+
+    router.push(safeNext && !safeNext.startsWith("/admin") ? safeNext : "/");
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -125,7 +148,7 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
-          <form onSubmit={view === "login" ? handleLogin : handleRegister} className="space-y-4">
+          <form onSubmit={view === "register" ? handleRegister : handleLogin} className="space-y-4">
             {view === "register" && (
               <div>
                 <label className="font-quicksand text-sm font-semibold text-[#4A4A4A] mb-1.5 block">Nombre</label>

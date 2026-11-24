@@ -1,0 +1,38 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cuadrado redondeado gradiente oficial Instagram -->
+    <path android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="21"
+                android:endY="3"
+                android:startX="3"
+                android:startY="21"
+                android:type="linear">
+                <item android:color="#FFFD5949" android:offset="0.0" />
+                <item android:color="#FFD6249F" android:offset="0.5" />
+                <item android:color="#FF285AEB" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Marco cámara -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M8.5,5.5h7c1.66,0 3,1.34 3,3v7c0,1.66 -1.34,3 -3,3h-7c-1.66,0 -3,-1.34 -3,-3v-7c0,-1.66 1.34,-3 3,-3z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.7" />
+    <!-- Lente central -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,9c1.66,0 3,1.34 3,3s-1.34,3 -3,3s-3,-1.34 -3,-3s1.34,-3 3,-3z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.7" />
+    <!-- Punto flash -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15.8,8.2m-0.9,0a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0" />
+</vector>

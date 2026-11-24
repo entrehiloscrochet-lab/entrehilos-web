@@ -3,6 +3,8 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invalidateProductCaches } from "@/lib/ventify";
 import { normalizarFechaEntrega } from "@/lib/fecha-entrega";
+import { sendAdminPushNotification } from "@/lib/push-notifications";
+import { formatDeliveryResumenLima } from "@/lib/delivery-schedule";
 
 // Refresca las páginas cacheadas (ISR 5 min) cuando el admin cambia contenido,
 // para que los cambios se vean al instante sin regenerar en cada visita.
@@ -244,12 +246,28 @@ export async function GET(request: NextRequest) {
   const table = TABLES[tab];
   if (!table) return NextResponse.json({ error: "Invalid tab" }, { status: 400 });
 
+  const BOUNDED_ADMIN_TABS = new Set([
+    "pedidos",
+    "personalizados",
+    "mensajes",
+    "reclamaciones",
+    "resenas",
+    "usuarios",
+    "suscriptores",
+  ]);
+
   const orderCol = ORDER_COLUMN[tab] || "created_at";
 
-  const { data, error } = await supabaseAdmin
+  let tableQuery = supabaseAdmin
     .from(table)
     .select("*")
     .order(orderCol, { ascending: false });
+
+  if (BOUNDED_ADMIN_TABS.has(tab)) {
+    tableQuery = tableQuery.limit(300);
+  }
+
+  const { data, error } = await tableQuery;
 
   if (error) {
     if (error.message?.includes("does not exist")) {
@@ -1005,6 +1023,42 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
+    const finalizeScheduledOrder = async (savedOrder: Record<string, unknown> | null) => {
+      await upsertManualClientInHomeSections({
+        nombre: cliente_nombre,
+        telefono: cliente_telefono,
+        email: resolvedEmail,
+        direccion: direccion_envio !== "Coordinar por WhatsApp" ? direccion_envio : null,
+      });
+
+      try {
+        const orderId = savedOrder?.id ? `#${savedOrder.id} ` : "";
+        const canal = String(origen || "whatsapp").trim();
+        const totalNum = Number(total) || 0;
+        const fechaTxt = cleanFecha
+          ? ` · Entrega: ${formatDeliveryResumenLima(cleanFecha, cleanHora)}`
+          : "";
+        await sendAdminPushNotification({
+          title: `Pedido agendado ${orderId}(${canal})`.trim(),
+          body: `${String(cliente_nombre).trim()} — S/ ${totalNum.toFixed(2)}${fechaTxt}`,
+          url: "/admin?seccion=pedidos&sub=pedidos",
+          seccion: "pedidos",
+          sub: "pedidos",
+          tipo: "pedido_agendado",
+          tag: `eh-agendado-${savedOrder?.id || Date.now()}`,
+          data: {
+            tipo: "pedido_agendado",
+            pedidoId: savedOrder?.id ?? null,
+            origen: canal,
+          },
+        });
+      } catch (pushErr) {
+        console.warn("[admin] Error enviando push en agendar-pedido:", pushErr);
+      }
+
+      return NextResponse.json({ success: true, data: savedOrder });
+    };
+
     if (error) {
       console.warn("Reintentando pedido agendado con fallback a campos estándar:", error.message);
       const fallbackNotas = [
@@ -1034,22 +1088,10 @@ export async function POST(request: NextRequest) {
       if (fbError) {
         return NextResponse.json({ error: fbError.message }, { status: 500 });
       }
-      await upsertManualClientInHomeSections({
-        nombre: cliente_nombre,
-        telefono: cliente_telefono,
-        email: resolvedEmail,
-        direccion: direccion_envio !== "Coordinar por WhatsApp" ? direccion_envio : null,
-      });
-      return NextResponse.json({ success: true, data: fbData });
+      return finalizeScheduledOrder(fbData as Record<string, unknown> | null);
     }
 
-    await upsertManualClientInHomeSections({
-      nombre: cliente_nombre,
-      telefono: cliente_telefono,
-      email: resolvedEmail,
-      direccion: direccion_envio !== "Coordinar por WhatsApp" ? direccion_envio : null,
-    });
-    return NextResponse.json({ success: true, data });
+    return finalizeScheduledOrder(data as Record<string, unknown> | null);
   }
 
   if (resena) {

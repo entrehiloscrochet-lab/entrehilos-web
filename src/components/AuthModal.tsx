@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { X, Mail, Lock, Eye, EyeOff, User, Heart, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -13,6 +14,7 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, initialView = "login", onClose, onSuccess }: AuthModalProps) {
   const { signIn, signUp, signInWithGoogle } = useAuth();
+  const router = useRouter();
 
   const [view, setView] = useState<"login" | "register">(initialView);
   const [showPassword, setShowPassword] = useState(false);
@@ -72,15 +74,42 @@ export default function AuthModal({ isOpen, initialView = "login", onClose, onSu
     e.preventDefault();
     setError("");
     setSubmitting(true);
-    const result = await signIn(email, password);
-    setSubmitting(false);
-    if (result.error) {
-      setError(result.error);
-      return;
+    try {
+      const result = await signIn(email, password);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      let isAdminUser = false;
+      try {
+        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseBrowserClient();
+        const { data: { user: loggedUser } } = await supabase.auth.getUser();
+        if (loggedUser) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("rol")
+            .eq("id", loggedUser.id)
+            .maybeSingle();
+          isAdminUser = profile?.rol === "admin" || profile?.rol === "super_admin";
+        }
+      } catch {
+        isAdminUser = false;
+      }
+
+      reset();
+      if (isAdminUser) {
+        onClose();
+        router.push("/admin");
+        return;
+      }
+
+      onSuccess?.();
+      onClose();
+    } finally {
+      setSubmitting(false);
     }
-    reset();
-    onSuccess?.();
-    onClose();
   }
 
   async function handleRegister(e: React.FormEvent) {

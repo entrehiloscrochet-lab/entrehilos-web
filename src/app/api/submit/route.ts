@@ -16,11 +16,26 @@ export async function POST(request: NextRequest) {
     mensaje: "mensajes_contacto",
     reclamacion: "libro_reclamaciones",
     personalizado: "pedidos_personalizados",
+    suscriptor: "suscriptores",
   };
 
   const table = TABLE_MAP[type];
   if (!table) {
     return NextResponse.json({ error: `Invalid type: ${type}` }, { status: 400 });
+  }
+
+  if (type === "suscriptor" && data && typeof data === "object") {
+    const emailNorm = String(data.email || "").trim().toLowerCase();
+    if (!emailNorm || !emailNorm.includes("@")) {
+      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+    }
+    data.email = emailNorm;
+    if (data.nombre !== undefined) {
+      data.nombre = data.nombre ? String(data.nombre).trim() : null;
+    }
+    if (!data.fuente) {
+      data.fuente = "newsletter";
+    }
   }
 
   if (type === "pedido" && data && typeof data === "object") {
@@ -42,6 +57,29 @@ export async function POST(request: NextRequest) {
   }
 
   let { error } = await supabaseAdmin.from(table).insert([data]);
+
+  // En suscriptores, si el correo ya existe (23505), devolvemos duplicate: true sin disparar push
+  if (error && type === "suscriptor" && error.code === "23505") {
+    return NextResponse.json({ success: true, duplicate: true });
+  }
+
+  // Si la columna fuente no existiera en suscriptores (migración antigua), reintentamos sin ella
+  if (
+    error &&
+    type === "suscriptor" &&
+    data &&
+    typeof data === "object" &&
+    /fuente/i.test(error.message)
+  ) {
+    const { fuente, ...resto } = data as Record<string, unknown>;
+    if (fuente !== undefined) {
+      const retry = await supabaseAdmin.from(table).insert([resto]);
+      error = retry.error;
+      if (error && error.code === "23505") {
+        return NextResponse.json({ success: true, duplicate: true });
+      }
+    }
+  }
 
   // Si la columna hora_entrega aún no existe en pedidos_personalizados,
   // reintentamos sin ella para no perder la solicitud completa.
@@ -85,31 +123,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Enviar notificación Web Push en segundo plano a los administradores
+  // Enviar notificación push nativa (FCM HTTP v1) a los administradores
   try {
     const payloadData = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
     if (type === "pedido") {
       const cliente = String(payloadData.cliente_nombre || "Cliente").trim();
       const totalNum = Number(payloadData.total);
       const totalText = Number.isFinite(totalNum) ? ` — S/ ${totalNum.toFixed(2)}` : "";
-      const fechaText = payloadData.fecha_entrega ? ` (Entrega: ${payloadData.fecha_entrega})` : "";
+      const fechaRaw = payloadData.fecha_entrega ? String(payloadData.fecha_entrega).split("T")[0] : "";
+      const fechaText = fechaRaw ? ` (Entrega: ${fechaRaw})` : "";
       await sendAdminPushNotification({
         title: "Nuevo pedido recibido",
         body: `${cliente}${totalText}${fechaText}`,
-        url: "/admin",
+        url: "/admin?seccion=pedidos&sub=pedidos",
+        seccion: "pedidos",
+        sub: "pedidos",
+        tipo: "nuevo_pedido",
         tag: `eh-pedido-${Date.now()}`,
-        data: { tipo: "pedido" },
+        data: { tipo: "nuevo_pedido" },
       });
     } else if (type === "personalizado") {
-      const cliente = String(payloadData.nombre || payloadData.cliente_nombre || "Cliente").trim();
-      const desc = String(payloadData.descripcion || payloadData.idea || "").trim();
+      const cliente = String(
+        payloadData.nombre_cliente || payloadData.nombre || payloadData.cliente_nombre || "Cliente"
+      ).trim();
+      const desc = String(
+        payloadData.producto_nombre || payloadData.detalles || payloadData.descripcion || payloadData.idea || ""
+      ).trim();
       const resumen = desc ? `: ${desc.slice(0, 70)}${desc.length > 70 ? "..." : ""}` : "";
       await sendAdminPushNotification({
         title: "Nuevo pedido personalizado",
         body: `${cliente}${resumen}`,
-        url: "/admin",
+        url: "/admin?seccion=pedidos&sub=personalizados",
+        seccion: "pedidos",
+        sub: "personalizados",
+        tipo: "nuevo_personalizado",
         tag: `eh-personalizado-${Date.now()}`,
-        data: { tipo: "personalizado" },
+        data: { tipo: "nuevo_personalizado" },
+      });
+    } else if (type === "suscriptor") {
+      const email = String(payloadData.email || "").trim();
+      const nombre = String(payloadData.nombre || "").trim();
+      const bodyText = nombre ? `${nombre} (${email}) se suscribió al boletín.` : `${email} se suscribió al boletín.`;
+      await sendAdminPushNotification({
+        title: "Nueva suscripción",
+        body: bodyText,
+        url: "/admin?seccion=clientes&sub=suscriptores",
+        seccion: "clientes",
+        sub: "suscriptores",
+        tipo: "nueva_suscripcion",
+        tag: `eh-suscriptor-${Date.now()}`,
+        data: { tipo: "nueva_suscripcion", email },
       });
     } else if (type === "mensaje") {
       const nombre = String(payloadData.nombre || "Visitante").trim();
@@ -117,18 +180,24 @@ export async function POST(request: NextRequest) {
       await sendAdminPushNotification({
         title: "Nuevo mensaje de contacto",
         body: `${nombre}: ${asunto}`,
-        url: "/admin",
+        url: "/admin?seccion=clientes&sub=mensajes",
+        seccion: "clientes",
+        sub: "mensajes",
+        tipo: "nuevo_mensaje",
         tag: `eh-mensaje-${Date.now()}`,
-        data: { tipo: "mensaje" },
+        data: { tipo: "nuevo_mensaje" },
       });
     } else if (type === "reclamacion") {
       const nombre = String(payloadData.nombre_completo || payloadData.nombre || "Cliente").trim();
       await sendAdminPushNotification({
         title: "Nueva hoja de reclamación",
         body: `Registrada por ${nombre}`,
-        url: "/admin",
+        url: "/admin?seccion=clientes&sub=reclamaciones",
+        seccion: "clientes",
+        sub: "reclamaciones",
+        tipo: "nueva_reclamacion",
         tag: `eh-reclamacion-${Date.now()}`,
-        data: { tipo: "reclamacion" },
+        data: { tipo: "nueva_reclamacion" },
       });
     }
   } catch (pushErr) {

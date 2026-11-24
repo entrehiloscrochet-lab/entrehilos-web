@@ -186,30 +186,25 @@ export default function QuoteForm({ productos, onSuccess }: Props) {
 
   async function subirImagenes(): Promise<string[]> {
     const urlsFinales: string[] = [];
-    const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-    const supabase = getSupabaseBrowserClient();
+    const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
 
     for (const img of imagenes) {
       if (!img.file) {
         urlsFinales.push(img.url);
         continue;
       }
-      const ext = img.file.name.split(".").pop() || "jpg";
-      const nombre = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const ruta = `${user?.id || "anon"}/${nombre}`;
-
-      const { error } = await supabase.storage.from("cotizaciones").upload(ruta, img.file, {
-        cacheControl: "3600",
+      const pathPrefix = `${user?.id || "anon"}/${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const publicUrl = await uploadOptimizedImageToStorage(img.file, {
+        bucket: "cotizaciones",
+        pathPrefix,
+        maxSize: 1200,
+        quality: 0.8,
         upsert: false,
       });
 
-      if (error) {
-        console.error("Error subiendo imagen:", error);
-        continue;
+      if (publicUrl) {
+        urlsFinales.push(publicUrl);
       }
-
-      const { data: publicUrl } = supabase.storage.from("cotizaciones").getPublicUrl(ruta);
-      urlsFinales.push(publicUrl.publicUrl);
     }
     return urlsFinales;
   }

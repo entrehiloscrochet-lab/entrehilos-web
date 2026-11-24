@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase, secrets & android signing/builds
+.secrets/
+google-services.json
+android/app/google-services.json
+firebase-service-account*.json
+*firebase-adminsdk*.json
+*.keystore
+*.jks
+android/keystore.properties
+android/local.properties
+dist-apk/
+*.apk
+!/public/downloads/entrehilos-admin.apk
