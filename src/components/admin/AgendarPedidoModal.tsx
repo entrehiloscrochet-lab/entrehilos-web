@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { Product } from "@/lib/ventify";
 import OrderPhotoUploader from "./OrderPhotoUploader";
+import { ChannelSelect, PaymentMethodSelect } from "./BrandControls";
 
 interface AgendarPedidoModalProps {
   isOpen: boolean;
@@ -38,16 +39,6 @@ interface ItemPedido {
   imagen?: string;
   esPersonalizado?: boolean;
 }
-
-const CANALES_ORIGEN = [
-  { id: "whatsapp", label: "WhatsApp", badge: "border-green-300 text-green-700 bg-green-50" },
-  { id: "facebook", label: "Facebook", badge: "border-blue-300 text-blue-700 bg-blue-50" },
-  { id: "instagram", label: "Instagram", badge: "border-purple-300 text-purple-700 bg-purple-50" },
-  { id: "tiktok", label: "TikTok", badge: "border-slate-300 text-slate-800 bg-slate-100" },
-  { id: "telefono", label: "Llamada", badge: "border-amber-300 text-amber-700 bg-amber-50" },
-  { id: "presencial", label: "Presencial", badge: "border-rose-300 text-rose-700 bg-rose-50" },
-  { id: "otro", label: "Otro", badge: "border-gray-300 text-gray-700 bg-gray-100" },
-];
 
 function formatDateISO(d: Date): string {
   const year = d.getFullYear();
@@ -342,7 +333,7 @@ export default function AgendarPedidoModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl border border-gray-100 max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl border border-gray-100 max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header rápido */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-100 bg-gradient-to-r from-pink-50/70 via-white to-pink-50/40 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -384,25 +375,12 @@ export default function AgendarPedidoModal({
                 <label className="block font-quicksand text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
                   Canal de Origen
                 </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {CANALES_ORIGEN.map((c) => {
-                    const isSelected = origen === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setOrigen(c.id)}
-                        className={`px-2.5 py-1 rounded-lg border text-xs font-quicksand font-bold transition-all ${
-                          isSelected
-                            ? "bg-[#EE6B8D] text-white border-[#EE6B8D] shadow-xs"
-                            : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <ChannelSelect
+                  value={origen}
+                  onChange={setOrigen}
+                  placement="bottom"
+                  allowTienda
+                />
               </div>
 
               {/* 2. Datos del Cliente */}
@@ -941,33 +919,22 @@ export default function AgendarPedidoModal({
                 </div>
 
                 {/* Método de pago y Estado */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div>
-                    <label className="block text-[10px] font-quicksand font-semibold text-gray-500 mb-0.5">
-                      Método de Pago
-                    </label>
-                    <select
-                      value={metodoPago}
-                      onChange={(e) => setMetodoPago(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
-                    >
-                      <option value="yape">Yape</option>
-                      <option value="plin">Plin</option>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="tarjeta">Tarjeta</option>
-                      <option value="contra_entrega">Contra Entrega</option>
-                    </select>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 items-end">
+                  <PaymentMethodSelect
+                    label="Método de Pago"
+                    value={metodoPago}
+                    onChange={setMetodoPago}
+                    placement="top"
+                  />
 
                   <div>
-                    <label className="block text-[10px] font-quicksand font-semibold text-gray-500 mb-0.5">
+                    <label className="block text-[11px] font-quicksand font-bold text-gray-600 mb-1">
                       Estado Inicial
                     </label>
                     <select
                       value={estado}
                       onChange={(e) => setEstado(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+                      className="w-full px-3 py-2.5 text-xs border border-gray-200 rounded-xl font-quicksand font-semibold text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D] cursor-pointer"
                     >
                       <option value="pendiente">Agendado (Pendiente)</option>
                       <option value="confirmado">Confirmado</option>
