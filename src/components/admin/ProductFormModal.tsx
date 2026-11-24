@@ -150,19 +150,19 @@ export default function ProductFormModal({
     setErrorMsg(null);
 
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
       const uploadedUrls: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const ext = file.name.split(".").pop();
-        const filename = `productos/prod_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
-        const { error } = await supabase.storage.from("heroes").upload(filename, file, { upsert: true });
-        if (!error) {
-          const { data: pub } = supabase.storage.from("heroes").getPublicUrl(filename);
-          if (pub?.publicUrl) uploadedUrls.push(pub.publicUrl);
-        }
+        const pathPrefix = `productos/prod_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
+        const publicUrl = await uploadOptimizedImageToStorage(file, {
+          bucket: "heroes",
+          pathPrefix,
+          maxSize: 1000,
+          quality: 0.8,
+        });
+        if (publicUrl) uploadedUrls.push(publicUrl);
       }
 
       if (uploadedUrls.length > 0) {

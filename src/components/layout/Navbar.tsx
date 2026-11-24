@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Search, Truck, Clock, Menu, X, ChevronDown, User, LogIn, UserPlus, UserCircle, LogOut } from "lucide-react";
+import { ShoppingBag, Search, Truck, Clock, Menu, X, ChevronDown, User, LogIn, UserPlus, UserCircle, LogOut, ShieldCheck } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useState, useEffect, useRef } from "react";
 import SearchModal from "@/components/SearchModal";
@@ -97,10 +97,38 @@ const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
   const [categorias, setCategorias] = useState(DEFAULT_CATEGORIAS);
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
   };
+
+  const isAdmin = Boolean(user && adminUserId === user.id);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseBrowserClient();
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("rol")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!cancelled) {
+          const isAdminRole = profile?.rol === "admin" || profile?.rol === "super_admin";
+          setAdminUserId(isAdminRole ? user.id : null);
+        }
+      } catch {
+        if (!cancelled) setAdminUserId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!isSearchOpen || products.length > 0) return;
@@ -286,6 +314,16 @@ const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
                   >
                     {user ? (
                       <>
+                        {isAdmin && (
+                          <Link
+                            href="/admin"
+                            onClick={() => setIsUserOpen(false)}
+                            className="flex items-center gap-3 w-full px-5 py-2.5 font-quicksand text-sm font-bold text-[#C04267] bg-[#FDF4F7] hover:bg-pink-100 transition-colors text-left"
+                          >
+                            <ShieldCheck size={16} />
+                            Panel Admin
+                          </Link>
+                        )}
                         <Link
                           href="/perfil"
                           onClick={() => setIsUserOpen(false)}
@@ -446,6 +484,16 @@ const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
 
             {user ? (
               <>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-6 py-3.5 font-lato text-base font-bold text-[#C04267] bg-[#FDF4F7] border-l-4 border-[#EE6B8D] hover:bg-pink-100 transition-all w-full text-left"
+                  >
+                    <ShieldCheck size={18} />
+                    Panel Admin
+                  </Link>
+                )}
                 <Link
                   href="/perfil"
                   onClick={() => setIsMobileMenuOpen(false)}

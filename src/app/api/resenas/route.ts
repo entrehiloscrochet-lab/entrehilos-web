@@ -18,12 +18,12 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json(data, {
-      headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800" },
+      headers: { "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=86400" },
     });
   } catch (e) {
     console.error("Error obteniendo reseñas:", e);
     return NextResponse.json([], {
-      headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800" },
+      headers: { "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=86400" },
     });
   }
 }

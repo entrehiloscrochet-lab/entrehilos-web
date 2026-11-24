@@ -1,8 +1,8 @@
 import { getVentifyProducts } from "@/lib/ventify";
 import HomeClient from "@/components/HomeClient";
 
-// La portada se regenera cada 30 min (y al instante mediante revalidatePath desde admin).
-export const revalidate = 1800;
+// La portada se regenera cada 60 min (y al instante mediante revalidatePath desde admin).
+export const revalidate = 3600;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-// Los eventos cambian muy poco: cachear 5 min en el CDN evita invocar la función
+// Los eventos cambian muy poco: cachear 30 min en el CDN evita invocar la función
 // en cada visita (el navbar y el botón de WhatsApp la consultan en todas las páginas).
 const CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=1800",
+  "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=86400",
 };
 
 interface EventoRow {

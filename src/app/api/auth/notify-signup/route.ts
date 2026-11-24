@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
   const pushResult = await sendAdminPushNotification({
     title: "Nuevo usuario registrado",
     body: email ? `${nombre} (${email}) se registró en Entre Hilos.` : `${nombre} se registró en Entre Hilos.`,
-    url: "/admin",
+    url: "/admin?seccion=clientes&sub=usuarios",
+    seccion: "clientes",
+    sub: "usuarios",
+    tipo: "nuevo_usuario",
     tag: `eh-new-user-${userId}`,
     data: {
       tipo: "nuevo_usuario",

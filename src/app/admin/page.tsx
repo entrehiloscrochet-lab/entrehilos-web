@@ -128,11 +128,6 @@ interface AdminRow {
   [key: string]: unknown;
 }
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
 type MainTab = "dashboard" | "catalogo" | "pedidos" | "produccion" | "clientes" | "diseno" | "eventos" | "atencion";
 
 type SubTab = "resumen" | "pedidos" | "personalizados" | "productos" | "precios" | "heroes" | "inicio" | "eventos" | "resenas" | "mensajes" | "reclamaciones" | "usuarios" | "top_clientes" | "suscriptores" | "catalogos" | "produccion_panel";
@@ -331,21 +326,8 @@ export default function AdminPage() {
     return "resumen";
   });
 
-  // Estados para Instalación de App PWA (solo visible para admin)
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  // Estado para modal de descarga del APK Android nativo
   const [installModalOpen, setInstallModalOpen] = useState(false);
-  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return (
-        window.matchMedia("(display-mode: standalone)").matches ||
-        window.matchMedia("(display-mode: fullscreen)").matches ||
-        window.matchMedia("(display-mode: minimal-ui)").matches ||
-        Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
-        document.referrer.includes("android-app://")
-      );
-    }
-    return false;
-  });
 
   // Función para cambiar de sección con sincronización en URL y localStorage
   const cambiarSeccion = useCallback((newMain: MainTab, newSub?: SubTab) => {
@@ -585,14 +567,14 @@ export default function AdminPage() {
   async function subirHeroFileTemp(file: File) {
     setTempUploading(true);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const nombre = `hero-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-      if (error) { console.error(error); return; }
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-      setEditUrl(pub.publicUrl);
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+      const url = await uploadOptimizedImageToStorage(file, {
+        bucket: "heroes",
+        pathPrefix: `hero-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        maxSize: 1600,
+        quality: 0.84,
+      });
+      if (url) setEditUrl(url);
     } catch (e) { console.error(e); }
     finally { setTempUploading(false); }
   }
@@ -600,14 +582,14 @@ export default function AdminPage() {
   async function subirSectionImg(file: File) {
     setTempUploading(true);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const nombre = `section-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-      if (error) { console.error(error); return; }
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-      setSectionImagenUrl(pub.publicUrl);
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+      const url = await uploadOptimizedImageToStorage(file, {
+        bucket: "heroes",
+        pathPrefix: `section-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        maxSize: 1400,
+        quality: 0.82,
+      });
+      if (url) setSectionImagenUrl(url);
     } catch (e) { console.error(e); }
     finally { setTempUploading(false); }
   }
@@ -615,14 +597,14 @@ export default function AdminPage() {
   async function subirHeroFileTempMobile(file: File) {
     setTempUploadingMobile(true);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const nombre = `hero-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-      if (error) { console.error(error); return; }
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-      setEditUrlMobile(pub.publicUrl);
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+      const url = await uploadOptimizedImageToStorage(file, {
+        bucket: "heroes",
+        pathPrefix: `hero-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        maxSize: 1080,
+        quality: 0.82,
+      });
+      if (url) setEditUrlMobile(url);
     } catch (e) { console.error(e); }
     finally { setTempUploadingMobile(false); }
   }
@@ -630,14 +612,14 @@ export default function AdminPage() {
   async function subirEventoImg(file: File) {
     setEventoImgUploading(true);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const nombre = `evento-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-      if (error) { console.error(error); return; }
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-      setEditEventoImagen(pub.publicUrl);
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+      const url = await uploadOptimizedImageToStorage(file, {
+        bucket: "heroes",
+        pathPrefix: `evento-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        maxSize: 1400,
+        quality: 0.84,
+      });
+      if (url) setEditEventoImagen(url);
     } catch (e) { console.error(e); }
     finally { setEventoImgUploading(false); }
   }
@@ -645,14 +627,14 @@ export default function AdminPage() {
   async function subirEventoImgMobile(file: File) {
     setEventoImgMobileUploading(true);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const nombre = `evento-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-      if (error) { console.error(error); return; }
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-      setEditEventoImagenMobile(pub.publicUrl);
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+      const url = await uploadOptimizedImageToStorage(file, {
+        bucket: "heroes",
+        pathPrefix: `evento-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        maxSize: 1080,
+        quality: 0.82,
+      });
+      if (url) setEditEventoImagenMobile(url);
     } catch (e) { console.error(e); }
     finally { setEventoImgMobileUploading(false); }
   }
@@ -660,18 +642,19 @@ export default function AdminPage() {
   async function subirFotoCampana(file: File, index: number) {
     setUploadingCampanaIdx(index);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const nombre = `campana-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-      if (error) { console.error(error); return; }
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+      const url = await uploadOptimizedImageToStorage(file, {
+        bucket: "heroes",
+        pathPrefix: `campana-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+        maxSize: 1200,
+        quality: 0.82,
+      });
+      if (!url) return;
       setEditEventoFotosCampana((prev) => {
         const arr = [...(prev || [])];
         while (arr.length <= index) arr.push({ url: "", titulo: "", etiqueta: "" });
         const current = typeof arr[index] === "string" ? { url: arr[index] } : { ...arr[index] };
-        arr[index] = { ...current, url: pub.publicUrl };
+        arr[index] = { ...current, url };
         return arr;
       });
     } catch (e) { console.error(e); }
@@ -702,20 +685,18 @@ export default function AdminPage() {
     if (!files || files.length === 0) return;
     setUploadingCollageEventoId(eventoId);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
 
       const uploadPromises = files.map(async (file, idx) => {
-        const ext = file.name.split(".").pop() || "jpg";
-        const nombre = `campana-${eventoId}-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-        if (error) {
-          console.error("Error subiendo foto:", error);
-          return null;
-        }
-        const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+        const url = await uploadOptimizedImageToStorage(file, {
+          bucket: "heroes",
+          pathPrefix: `campana-${eventoId}-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}`,
+          maxSize: 1200,
+          quality: 0.82,
+        });
+        if (!url) return null;
         return {
-          url: pub.publicUrl,
+          url,
           titulo: "Momento especial",
           etiqueta: "Campaña",
         };
@@ -777,23 +758,40 @@ export default function AdminPage() {
     if (!file) return;
     setUploadingCatalogoEventoId(eventoId);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop() || "pdf";
-      const nombre = `catalogo-${eventoId}-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, {
-        upsert: true,
-        contentType: file.type || undefined,
-      });
-      if (error) {
-        alert("Error al subir el catálogo: " + error.message);
+      let publicUrl: string | null = null;
+      if (file.type.startsWith("image/")) {
+        const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+        publicUrl = await uploadOptimizedImageToStorage(file, {
+          bucket: "heroes",
+          pathPrefix: `catalogo-${eventoId}-${Date.now()}`,
+          maxSize: 1400,
+          quality: 0.82,
+        });
+      } else {
+        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseBrowserClient();
+        const ext = file.name.split(".").pop() || "pdf";
+        const nombre = `catalogo-${eventoId}-${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from("heroes").upload(nombre, file, {
+          upsert: true,
+          contentType: file.type || undefined,
+          cacheControl: "31536000",
+        });
+        if (error) {
+          alert("Error al subir el catálogo: " + error.message);
+          return;
+        }
+        const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+        publicUrl = pub?.publicUrl || null;
+      }
+      if (!publicUrl) {
+        alert("No se pudo obtener la URL del catálogo");
         return;
       }
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
       const ok = await apiPatch({
         action: "actualizar-evento",
         id: eventoId,
-        catalogo_url: pub.publicUrl,
+        catalogo_url: publicUrl,
       });
       if (ok) {
         await fetchData();
@@ -1017,13 +1015,23 @@ export default function AdminPage() {
       const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
       const supabase = getSupabaseBrowserClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/"); return; }
+      if (!user) {
+        const nextTarget =
+          typeof window !== "undefined"
+            ? `${window.location.pathname}${window.location.search}`
+            : "/admin";
+        router.replace(`/login?next=${encodeURIComponent(nextTarget)}`);
+        return;
+      }
       const { data: profile } = await supabase
         .from("profiles")
         .select("rol")
         .eq("id", user.id)
         .maybeSingle();
-      if (profile?.rol !== "admin" && profile?.rol !== "super_admin") { router.push("/"); return; }
+      if (profile?.rol !== "admin" && profile?.rol !== "super_admin") {
+        router.push("/");
+        return;
+      }
       setAuthorized(true);
     })();
   }, [router]);
@@ -1088,11 +1096,23 @@ export default function AdminPage() {
     }
   }, [mainTab, subTab]);
 
-  // Manejo de PWA (Manifest y Service Worker) exclusivo para administradores
+  // Limpieza de Service Worker heredado (reemplazado por alertas nativas de Supabase en APK)
   useEffect(() => {
     if (!authorized) return;
 
-    // Inyectar el manifest SOLO para administradores
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) => {
+          for (const reg of registrations) {
+            if (reg.active?.scriptURL?.includes("sw-admin.js")) {
+              reg.unregister().catch(() => {});
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
     let manifestLink = document.getElementById("admin-pwa-manifest") as HTMLLinkElement | null;
     if (!manifestLink) {
       manifestLink = document.createElement("link");
@@ -1102,89 +1122,12 @@ export default function AdminPage() {
       document.head.appendChild(manifestLink);
     }
 
-    // Registrar service worker y suscribir Web Push si ya hay permiso
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw-admin.js")
-        .then(async (reg) => {
-          reg.update().catch(() => {});
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            const { subscribeAdminToPush } = await import("@/lib/push-client");
-            await subscribeAdminToPush();
-          }
-        })
-        .catch(() => {});
-    }
-
-    // Detectar si está corriendo actualmente dentro de la App instalada (standalone/APK)
-    if (typeof window !== "undefined") {
-      const isStandalone =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        window.matchMedia("(display-mode: fullscreen)").matches ||
-        window.matchMedia("(display-mode: minimal-ui)").matches ||
-        Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
-        document.referrer.includes("android-app://");
-      setIsAppInstalled(isStandalone);
-      if (!isStandalone) {
-        try {
-          localStorage.removeItem("admin_app_installed");
-        } catch {}
-      }
-    }
-
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setIsAppInstalled(false);
-      setInstallPrompt(e as BeforeInstallPromptEvent);
-    };
-
-    const handleAppInstalled = () => {
-      setIsAppInstalled(true);
-      setInstallPrompt(null);
-      try {
-        localStorage.setItem("admin_app_installed", "true");
-      } catch {}
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-    window.addEventListener("appinstalled", handleAppInstalled);
-
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-      window.removeEventListener("appinstalled", handleAppInstalled);
       if (manifestLink && manifestLink.parentNode) {
         manifestLink.parentNode.removeChild(manifestLink);
       }
     };
   }, [authorized]);
-
-  const handlePromptInstall = async () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice.outcome === "accepted") {
-        setIsAppInstalled(true);
-        setInstallModalOpen(false);
-        try {
-          localStorage.setItem("admin_app_installed", "true");
-        } catch {}
-      }
-      setInstallPrompt(null);
-    } else {
-      setInstallModalOpen(true);
-    }
-  };
-
-  const handleSetInstalled = useCallback((installed: boolean) => {
-    setIsAppInstalled(installed);
-    try {
-      if (installed) {
-        localStorage.setItem("admin_app_installed", "true");
-      } else {
-        localStorage.removeItem("admin_app_installed");
-      }
-    } catch {}
-  }, []);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -1217,7 +1160,7 @@ export default function AdminPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const STORE_URL = "https://entre-hilos-crochetsix.vercel.app/";
+  const STORE_URL = "https://entrehilos-web.vercel.app/";
 
   const handleOpenQrModal = async () => {
     setQrModalOpen(true);
@@ -1511,15 +1454,15 @@ export default function AdminPage() {
   const handleUploadCustomPortadaImage = async (file: File) => {
     setUploadingPortadaImg(true);
     try {
-      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-      const supabase = getSupabaseBrowserClient();
-      const ext = file.name.split(".").pop();
-      const nombre = `portada-catalogo-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-      if (error) throw error;
-      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-      if (pub?.publicUrl) {
-        setNewCatalogImgUrl(pub.publicUrl);
+      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+      const url = await uploadOptimizedImageToStorage(file, {
+        bucket: "heroes",
+        pathPrefix: `portada-catalogo-${Date.now()}`,
+        maxSize: 1200,
+        quality: 0.82,
+      });
+      if (url) {
+        setNewCatalogImgUrl(url);
       }
     } catch (err) {
       console.error(err);
@@ -2143,20 +2086,19 @@ export default function AdminPage() {
       {/* Pie del sidebar */}
       {effectiveCollapsed ? (
         <div className="py-3 px-2 border-t border-[#FDE8EF] flex flex-col items-center gap-2">
-          {/* Botón de Descargar App Admin */}
-          {!isAppInstalled && (
-            <button
-              onClick={() => setInstallModalOpen(true)}
-              className="w-11 h-11 rounded-xl bg-pink-50 text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
-              title="Instalar App Admin (Celular / Tablet / PC)"
-              aria-label="Instalar App Admin"
-            >
-              <Download size={19} strokeWidth={2.2} />
-              <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
-                Instalar App Admin
-              </span>
-            </button>
-          )}
+          {/* Botón de Descargar APK Admin */}
+          <a
+            href="/downloads/entrehilos-admin.apk"
+            download="entrehilos-admin.apk"
+            className="w-11 h-11 rounded-xl bg-pink-50 text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
+            title="Descargar APK Admin (.apk)"
+            aria-label="Descargar APK Admin (.apk)"
+          >
+            <Download size={19} strokeWidth={2.2} />
+            <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
+              Descargar APK Admin (.apk)
+            </span>
+          </a>
 
           <button
             type="button"
@@ -2196,21 +2138,20 @@ export default function AdminPage() {
         </div>
       ) : (
         <div className="p-3 border-t border-[#FDE8EF] space-y-1.5">
-          {/* Botón de Descargar App Admin */}
-          {!isAppInstalled && (
-            <button
-              onClick={() => setInstallModalOpen(true)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200 text-[#C04267] hover:border-[#EE6B8D] hover:shadow-xs transition-all text-left group cursor-pointer"
-            >
-              <div className="w-8 h-8 rounded-lg bg-white border border-pink-200/80 flex items-center justify-center text-[#EE6B8D] shrink-0 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all">
-                <Download size={15} strokeWidth={2.2} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-xs truncate leading-tight">Instalar App Admin</div>
-                <div className="text-[10px] text-gray-500 truncate">Celular, Tablet o PC</div>
-              </div>
-            </button>
-          )}
+          {/* Botón de Descargar APK Admin */}
+          <a
+            href="/downloads/entrehilos-admin.apk"
+            download="entrehilos-admin.apk"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200 text-[#C04267] hover:border-[#EE6B8D] hover:shadow-xs transition-all text-left group cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-lg bg-white border border-pink-200/80 flex items-center justify-center text-[#EE6B8D] shrink-0 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all">
+              <Download size={15} strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-xs truncate leading-tight">Descargar APK Admin</div>
+              <div className="text-[10px] text-gray-500 truncate">App Android (.apk)</div>
+            </div>
+          </a>
 
           <button
             type="button"
@@ -2273,17 +2214,15 @@ export default function AdminPage() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {!isAppInstalled && (
-            <button
-              type="button"
-              onClick={() => setInstallModalOpen(true)}
-              className="text-xs font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
-              title="Descargar APK / Instalar App en el celular"
-            >
-              <Download size={13} strokeWidth={2.2} className="text-[#EE6B8D]" />
-              <span>Descargar APK</span>
-            </button>
-          )}
+          <a
+            href="/downloads/entrehilos-admin.apk"
+            download="entrehilos-admin.apk"
+            className="text-xs font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
+            title="Descargar APK Android de Entre Hilos Admin"
+          >
+            <Download size={13} strokeWidth={2.2} className="text-[#EE6B8D]" />
+            <span>Descargar APK</span>
+          </a>
 
           <button
             type="button"
@@ -2346,33 +2285,40 @@ export default function AdminPage() {
               </p>
             </div>
 
-            {/* Banner de Descarga de App / Instalación APK (solo visible si no está instalada) */}
-            {!isAppInstalled && (
-              <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <Download size={22} strokeWidth={2.2} />
-                  </div>
-                  <div>
-                    <h3 className="font-fredoka text-base font-bold text-[#C04267]">
-                      Descargar App Móvil / Instalar APK de Administración
-                    </h3>
-                    <p className="font-quicksand text-xs text-gray-600 mt-0.5">
-                      Instala la app en tu celular Android, iPhone, tablet o PC para acceso directo en pantalla completa y avisos sonoros de entregas.
-                    </p>
-                  </div>
+            {/* Banner de Descarga del APK Android */}
+            <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Download size={22} strokeWidth={2.2} />
                 </div>
+                <div>
+                  <h3 className="font-fredoka text-base font-bold text-[#C04267]">
+                    Descargar App Android Admin (.apk)
+                  </h3>
+                  <p className="font-quicksand text-xs text-gray-600 mt-0.5">
+                    App Android 100% nativa conectada directo a Supabase: gestiona pedidos, agenda entregas y recibe alertas con sonido aunque cierres la app o bloquees la pantalla.
+                  </p>
+                </div>
+              </div>
 
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                 <button
                   type="button"
                   onClick={() => setInstallModalOpen(true)}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+                  className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white hover:bg-pink-50 text-[#C04267] border border-pink-200 rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>Cómo instalar</span>
+                </button>
+                <a
+                  href="/downloads/entrehilos-admin.apk"
+                  download="entrehilos-admin.apk"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <Download size={15} strokeWidth={2.2} />
-                  <span>Descargar / Instalar App</span>
-                </button>
+                  <span>Descargar APK (.apk)</span>
+                </a>
               </div>
-            )}
+            </div>
             {/* Acceso rápido a QR de la Tienda (visible en Web y APK) */}
             <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-white border border-[#FDE8EF] shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
@@ -2384,7 +2330,7 @@ export default function AdminPage() {
                     Código QR de la Tienda Online
                   </h3>
                   <p className="font-quicksand text-xs text-gray-500 mt-0.5">
-                    Descarga la imagen QR de <span className="font-mono text-gray-700">entre-hilos-crochetsix.vercel.app</span> para compartir o imprimir en tarjetas.
+                    Descarga la imagen QR de <span className="font-mono text-gray-700">entrehilos-web.vercel.app</span> para compartir o imprimir en tarjetas.
                   </p>
                 </div>
               </div>
@@ -3749,14 +3695,14 @@ export default function AdminPage() {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
                                     try {
-                                      const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-                                      const supabase = getSupabaseBrowserClient();
-                                      const ext = file.name.split(".").pop() || "jpg";
-                                      const nombre = `rotonda-${Date.now()}-${i}.${ext}`;
-                                      const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-                                      if (error) { console.error(error); return; }
-                                      const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-                                      updateSlot(i, { imagen: pub.publicUrl });
+                                      const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+                                      const url = await uploadOptimizedImageToStorage(file, {
+                                        bucket: "heroes",
+                                        pathPrefix: `rotonda-${Date.now()}-${i}`,
+                                        maxSize: 1200,
+                                        quality: 0.82,
+                                      });
+                                      if (url) updateSlot(i, { imagen: url });
                                     } catch (err) {
                                       console.error(err);
                                     }
@@ -4390,16 +4336,17 @@ export default function AdminPage() {
                       if (files.length === 0) return;
                       setUploadingCampanaIdx(999);
                       try {
-                        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-                        const supabase = getSupabaseBrowserClient();
+                        const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
                         const uploadPromises = files.map(async (file, idx): Promise<CampanaFoto | null> => {
-                          const ext = file.name.split(".").pop() || "jpg";
-                          const nombre = `campana-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}.${ext}`;
-                          const { error } = await supabase.storage.from("heroes").upload(nombre, file, { upsert: true });
-                          if (error) return null;
-                          const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+                          const url = await uploadOptimizedImageToStorage(file, {
+                            bucket: "heroes",
+                            pathPrefix: `campana-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}`,
+                            maxSize: 1200,
+                            quality: 0.82,
+                          });
+                          if (!url) return null;
                           return {
-                            url: pub.publicUrl,
+                            url,
                             titulo: editEventoNombre || "Momento especial",
                             etiqueta: editEventoNombre || "Campaña",
                           };
@@ -4502,21 +4449,33 @@ export default function AdminPage() {
                         if (!file) return;
                         setUploadingCatalogo(true);
                         try {
-                          const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-                          const supabase = getSupabaseBrowserClient();
-                          const ext = file.name.split(".").pop() || "pdf";
-                          const nombre = `catalogo-${editEventoSlug || "evento"}-${Date.now()}.${ext}`;
-                          const { error } = await supabase.storage.from("heroes").upload(nombre, file, {
-                            upsert: true,
-                            contentType: file.type || undefined,
-                          });
-                          if (error) {
-                            alert("Error al subir el catálogo: " + error.message);
-                            return;
+                          if (file.type.startsWith("image/")) {
+                            const { uploadOptimizedImageToStorage } = await import("@/lib/upload-foto");
+                            const url = await uploadOptimizedImageToStorage(file, {
+                              bucket: "heroes",
+                              pathPrefix: `catalogo-${editEventoSlug || "evento"}-${Date.now()}`,
+                              maxSize: 1400,
+                              quality: 0.82,
+                            });
+                            if (url) setEditEventoCatalogoUrl(url);
+                          } else {
+                            const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+                            const supabase = getSupabaseBrowserClient();
+                            const ext = file.name.split(".").pop() || "pdf";
+                            const nombre = `catalogo-${editEventoSlug || "evento"}-${Date.now()}.${ext}`;
+                            const { error } = await supabase.storage.from("heroes").upload(nombre, file, {
+                              upsert: true,
+                              contentType: file.type || undefined,
+                              cacheControl: "31536000",
+                            });
+                            if (error) {
+                              alert("Error al subir el catálogo: " + error.message);
+                              return;
+                            }
+                            const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
+                            setEditEventoCatalogoUrl(pub.publicUrl);
                           }
-                          const { data: pub } = supabase.storage.from("heroes").getPublicUrl(nombre);
-                          setEditEventoCatalogoUrl(pub.publicUrl);
-                        } catch (err) {
+                        } catch {
                           alert("Error inesperado al subir catálogo");
                         } finally {
                           setUploadingCatalogo(false);
@@ -7914,14 +7873,10 @@ export default function AdminPage() {
         })}
       </nav>
 
-      {/* Modal para instalar la App de Administración (exclusivo para rol admin) */}
+      {/* Modal de guía e instalación del APK Android (exclusivo para rol admin) */}
       <AdminInstallAppModal
         isOpen={installModalOpen}
         onClose={() => setInstallModalOpen(false)}
-        deferredPrompt={installPrompt}
-        onPromptInstall={handlePromptInstall}
-        isInstalled={isAppInstalled}
-        onSetInstalled={handleSetInstalled}
       />
 
       <AgendarPersonalizadoModal

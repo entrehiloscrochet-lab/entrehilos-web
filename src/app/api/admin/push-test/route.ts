@@ -1,32 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient, supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { sendAdminPushNotification } from "@/lib/push-notifications";
 
 export async function POST(request: NextRequest) {
-  const response = NextResponse.next();
-  const supabase = createSupabaseServerClient(request, response);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("rol")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profile?.rol !== "admin" && profile?.rol !== "super_admin") {
-    return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-  }
+  const auth = await requireAdmin(request);
+  if (auth.error) return auth.error;
 
   const result = await sendAdminPushNotification({
-    title: "Entre Hilos - Prueba Push",
-    body: "Las notificaciones en segundo plano están funcionando en este dispositivo.",
-    url: "/admin",
+    title: "Entre Hilos Admin - Prueba de Alerta",
+    body: "Alertas nativas Supabase activas. Recibirás avisos incluso con la app cerrada y pantalla bloqueada.",
+    url: "/admin?seccion=pedidos&sub=pedidos",
+    seccion: "pedidos",
+    sub: "pedidos",
+    tipo: "prueba",
     tag: `eh-test-${Date.now()}`,
   });
 

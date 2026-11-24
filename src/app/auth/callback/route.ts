@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
               body: user.email
                 ? `${nombre} (${user.email}) se registró con Google.`
                 : `${nombre} se registró en Entre Hilos.`,
-              url: '/admin',
+              url: '/admin?seccion=clientes&sub=usuarios',
+              seccion: 'clientes',
+              sub: 'usuarios',
+              tipo: 'nuevo_usuario',
               tag: `eh-new-user-${user.id}`,
               data: {
                 tipo: 'nuevo_usuario',

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="AppTheme.NoActionBar" />
+
+    <style name="AppTheme.NoActionBar" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FDF4F7</item>
+        <item name="android:colorBackground">#FDF4F7</item>
+        <item name="android:statusBarColor">#FDF4F7</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FDF4F7</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+</resources>
