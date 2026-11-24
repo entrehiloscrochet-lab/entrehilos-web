@@ -131,19 +131,23 @@ export async function GET(request: NextRequest) {
 
     (pedidos || []).forEach((p: PedidoRow) => {
       const estado = (p.estado || "pendiente").toLowerCase();
-      // Si el pedido está confirmado, enviado, entregado o cancelado
-      if (["confirmado", "enviado", "entregado", "cancelado"].includes(estado)) {
-        const itemNombre = Array.isArray(p.items) && p.items[0]?.nombre 
-          ? p.items[0].nombre 
+      // Si el pedido está confirmado, en producción, listo, enviado, entregado o cancelado
+      if (["confirmado", "en_produccion", "listo", "enviado", "entregado", "cancelado"].includes(estado)) {
+        const itemNombre = Array.isArray(p.items) && p.items[0]?.nombre
+          ? p.items[0].nombre
           : "tu compra";
 
         const titulo = estado === "entregado" ? `Tu Pedido #${p.id} ha sido entregado`
           : estado === "enviado" ? `Tu Pedido #${p.id} va en camino`
+          : estado === "listo" ? `Tu Pedido #${p.id} está listo para entrega`
+          : estado === "en_produccion" ? `Tu Pedido #${p.id} está en confección`
           : estado === "confirmado" ? `Tu Pedido #${p.id} fue confirmado`
           : `Pedido #${p.id} cancelado`;
 
         const mensaje = estado === "entregado" ? `Tu pedido con ${itemNombre} fue entregado con éxito. Gracias por confiar en Entre Hilos.`
           : estado === "enviado" ? `Tu pedido con ${itemNombre} ha sido despachado a tu dirección de envío.`
+          : estado === "listo" ? `Tu pedido con ${itemNombre} terminó de tejerse y ya está listo para coordinar la entrega.`
+          : estado === "en_produccion" ? `Nuestro taller ya está tejiendo ${itemNombre} con mucho detalle y dedicación.`
           : estado === "confirmado" ? `Confirmamos tu pedido por S/ ${Number(p.total).toFixed(2)}. Estamos preparándolo en nuestro taller.`
           : `Tu pedido #${p.id} fue cancelado. Si tienes dudas, contáctanos por WhatsApp.`;
 

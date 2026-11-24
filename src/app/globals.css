@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
+@theme inline {
+  --font-fredoka: var(--font-fredoka), system-ui, sans-serif;
+  --font-quicksand: var(--font-quicksand), system-ui, sans-serif;
+}
+
 :root {
   --font-caveat: 'Caveat', cursive;
   --background: #FDF4F7;
