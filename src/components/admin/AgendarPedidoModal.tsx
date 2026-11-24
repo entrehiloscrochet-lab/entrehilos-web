@@ -73,6 +73,8 @@ export default function AgendarPedidoModal({
   const [origen, setOrigen] = useState("whatsapp");
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
+  const [clienteEmail, setClienteEmail] = useState("");
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [direccionEnvio, setDireccionEnvio] = useState("");
   const [fechaEntrega, setFechaEntrega] = useState("");
   const [horaEntrega, setHoraEntrega] = useState("");
@@ -99,7 +101,7 @@ export default function AgendarPedidoModal({
 
   // Directorio de clientes existentes (registrados, pedidos previos y manuales)
   const [clientesDirectory, setClientesDirectory] = useState<
-    Array<{ id: string; nombre: string; telefono?: string; direccion?: string; origen?: string }>
+    Array<{ id: string; usuario_id?: string; nombre: string; telefono?: string; email?: string; direccion?: string; origen?: string }>
   >([]);
   const [showClientPicker, setShowClientPicker] = useState(false);
   const [clientPickerSearch, setClientPickerSearch] = useState("");
@@ -265,9 +267,10 @@ export default function AgendarPedidoModal({
       const payload = {
         action: "agendar-pedido",
         origen,
+        usuario_id: usuarioId || null,
         cliente_nombre: clienteNombre.trim(),
         cliente_telefono: clienteTelefono.trim(),
-        cliente_email: null,
+        cliente_email: clienteEmail.trim() || null,
         direccion_envio: direccionEnvio.trim() || "Coordinar por WhatsApp",
         items,
         total: totalCalculado,
@@ -306,6 +309,7 @@ export default function AgendarPedidoModal({
                 data: {
                   nombre_cliente: clienteNombre.trim(),
                   telefono: clienteTelefono.trim(),
+                  email: clienteEmail.trim() || null,
                   producto_nombre: cItem.nombre,
                   producto_precio: cItem.precio || null,
                   detalles: `Pedido #${resData?.data?.id || "Agendado"} (${origen}). Cantidad: ${cItem.cantidad}${notas ? ` | Notas: ${notas.trim()}` : ""}`,
@@ -434,7 +438,11 @@ export default function AgendarPedidoModal({
                         .filter((c) => {
                           const q = normalize(clientPickerSearch);
                           if (!q) return true;
-                          return normalize(c.nombre).includes(q) || (c.telefono || "").includes(q);
+                          return (
+                            normalize(c.nombre).includes(q) ||
+                            (c.telefono || "").includes(q) ||
+                            (c.email || "").toLowerCase().includes(q)
+                          );
                         })
                         .slice(0, 30)
                         .map((c) => (
@@ -445,6 +453,8 @@ export default function AgendarPedidoModal({
                               setClienteNombre(c.nombre);
                               if (c.telefono) setClienteTelefono(c.telefono);
                               if (c.direccion) setDireccionEnvio(c.direccion);
+                              setClienteEmail(c.email || "");
+                              setUsuarioId(c.usuario_id || null);
                               setShowClientPicker(false);
                               setClientPickerSearch("");
                             }}
@@ -452,9 +462,9 @@ export default function AgendarPedidoModal({
                           >
                             <div className="min-w-0">
                               <p className="font-quicksand text-xs font-bold text-gray-800 truncate">{c.nombre}</p>
-                              {(c.telefono || c.direccion) && (
+                              {(c.telefono || c.email || c.direccion) && (
                                 <p className="font-quicksand text-[10px] text-gray-400 truncate">
-                                  {[c.telefono, c.direccion].filter(Boolean).join(" · ")}
+                                  {[c.telefono, c.email, c.direccion].filter(Boolean).join(" · ")}
                                 </p>
                               )}
                             </div>

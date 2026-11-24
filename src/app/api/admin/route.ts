@@ -71,6 +71,7 @@ const DEFAULT_EVENTOS = [
 
 interface DirectoryClient {
   id: string;
+  usuario_id?: string;
   nombre: string;
   telefono?: string;
   email?: string;
@@ -180,9 +181,11 @@ export async function GET(request: NextRequest) {
       } else {
         merged.set(key, {
           ...existing,
+          usuario_id: existing.usuario_id || entry.usuario_id,
           telefono: existing.telefono || entry.telefono,
           email: existing.email || entry.email,
           direccion: existing.direccion || entry.direccion,
+          origen: existing.origen === "Registrado" || entry.origen === "Registrado" ? "Registrado" : existing.origen,
         });
       }
     };
@@ -206,6 +209,7 @@ export async function GET(request: NextRequest) {
         const nombre = String(p.full_name || p.nombre || p.name || p.email || "").trim();
         addOrMerge({
           id: `prof_${p.id}`,
+          usuario_id: p.id ? String(p.id) : undefined,
           nombre,
           telefono: p.phone ? String(p.phone) : p.telefono ? String(p.telefono) : undefined,
           email: p.email ? String(p.email) : undefined,
@@ -909,6 +913,7 @@ export async function POST(request: NextRequest) {
   if (action === "agendar-pedido") {
     const {
       origen,
+      usuario_id,
       cliente_nombre,
       cliente_telefono,
       cliente_email,
@@ -928,6 +933,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nombre de cliente e ítems son requeridos" }, { status: 400 });
     }
 
+    // Vincular el pedido con la cuenta registrada del cliente si existe
+    let resolvedUsuarioId: string | null =
+      typeof usuario_id === "string" && usuario_id.trim() ? usuario_id.trim() : null;
+    let resolvedEmail: string | null =
+      typeof cliente_email === "string" && cliente_email.trim() ? cliente_email.trim() : null;
+
+    if (!resolvedUsuarioId || !resolvedEmail) {
+      try {
+        if (resolvedUsuarioId) {
+          const { data: prof } = await supabaseAdmin
+            .from("profiles")
+            .select("id, email")
+            .eq("id", resolvedUsuarioId)
+            .maybeSingle();
+          if (prof?.email && !resolvedEmail) resolvedEmail = String(prof.email).trim();
+        } else if (resolvedEmail) {
+          const { data: prof } = await supabaseAdmin
+            .from("profiles")
+            .select("id, email")
+            .ilike("email", resolvedEmail)
+            .maybeSingle();
+          if (prof?.id) resolvedUsuarioId = String(prof.id);
+        } else {
+          const { data: profiles } = await supabaseAdmin
+            .from("profiles")
+            .select("id, nombre, email, telefono");
+          if (Array.isArray(profiles) && profiles.length > 0) {
+            const cleanTel = String(cliente_telefono || "").replace(/\D/g, "");
+            const cleanNameKey = normalizeClientKey(String(cliente_nombre));
+            const matched = profiles.find((p: Record<string, unknown>) => {
+              const pTel = String(p.telefono || "").replace(/\D/g, "");
+              if (cleanTel.length >= 7 && pTel === cleanTel) return true;
+              const pNameKey = normalizeClientKey(String(p.nombre || ""));
+              return Boolean(cleanNameKey && pNameKey && pNameKey === cleanNameKey);
+            });
+            if (matched) {
+              resolvedUsuarioId = matched.id ? String(matched.id) : null;
+              resolvedEmail = matched.email ? String(matched.email).trim() : null;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("No se pudo vincular perfil automáticamente en agendar-pedido:", e);
+      }
+    }
+
     const cleanFecha = normalizarFechaEntrega(fecha_entrega);
     const cleanHora = hora_entrega ? String(hora_entrega).trim() : null;
     const cleanNotas = notas ? String(notas).trim() : null;
@@ -936,9 +987,10 @@ export async function POST(request: NextRequest) {
       .from("pedidos")
       .insert({
         origen: origen || "whatsapp",
+        usuario_id: resolvedUsuarioId,
         cliente_nombre,
         cliente_telefono: cliente_telefono || "",
-        cliente_email: cliente_email || null,
+        cliente_email: resolvedEmail,
         direccion_envio: direccion_envio || "Coordinar por WhatsApp",
         items,
         total: Number(total) || 0,
@@ -965,9 +1017,10 @@ export async function POST(request: NextRequest) {
       const { data: fbData, error: fbError } = await supabaseAdmin
         .from("pedidos")
         .insert({
+          usuario_id: resolvedUsuarioId,
           cliente_nombre,
           cliente_telefono: cliente_telefono || "",
-          cliente_email: cliente_email || null,
+          cliente_email: resolvedEmail,
           direccion_envio: direccion_envio || "Coordinar por WhatsApp",
           items,
           total: Number(total) || 0,
@@ -984,7 +1037,7 @@ export async function POST(request: NextRequest) {
       await upsertManualClientInHomeSections({
         nombre: cliente_nombre,
         telefono: cliente_telefono,
-        email: cliente_email,
+        email: resolvedEmail,
         direccion: direccion_envio !== "Coordinar por WhatsApp" ? direccion_envio : null,
       });
       return NextResponse.json({ success: true, data: fbData });
@@ -993,7 +1046,7 @@ export async function POST(request: NextRequest) {
     await upsertManualClientInHomeSections({
       nombre: cliente_nombre,
       telefono: cliente_telefono,
-      email: cliente_email,
+      email: resolvedEmail,
       direccion: direccion_envio !== "Coordinar por WhatsApp" ? direccion_envio : null,
     });
     return NextResponse.json({ success: true, data });

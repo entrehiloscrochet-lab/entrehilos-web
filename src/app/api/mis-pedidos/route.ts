@@ -40,13 +40,46 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ pedidos: [], personalizados: [], notificaciones: [] });
     }
 
+    // Obtener datos del perfil del usuario si existe para vincular pedidos agendados manualmente
+    let profileNombre = "";
+    let profileTelefono = "";
+    let profileEmail = "";
+    if (userId) {
+      try {
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("nombre, email, telefono")
+          .eq("id", userId)
+          .maybeSingle();
+        if (prof) {
+          profileNombre = String(prof.nombre || "").trim();
+          profileTelefono = String(prof.telefono || "").trim();
+          profileEmail = String(prof.email || "").trim();
+        }
+      } catch {
+        // continuar con los parámetros recibidos
+      }
+    }
+
+    const effectiveEmail = (email || profileEmail).trim();
+
     // 1. Consultar pedidos
     let query = supabaseAdmin.from("pedidos").select("*");
 
     const conditions: string[] = [];
     if (userId) conditions.push(`usuario_id.eq.${userId}`);
-    if (email) conditions.push(`cliente_email.eq.${email}`);
+    if (effectiveEmail) conditions.push(`cliente_email.ilike.${effectiveEmail}`);
     if (anonId) conditions.push(`usuario_id.eq.${anonId}`);
+    if (profileTelefono.replace(/\D/g, "").length >= 7) {
+      const safeTel = profileTelefono.replace(/[,()]/g, "").trim();
+      if (safeTel) conditions.push(`cliente_telefono.eq.${safeTel}`);
+    }
+    if (profileNombre) {
+      const safeName = profileNombre.replace(/[,()]/g, "").trim();
+      if (safeName) {
+        conditions.push(`and(usuario_id.is.null,cliente_email.is.null,cliente_nombre.ilike.${safeName})`);
+      }
+    }
 
     if (conditions.length > 0) {
       query = query.or(conditions.join(","));
@@ -59,11 +92,11 @@ export async function GET(request: NextRequest) {
 
     // 2. Consultar pedidos personalizados
     let personalizados: PedidoPersonalizadoRow[] = [];
-    if (email) {
+    if (effectiveEmail) {
       const { data: persData, error: persErr } = await supabaseAdmin
         .from("pedidos_personalizados")
         .select("*")
-        .eq("email", email)
+        .ilike("email", effectiveEmail)
         .order("created_at", { ascending: false });
 
       if (persErr) {
