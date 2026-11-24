@@ -7,7 +7,6 @@ import {
   Calendar,
   Camera,
   Clock,
-  CreditCard,
   Loader2,
   MapPin,
   Palette,
@@ -23,6 +22,7 @@ import {
 import { useReviews } from "@/context/ReviewsContext";
 import { useToast } from "@/components/Toast";
 import RatingStars from "@/components/RatingStars";
+import { PaymentBadge } from "@/components/admin/BrandControls";
 import { OrderStepper } from "./OrderStepper";
 import {
   ESTADOS_PEDIDO,
@@ -424,12 +424,7 @@ export function OrdersTab({
                         </span>
                       </div>
                     )}
-                    {p.metodo_pago && (
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FCF8FA] rounded-xl text-xs font-quicksand text-gray-700 border border-[#EFE1E6] capitalize">
-                        <CreditCard size={13} className="text-[#C04267] shrink-0" />
-                        <span>{p.metodo_pago}</span>
-                      </div>
-                    )}
+                    {p.metodo_pago && <PaymentBadge method={p.metodo_pago} size="xs" />}
                     {Number(p.saldo_pendiente) > 0 && (
                       <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 rounded-xl text-xs font-quicksand font-semibold text-amber-800 border border-amber-200 tabular-nums">
                         Saldo pendiente: {formatCurrency(p.saldo_pendiente)}

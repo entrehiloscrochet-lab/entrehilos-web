@@ -7,7 +7,6 @@ import {
   Search,
   Calendar,
   Clock,
-  ExternalLink,
   MessageSquare,
   CheckCircle2,
   AlertCircle,
@@ -27,6 +26,7 @@ import {
   Check,
 } from "lucide-react";
 import GestionarPedidoModal, { PedidoGestion } from "./GestionarPedidoModal";
+import { ChannelBadge, PaymentBadge, WhatsAppLogo } from "./BrandControls";
 import { parsearFotosEntrega, quitarMarcadorFotos } from "@/lib/fotos-pedido";
 import { useToast } from "@/components/Toast";
 
@@ -249,6 +249,7 @@ interface Pedido {
   cliente_email?: string | null;
   direccion_envio?: string | null;
   estado?: string | null;
+  metodo_pago?: string | null;
   items?: unknown;
   fotos_entrega?: unknown;
 }
@@ -261,18 +262,6 @@ interface PedidosViewProps {
   onActualizarPedido?: (id: string | number, updates: Record<string, unknown>) => void;
 }
 
-
-const CANAL_CONFIG: Record<string, { label: string; badgeClass: string }> = {
-  tienda: { label: "Tienda Web", badgeClass: "bg-pink-50 text-[#C04267] border-pink-200" },
-  web: { label: "Tienda Web", badgeClass: "bg-pink-50 text-[#C04267] border-pink-200" },
-  whatsapp: { label: "WhatsApp", badgeClass: "bg-green-50 text-green-700 border-green-200" },
-  facebook: { label: "Facebook", badgeClass: "bg-blue-50 text-blue-700 border-blue-200" },
-  instagram: { label: "Instagram", badgeClass: "bg-purple-50 text-purple-700 border-purple-200" },
-  tiktok: { label: "TikTok", badgeClass: "bg-slate-100 text-slate-800 border-slate-300" },
-  telefono: { label: "Llamada", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
-  presencial: { label: "Presencial", badgeClass: "bg-rose-50 text-rose-700 border-rose-200" },
-  otro: { label: "Otro", badgeClass: "bg-gray-100 text-gray-700 border-gray-200" },
-};
 
 export function formatFechaEntrega(fechaStr?: string | null): string {
   if (!fechaStr) return "";
@@ -920,7 +909,6 @@ export default function PedidosView({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:hidden gap-3.5">
             {filteredPedidos.map((row: Pedido) => {
               const { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas } = parseRowData(row);
-              const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
               const itemsList: PedidoItem[] = Array.isArray(row.items) ? row.items : [];
               const tieneAdelanto = adelanto > 0;
               const displayId = row.id ? (String(row.id).length > 8 ? `#${String(row.id).slice(0, 6)}` : `#${row.id}`) : "#S/N";
@@ -940,9 +928,7 @@ export default function PedidosView({
                       <span className="font-fredoka text-sm font-bold text-gray-900">
                         {displayId}
                       </span>
-                      <span className={`inline-block font-quicksand text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${canalInfo.badgeClass}`}>
-                        {canalInfo.label}
-                      </span>
+                      <ChannelBadge channel={origen} />
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -951,10 +937,10 @@ export default function PedidosView({
                           href={generateWhatsAppLink(row)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] rounded-lg font-quicksand text-xs font-bold transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-quicksand text-xs font-bold transition-colors"
                           title="Contactar por WhatsApp"
                         >
-                          <ExternalLink size={12} />
+                          <WhatsAppLogo size={14} />
                           <span>WhatsApp</span>
                         </a>
                       ) : null}
@@ -1072,6 +1058,11 @@ export default function PedidosView({
                             Pagado (Completo)
                           </span>
                         ) : null}
+                        {row.metodo_pago && (
+                          <div className="mt-1">
+                            <PaymentBadge method={row.metodo_pago} size="xs" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Badge de Estado Actual */}
@@ -1146,7 +1137,6 @@ export default function PedidosView({
               <tbody>
                 {filteredPedidos.map((row: Pedido) => {
                   const { origen, fechaEntrega, horaEntrega, adelanto, saldoPendiente, cleanNotas } = parseRowData(row);
-                  const canalInfo = CANAL_CONFIG[origen] || CANAL_CONFIG.otro;
                   const itemsList: PedidoItem[] = Array.isArray(row.items) ? row.items : [];
                   const tieneAdelanto = adelanto > 0;
                   const urgencia = calcularUrgenciaEntrega(fechaEntrega, row.estado);
@@ -1162,9 +1152,7 @@ export default function PedidosView({
 
                       {/* Canal */}
                       <td className="px-3 py-3">
-                        <span className={`inline-block font-quicksand text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${canalInfo.badgeClass}`}>
-                          {canalInfo.label}
-                        </span>
+                        <ChannelBadge channel={origen} />
                       </td>
 
                       {/* Cliente */}
@@ -1264,6 +1252,11 @@ export default function PedidosView({
                             Completado
                           </p>
                         ) : null}
+                        {row.metodo_pago && (
+                          <div className="mt-1">
+                            <PaymentBadge method={row.metodo_pago} size="xs" />
+                          </div>
+                        )}
                       </td>
 
                       {/* Estado y Gestión */}
@@ -1325,9 +1318,9 @@ export default function PedidosView({
                             href={generateWhatsAppLink(row)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] rounded-xl font-quicksand text-xs font-bold transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl font-quicksand text-xs font-bold transition-colors"
                           >
-                            <ExternalLink size={13} />
+                            <WhatsAppLogo size={14} />
                             <span>WhatsApp</span>
                           </a>
                         ) : (

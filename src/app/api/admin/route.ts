@@ -417,6 +417,7 @@ export async function PATCH(request: NextRequest) {
 
   if (action === "actualizar-pedido") {
     const {
+      origen,
       estado,
       adelanto,
       saldo_pendiente,
@@ -437,6 +438,9 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle();
 
     const updatePayload: Record<string, unknown> = {};
+    if (origen !== undefined && String(origen).trim()) {
+      updatePayload.origen = String(origen).trim().toLowerCase();
+    }
     if (estado !== undefined) updatePayload.estado = estado;
     if (adelanto !== undefined) updatePayload.adelanto = Number(adelanto);
     if (saldo_pendiente !== undefined) updatePayload.saldo_pendiente = Number(saldo_pendiente);
