@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Search, Truck, Clock, Menu, X, ChevronDown, User, LogIn, UserPlus, UserCircle, LogOut, ShieldCheck } from "lucide-react";
+import { ShoppingBag, Search, Truck, Clock, Menu, X, ChevronDown, User, LogIn, UserPlus, UserCircle, LogOut, ShieldCheck, Package } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useState, useEffect, useRef } from "react";
 import SearchModal from "@/components/SearchModal";
@@ -332,6 +332,14 @@ const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
                           <UserCircle size={16} />
                           Mi perfil
                         </Link>
+                        <Link
+                          href="/perfil?tab=pedidos"
+                          onClick={() => setIsUserOpen(false)}
+                          className="flex items-center gap-3 w-full px-5 py-2.5 font-quicksand text-sm text-gray-700 hover:text-[#EE6B8D] hover:bg-[#FDF4F7] transition-colors text-left"
+                        >
+                          <Package size={16} />
+                          Mis pedidos
+                        </Link>
                         <hr className="my-1 border-gray-100" />
                         <button
                           onClick={() => { setIsUserOpen(false); signOut(); }}
@@ -501,6 +509,14 @@ const [eventos, setEventos] = useState<EventoNavbar[]>(DEFAULT_EVENTOS);
                 >
                   <UserCircle size={18} />
                   Mi cuenta
+                </Link>
+                <Link
+                  href="/perfil?tab=pedidos"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2 px-6 py-3.5 font-lato text-base text-gray-700 border-l-4 border-transparent hover:border-[#EE6B8D] hover:bg-[#FDF4F7] hover:text-[#C04267] transition-all w-full text-left"
+                >
+                  <Package size={18} />
+                  Mis pedidos
                 </Link>
                 <hr className="mx-6 my-1 border-gray-200" />
                 <button

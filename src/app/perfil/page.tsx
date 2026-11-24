@@ -1,243 +1,65 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/context/AuthContext";
-import { useReviews } from "@/context/ReviewsContext";
-import { useToast } from "@/components/Toast";
-import RatingStars from "@/components/RatingStars";
-import { getDepartamentos, getProvincias, getDistritos } from "@/lib/ubigeo";
+import Image from "next/image";
 import {
-  UserCircle, Package, Bell, LogOut, Home,
-  Clock, CheckCircle2, XCircle, Loader2, ChevronRight,
-  Mail, Phone, Calendar, Ruler, MapPin, Star,
-  Truck, CheckCheck, Sparkles, Save, ChevronDown, Check,
-  ShoppingBag, ShieldCheck, MessageCircle, ExternalLink,
-  HelpCircle, ArrowUpRight, type LucideIcon
+  ArrowLeft,
+  ArrowUpRight,
+  Bell,
+  Clock,
+  Home,
+  Loader2,
+  LogOut,
+  MessageCircle,
+  Package,
+  ShieldCheck,
+  Sparkles,
+  Store,
+  Truck,
+  UserCircle,
+  type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/components/Toast";
+import { getDepartamentos, getDistritos, getProvincias } from "@/lib/ubigeo";
+import { NotificationsTab } from "@/components/perfil/NotificationsTab";
+import { OrdersTab } from "@/components/perfil/OrdersTab";
+import { ProfileTab } from "@/components/perfil/ProfileTab";
+import {
+  WHATSAPP_BASE_URL,
+  formatCurrency,
+  isPedidoEnCurso,
+  type FiltroNotif,
+  type FiltroPedidos,
+  type Notificacion,
+  type Pedido,
+  type PedidoPersonalizado,
+  type ProfileData,
+  type Tab,
+} from "@/components/perfil/types";
 
-interface PedidoItem {
-  id?: string;
-  nombre?: string;
-  precio?: number;
-  cantidad?: number;
-}
-
-interface ProfileData {
-  nombre: string | null;
-  telefono: string | null;
-  email: string | null;
-  direccion: string | null;
-  departamento?: string | null;
-  provincia?: string | null;
-  distrito?: string | null;
-  referencia?: string | null;
-  localidad?: string | null;
-}
-
-type Tab = "perfil" | "pedidos" | "notificaciones";
-
-interface Pedido {
-  id: number;
-  created_at: string;
-  cliente_nombre: string;
-  cliente_telefono?: string;
-  direccion_envio?: string;
-  items: PedidoItem[] | string;
-  total: number;
-  estado: string;
-}
-
-interface PedidoPersonalizado {
-  id: number;
-  created_at: string;
-  producto_nombre: string | null;
-  detalles: string;
-  tamano: string | null;
-  extras: string | null;
-  estado: string;
-  fecha_entrega: string | null;
-  hora_entrega?: string | null;
-}
-
-interface Notificacion {
-  id: string | number;
-  pedido_id?: number;
-  tipo: string;
-  titulo: string;
-  mensaje: string;
-  created_at: string;
-  leido?: boolean;
-  es_personalizado?: boolean;
-}
-
-function formatearFechaEntrega(fecha: string | null): string {
-  if (!fecha) return "";
-  const soloFecha = String(fecha).split("T")[0].split(" ")[0].trim();
-  const [y, m, d] = soloFecha.split("-").map(Number);
-  if (!y || !m || !d) return soloFecha;
-  return new Date(y, m - 1, d).toLocaleDateString("es-PE");
-}
-
-const menuItems: { id: Tab; label: string; icon: LucideIcon }[] = [
-  { id: "perfil", label: "Mi perfil", icon: UserCircle },
-  { id: "pedidos", label: "Mis pedidos", icon: Package },
-  { id: "notificaciones", label: "Notificaciones", icon: Bell },
+const MENU_ITEMS: { id: Tab; label: string; shortLabel: string; icon: LucideIcon }[] = [
+  { id: "perfil", label: "Mi perfil", shortLabel: "Mi perfil", icon: UserCircle },
+  { id: "pedidos", label: "Mis pedidos", shortLabel: "Mis pedidos", icon: Package },
+  { id: "notificaciones", label: "Notificaciones", shortLabel: "Avisos", icon: Bell },
 ];
 
-const estados: Record<string, { label: string; color: string; icon: LucideIcon }> = {
-  pendiente: { label: "Pendiente", color: "text-amber-700 bg-amber-50 border-amber-200", icon: Clock },
-  confirmado: { label: "Confirmado", color: "text-blue-700 bg-blue-50 border-blue-200", icon: CheckCircle2 },
-  enviado: { label: "En camino", color: "text-purple-700 bg-purple-50 border-purple-200", icon: Truck },
-  entregado: { label: "Entregado", color: "text-emerald-700 bg-emerald-50 border-emerald-200", icon: CheckCircle2 },
-  cancelado: { label: "Cancelado", color: "text-rose-700 bg-rose-50 border-rose-200", icon: XCircle },
-  en_produccion: { label: "En producción", color: "text-indigo-700 bg-indigo-50 border-indigo-200", icon: Sparkles },
-  listo: { label: "Listo para entrega", color: "text-teal-700 bg-teal-50 border-teal-200", icon: CheckCircle2 },
+const TAB_DESCRIPTIONS: Record<Tab, { title: string; subtitle: string }> = {
+  perfil: {
+    title: "Mi perfil",
+    subtitle: "Administra tus datos de contacto y dirección habitual para agilizar tus compras.",
+  },
+  pedidos: {
+    title: "Mis pedidos",
+    subtitle: "Sigue en tiempo real la confección, empaque y entrega de tus compras.",
+  },
+  notificaciones: {
+    title: "Notificaciones",
+    subtitle: "Historial de avisos sobre confirmaciones, avances del taller y entregas.",
+  },
 };
-
-const PASOS_PEDIDO = [
-  { clave: "pendiente", label: "Recibido", icon: Clock },
-  { clave: "confirmado", label: "Confirmado", icon: CheckCircle2 },
-  { clave: "enviado", label: "En camino", icon: Truck },
-  { clave: "entregado", label: "Entregado", icon: Package },
-];
-
-function OrderStepper({ estado }: { estado: string }) {
-  const est = (estado || "pendiente").toLowerCase();
-  if (est === "cancelado") {
-    return (
-      <div className="flex items-center gap-2 p-3 bg-rose-50 text-rose-700 rounded-xl text-xs font-quicksand font-semibold border border-rose-100">
-        <XCircle size={15} />
-        Este pedido fue cancelado. Si tienes alguna duda, puedes escribir a nuestro canal de soporte.
-      </div>
-    );
-  }
-
-  const indexActual = est === "entregado" ? 3
-    : est === "enviado" ? 2
-    : est === "confirmado" ? 1
-    : 0;
-
-  return (
-    <div className="w-full my-3 py-3 px-3 sm:px-6 bg-[#FAF8F6] rounded-xl border border-[#EFEAE6]">
-      <div className="relative flex items-center justify-between">
-        <div className="absolute left-6 right-6 top-3.5 sm:top-4 h-0.5 bg-gray-200 z-0" />
-        <div
-          className="absolute left-6 top-3.5 sm:top-4 h-0.5 bg-[#EE6B8D] transition-all duration-500 z-0"
-          style={{ width: `${(indexActual / (PASOS_PEDIDO.length - 1)) * 100}%` }}
-        />
-
-        {PASOS_PEDIDO.map((paso, idx) => {
-          const completado = idx <= indexActual;
-          const esActual = idx === indexActual;
-          const IconPaso = paso.icon;
-
-          return (
-            <div key={paso.clave} className="relative z-10 flex flex-col items-center">
-              <div
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all ${
-                  esActual
-                    ? "bg-[#EE6B8D] text-white ring-4 ring-[#EE6B8D]/20 shadow-xs"
-                    : completado
-                    ? "bg-[#C04267] text-white"
-                    : "bg-white border border-gray-300 text-gray-400"
-                }`}
-              >
-                <IconPaso size={13} />
-              </div>
-              <span
-                className={`mt-1 font-quicksand text-[11px] sm:text-xs text-center transition-colors ${
-                  esActual
-                    ? "font-bold text-[#C04267]"
-                    : completado
-                    ? "font-medium text-gray-700"
-                    : "text-gray-400"
-                }`}
-              >
-                {paso.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function CalificarProducto({ item, nombreCliente }: { item: PedidoItem; nombreCliente: string }) {
-  const { ratedByMe, submitRating, refresh } = useReviews();
-  const { showToast } = useToast();
-  const [estrellas, setEstrellas] = useState(0);
-  const [comentario, setComentario] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const yaCalificado = item?.id ? ratedByMe[item.id] : undefined;
-
-  const handleEnviar = async () => {
-    if (!item?.id || !item?.nombre) return;
-    if (estrellas === 0) {
-      showToast("Selecciona la cantidad de estrellas", "warning");
-      return;
-    }
-    setEnviando(true);
-    const res = await submitRating({
-      producto_id: item.id,
-      producto_sku: undefined,
-      producto_nombre: item.nombre,
-      nombre_cliente: nombreCliente || "Cliente",
-      calificacion: estrellas,
-      comentario: comentario.trim() || undefined,
-    });
-    setEnviando(false);
-    if (res.ok) {
-      showToast("Gracias por tu calificación. Se publicará tras revisión.", "success");
-      refresh();
-    } else {
-      showToast(res.error || "Error al enviar la calificación", "error");
-    }
-  };
-
-  if (yaCalificado) {
-    return (
-      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#F2ECE6]">
-        <RatingStars value={yaCalificado} size={15} />
-        <p className="font-quicksand text-xs font-semibold text-[#C04267]">
-          Ya calificaste este producto con {yaCalificado} estrella{yaCalificado !== 1 ? "s" : ""}.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-3 border-t border-[#F2ECE6] pt-3">
-      <p className="font-quicksand text-xs font-bold uppercase tracking-wider text-[#C04267] mb-2 flex items-center gap-1.5">
-        <Star size={13} />
-        Calificar producto recibido
-      </p>
-      <div className="flex items-center gap-3">
-        <RatingStars value={estrellas} interactive size={22} onChange={setEstrellas} />
-        {estrellas > 0 && (
-          <span className="font-quicksand text-xs font-semibold text-gray-600">{estrellas}/5 estrellas</span>
-        )}
-      </div>
-      <textarea
-        value={comentario}
-        onChange={(e) => setComentario(e.target.value)}
-        placeholder="Comparte tu opinión sobre la confección y acabado (opcional)"
-        rows={2}
-        className="w-full mt-2 rounded-xl border border-[#E8DFD8] bg-white px-3.5 py-2 font-quicksand text-xs sm:text-sm outline-none focus:ring-2 focus:ring-[#EE6B8D] resize-none"
-      />
-      <button
-        onClick={handleEnviar}
-        disabled={enviando}
-        className="mt-2 flex items-center gap-2 px-4 py-2 rounded-full font-quicksand text-xs font-semibold text-white bg-[#EE6B8D] hover:bg-[#C04267] transition-colors cursor-pointer"
-      >
-        {enviando ? <Loader2 size={13} className="animate-spin" /> : <Star size={13} />}
-        Publicar calificación
-      </button>
-    </div>
-  );
-}
 
 export default function PerfilPage() {
   const { user, loading, signOut } = useAuth();
@@ -252,13 +74,11 @@ export default function PerfilPage() {
   const [loadingPedidos, setLoadingPedidos] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
-  // Filtros de subpestañas
-  const [filtroPedidos, setFiltroPedidos] = useState<"todos" | "en_curso" | "entregados" | "cancelados">("todos");
-  const [filtroNotif, setFiltroNotif] = useState<"todos" | "no_leidos" | "leidos">("todos");
+  const [filtroPedidos, setFiltroPedidos] = useState<FiltroPedidos>("todos");
+  const [filtroNotif, setFiltroNotif] = useState<FiltroNotif>("todos");
 
-  // Formulario de edición de perfil
   const [formNombre, setFormNombre] = useState("");
   const [formTelefono, setFormTelefono] = useState("");
   const [formDepartamento, setFormDepartamento] = useState("");
@@ -271,7 +91,40 @@ export default function PerfilPage() {
 
   const departamentos = useMemo(() => getDepartamentos(), []);
   const provincias = useMemo(() => getProvincias(formDepartamento), [formDepartamento]);
-  const distritos = useMemo(() => getDistritos(formDepartamento, formProvincia), [formDepartamento, formProvincia]);
+  const distritos = useMemo(
+    () => getDistritos(formDepartamento, formProvincia),
+    [formDepartamento, formProvincia]
+  );
+
+  // Sincronizar pestaña inicial desde query param (?tab=pedidos|notificaciones) sin romper SSR
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const qTab = params.get("tab");
+        if (qTab === "perfil" || qTab === "pedidos" || qTab === "notificaciones") {
+          setTab(qTab);
+        }
+      } catch {
+        // Ignorar errores de acceso a location
+      }
+    });
+  }, []);
+
+  const selectTab = useCallback((nextTab: Tab) => {
+    setTab(nextTab);
+    try {
+      const url = new URL(window.location.href);
+      if (nextTab === "perfil") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", nextTab);
+      }
+      window.history.replaceState(null, "", url.toString());
+    } catch {
+      // Ignorar en entornos sin history
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) router.push("/");
@@ -279,109 +132,169 @@ export default function PerfilPage() {
 
   // Cargar notificaciones leídas desde localStorage
   useEffect(() => {
-    if (user?.id) {
+    if (!user?.id) return;
+    const uid = user.id;
+    Promise.resolve().then(() => {
       try {
-        const stored = localStorage.getItem(`entrehilos_notif_leidas_${user.id}`);
+        const stored = localStorage.getItem(`entrehilos_notif_leidas_${uid}`);
         if (stored) {
-          setLeidasIds(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setLeidasIds(parsed);
         }
-      } catch (e) {}
-    }
+      } catch {
+        // Ignorar JSON corrupto
+      }
+    });
   }, [user?.id]);
 
-  // Cargar perfil desde API y localStorage
+  // Cargar perfil desde localStorage y API
   useEffect(() => {
     if (!user) return;
+    let active = true;
+
+    const applyProfileToForm = (data: ProfileData) => {
+      setProfile(data);
+      setFormNombre(data.nombre || "");
+      setFormTelefono(data.telefono || "");
+      setFormDepartamento(data.departamento || "");
+      setFormProvincia(data.provincia || "");
+      setFormDistrito(data.distrito || "");
+      setFormDireccion(data.direccion || "");
+      setFormReferencia(data.referencia || "");
+    };
+
     (async () => {
+      await Promise.resolve();
+      if (!active) return;
       setLoadingProfile(true);
       try {
         const localKey = `entrehilos_perfil_envio_${user.id}`;
         const localStored = localStorage.getItem(localKey);
         if (localStored) {
           try {
-            const parsed = JSON.parse(localStored);
-            if (parsed) {
-              setProfile(parsed);
-              if (parsed.nombre) setFormNombre(parsed.nombre);
-              if (parsed.telefono) setFormTelefono(parsed.telefono);
-              if (parsed.departamento) setFormDepartamento(parsed.departamento);
-              if (parsed.provincia) setFormProvincia(parsed.provincia);
-              if (parsed.distrito) setFormDistrito(parsed.distrito);
-              if (parsed.direccion) setFormDireccion(parsed.direccion);
-              if (parsed.referencia) setFormReferencia(parsed.referencia);
+            const parsed = JSON.parse(localStored) as ProfileData;
+            if (parsed && active) {
+              applyProfileToForm(parsed);
             }
-          } catch {}
+          } catch {
+            // Ignorar caché inválido
+          }
         }
 
-        const res = await fetch(`/api/perfil?userId=${user.id}`);
-        if (res.ok) {
+        const res = await fetch(`/api/perfil?userId=${encodeURIComponent(user.id)}`);
+        if (res.ok && active) {
           const json = await res.json();
-          if (json.profile) {
-            setProfile(json.profile);
-            if (json.profile.nombre) setFormNombre(json.profile.nombre);
-            if (json.profile.telefono) setFormTelefono(json.profile.telefono);
-            if (json.profile.departamento) setFormDepartamento(json.profile.departamento);
-            if (json.profile.provincia) setFormProvincia(json.profile.provincia);
-            if (json.profile.distrito) setFormDistrito(json.profile.distrito);
-            if (json.profile.direccion) setFormDireccion(json.profile.direccion);
-            if (json.profile.referencia) setFormReferencia(json.profile.referencia);
+          if (json.profile && active) {
+            applyProfileToForm(json.profile as ProfileData);
           }
         }
       } catch (e) {
         console.error("Error al cargar perfil:", e);
       } finally {
-        setLoadingProfile(false);
+        if (active) setLoadingProfile(false);
       }
     })();
+
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   // Cargar pedidos y notificaciones
-  const cargarDatos = async (mostrarCarga = false) => {
-    if (!user) return;
-    if (mostrarCarga) setLoadingPedidos(true);
-    try {
-      const { getUsuarioId } = await import("@/lib/anon-id");
-      const anonId = getUsuarioId();
-      const email = user.email || "";
-      const userId = user.id || "";
+  const cargarDatos = useCallback(
+    async (mostrarCarga = false) => {
+      if (!user) return;
+      if (mostrarCarga) setLoadingPedidos(true);
+      try {
+        const { getUsuarioId } = await import("@/lib/anon-id");
+        const anonId = getUsuarioId();
+        const email = user.email || "";
+        const userId = user.id || "";
 
-      const params = new URLSearchParams();
-      if (userId) params.set("userId", userId);
-      if (email) params.set("email", email);
-      if (anonId) params.set("anonId", anonId);
+        const params = new URLSearchParams();
+        if (userId) params.set("userId", userId);
+        if (email) params.set("email", email);
+        if (anonId) params.set("anonId", anonId);
 
-      const res = await fetch(`/api/mis-pedidos?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setPedidos(json.pedidos || []);
-        setPersonalizados(json.personalizados || []);
-        setNotificaciones(json.notificaciones || []);
-      } else {
-        const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
-        const supabase = getSupabaseBrowserClient();
-        const [pedidosRes, personalizadosRes] = await Promise.all([
-          supabase.from("pedidos").select("*").or(`usuario_id.eq.${userId},cliente_email.eq.${email}`).order("created_at", { ascending: false }),
-          supabase.from("pedidos_personalizados").select("*").eq("email", email).order("created_at", { ascending: false }),
-        ]);
-        if (pedidosRes.data) setPedidos(pedidosRes.data);
-        if (personalizadosRes.data) setPersonalizados(personalizadosRes.data);
+        const res = await fetch(`/api/mis-pedidos?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setPedidos(json.pedidos || []);
+          setPersonalizados(json.personalizados || []);
+          setNotificaciones(json.notificaciones || []);
+        } else {
+          const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+          const supabase = getSupabaseBrowserClient();
+          const [pedidosRes, personalizadosRes] = await Promise.all([
+            supabase
+              .from("pedidos")
+              .select("*")
+              .or(`usuario_id.eq.${userId},cliente_email.eq.${email}`)
+              .order("created_at", { ascending: false }),
+            supabase
+              .from("pedidos_personalizados")
+              .select("*")
+              .eq("email", email)
+              .order("created_at", { ascending: false }),
+          ]);
+          if (pedidosRes.data) setPedidos(pedidosRes.data);
+          if (personalizadosRes.data) setPersonalizados(personalizadosRes.data);
+        }
+      } catch (e) {
+        console.error("Error al cargar pedidos y notificaciones:", e);
+      } finally {
+        setLoadingPedidos(false);
       }
-    } catch (e) {
-      console.error("Error al cargar pedidos y notificaciones:", e);
-    } finally {
-      setLoadingPedidos(false);
-    }
-  };
+    },
+    [user]
+  );
 
   useEffect(() => {
-    if (user) {
-      cargarDatos(pedidos.length === 0 && notificaciones.length === 0);
-    }
-  }, [user, tab]);
+    if (!user) return;
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) {
+        cargarDatos(pedidos.length === 0 && notificaciones.length === 0);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [user, tab, cargarDatos, pedidos.length, notificaciones.length]);
 
-  // Guardar datos del perfil
-  const guardarPerfil = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const resetProfileForm = useCallback(() => {
+    setFormNombre(profile?.nombre || "");
+    setFormTelefono(profile?.telefono || "");
+    setFormDepartamento(profile?.departamento || "");
+    setFormProvincia(profile?.provincia || "");
+    setFormDistrito(profile?.distrito || "");
+    setFormDireccion(profile?.direccion || "");
+    setFormReferencia(profile?.referencia || "");
+  }, [profile]);
+
+  const isProfileDirty = useMemo(() => {
+    return (
+      formNombre.trim() !== (profile?.nombre || "").trim() ||
+      formTelefono.trim() !== (profile?.telefono || "").trim() ||
+      formDepartamento !== (profile?.departamento || "") ||
+      formProvincia !== (profile?.provincia || "") ||
+      formDistrito !== (profile?.distrito || "") ||
+      formDireccion.trim() !== (profile?.direccion || "").trim() ||
+      formReferencia.trim() !== (profile?.referencia || "").trim()
+    );
+  }, [
+    formNombre,
+    formTelefono,
+    formDepartamento,
+    formProvincia,
+    formDistrito,
+    formDireccion,
+    formReferencia,
+    profile,
+  ]);
+
+  const guardarPerfil = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!user) return;
     setGuardandoPerfil(true);
     setPerfilGuardadoExito(false);
@@ -396,12 +309,17 @@ export default function PerfilPage() {
       direccion: formDireccion.trim(),
       referencia: formReferencia.trim(),
       localidad: [formDistrito, formProvincia, formDepartamento].filter(Boolean).join(", "),
+      rol: profile?.rol ?? null,
     };
 
-    // Guardar en localStorage para disponibilidad inmediata en checkout
     try {
-      localStorage.setItem(`entrehilos_perfil_envio_${user.id}`, JSON.stringify({ id: user.id, ...payload }));
-    } catch (err) {}
+      localStorage.setItem(
+        `entrehilos_perfil_envio_${user.id}`,
+        JSON.stringify({ id: user.id, ...payload })
+      );
+    } catch {
+      // Ignorar fallo de almacenamiento local
+    }
 
     try {
       const res = await fetch("/api/perfil", {
@@ -411,7 +329,10 @@ export default function PerfilPage() {
       });
 
       if (!res.ok) {
-        showToast("No pudimos guardar en el servidor. Tus datos quedaron solo en este dispositivo.", "error");
+        showToast(
+          "No pudimos guardar en el servidor. Tus datos quedaron guardados solo en este dispositivo.",
+          "error"
+        );
         return;
       }
 
@@ -422,23 +343,30 @@ export default function PerfilPage() {
 
       if (json?.partial && Array.isArray(json.campos_no_guardados) && json.campos_no_guardados.length > 0) {
         showToast(
-          `Tu nombre y teléfono se guardaron, pero la dirección no: falta aplicar la migración de envío (${json.campos_no_guardados.join(", ")}).`,
+          `Tu nombre y teléfono se guardaron, pero faltaron campos de envío (${json.campos_no_guardados.join(", ")}).`,
           "warning"
         );
       } else {
         showToast("Tus datos de entrega fueron guardados con éxito", "success");
       }
-    } catch (err) {
-      showToast("No pudimos guardar en el servidor. Tus datos quedaron solo en este dispositivo.", "error");
+
+      // Refresca pedidos por si el teléfono o nombre ingresado vincula órdenes agendadas manualmente
+      await cargarDatos(false);
+    } catch {
+      showToast(
+        "No pudimos guardar en el servidor. Tus datos quedaron solo en este dispositivo.",
+        "error"
+      );
     } finally {
       setGuardandoPerfil(false);
     }
   };
 
   // Notificaciones
-  const noLeidasCount = notificaciones.filter(
-    (n) => !n.leido && !leidasIds.includes(String(n.id))
-  ).length;
+  const noLeidasCount = useMemo(
+    () => notificaciones.filter((n) => !n.leido && !leidasIds.includes(String(n.id))).length,
+    [notificaciones, leidasIds]
+  );
 
   const marcarLeida = async (id: string) => {
     if (!leidasIds.includes(id)) {
@@ -447,7 +375,9 @@ export default function PerfilPage() {
       if (user?.id) {
         try {
           localStorage.setItem(`entrehilos_notif_leidas_${user.id}`, JSON.stringify(updated));
-        } catch (e) {}
+        } catch {
+          // Ignorar
+        }
       }
       const numId = Number(id);
       if (!Number.isNaN(numId) && numId > 0) {
@@ -455,7 +385,9 @@ export default function PerfilPage() {
           const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
           const supabase = getSupabaseBrowserClient();
           await supabase.from("notificaciones").update({ leido: true }).eq("id", numId);
-        } catch (e) {}
+        } catch {
+          // Ignorar
+        }
       }
     }
   };
@@ -466,7 +398,9 @@ export default function PerfilPage() {
     if (user?.id) {
       try {
         localStorage.setItem(`entrehilos_notif_leidas_${user.id}`, JSON.stringify(allIds));
-      } catch (e) {}
+      } catch {
+        // Ignorar
+      }
       try {
         const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
         const supabase = getSupabaseBrowserClient();
@@ -474,19 +408,22 @@ export default function PerfilPage() {
           .from("notificaciones")
           .update({ leido: true })
           .or(`usuario_id.eq.${user.id},email.eq.${user.email}`);
-      } catch (e) {}
+      } catch {
+        // Ignorar
+      }
     }
     showToast("Todas las notificaciones han sido marcadas como leídas", "success");
   };
 
-  // Filtrado de notificaciones
-  const notificacionesNoLeidas = useMemo(() => {
-    return notificaciones.filter((n) => !n.leido && !leidasIds.includes(String(n.id)));
-  }, [notificaciones, leidasIds]);
+  const notificacionesNoLeidas = useMemo(
+    () => notificaciones.filter((n) => !n.leido && !leidasIds.includes(String(n.id))),
+    [notificaciones, leidasIds]
+  );
 
-  const notificacionesLeidas = useMemo(() => {
-    return notificaciones.filter((n) => n.leido || leidasIds.includes(String(n.id)));
-  }, [notificaciones, leidasIds]);
+  const notificacionesLeidas = useMemo(
+    () => notificaciones.filter((n) => Boolean(n.leido || leidasIds.includes(String(n.id)))),
+    [notificaciones, leidasIds]
+  );
 
   const notificacionesFiltradas = useMemo(() => {
     if (filtroNotif === "no_leidos") return notificacionesNoLeidas;
@@ -494,34 +431,32 @@ export default function PerfilPage() {
     return notificaciones;
   }, [filtroNotif, notificaciones, notificacionesNoLeidas, notificacionesLeidas]);
 
-  // Filtrado de pedidos
-  const pedidosEnCurso = useMemo(() => {
-    return pedidos.filter((p) =>
-      ["pendiente", "confirmado", "enviado"].includes((p.estado || "pendiente").toLowerCase())
-    );
-  }, [pedidos]);
+  // Pedidos agrupados por estado real
+  const pedidosEnCurso = useMemo(
+    () => pedidos.filter((p) => isPedidoEnCurso(p.estado)),
+    [pedidos]
+  );
+  const pedidosEntregados = useMemo(
+    () => pedidos.filter((p) => (p.estado || "").toLowerCase() === "entregado"),
+    [pedidos]
+  );
+  const pedidosCancelados = useMemo(
+    () => pedidos.filter((p) => (p.estado || "").toLowerCase() === "cancelado"),
+    [pedidos]
+  );
 
-  const pedidosEntregados = useMemo(() => {
-    return pedidos.filter((p) => (p.estado || "").toLowerCase() === "entregado");
-  }, [pedidos]);
-
-  const pedidosCancelados = useMemo(() => {
-    return pedidos.filter((p) => (p.estado || "").toLowerCase() === "cancelado");
-  }, [pedidos]);
-
-  const persEnCurso = useMemo(() => {
-    return personalizados.filter((p) =>
-      ["pendiente", "confirmado", "en_produccion", "listo"].includes((p.estado || "pendiente").toLowerCase())
-    );
-  }, [personalizados]);
-
-  const persEntregados = useMemo(() => {
-    return personalizados.filter((p) => (p.estado || "").toLowerCase() === "entregado");
-  }, [personalizados]);
-
-  const persCancelados = useMemo(() => {
-    return personalizados.filter((p) => (p.estado || "").toLowerCase() === "cancelado");
-  }, [personalizados]);
+  const persEnCurso = useMemo(
+    () => personalizados.filter((p) => isPedidoEnCurso(p.estado)),
+    [personalizados]
+  );
+  const persEntregados = useMemo(
+    () => personalizados.filter((p) => (p.estado || "").toLowerCase() === "entregado"),
+    [personalizados]
+  );
+  const persCancelados = useMemo(
+    () => personalizados.filter((p) => (p.estado || "").toLowerCase() === "cancelado"),
+    [personalizados]
+  );
 
   const pedidosAMostrar = useMemo(() => {
     if (filtroPedidos === "en_curso") return pedidosEnCurso;
@@ -541,940 +476,486 @@ export default function PerfilPage() {
   const totalPedidosEntregados = pedidosEntregados.length + persEntregados.length;
   const totalPedidosCancelados = pedidosCancelados.length + persCancelados.length;
   const totalTodosPedidos = pedidos.length + personalizados.length;
-  const totalInvertido = pedidos.reduce((sum, p) => sum + (Number(p.total) || 0), 0);
+  const totalInvertido = useMemo(
+    () =>
+      pedidos.reduce((sum, p) => {
+        if ((p.estado || "").toLowerCase() === "cancelado") return sum;
+        return sum + (Number(p.total) || 0);
+      }, 0),
+    [pedidos]
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF8F6]">
-        <Loader2 size={32} className="animate-spin text-[#EE6B8D]" />
+      <div className="min-h-dvh flex items-center justify-center bg-[#FCF8FA]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={32} className="animate-spin text-[#EE6B8D]" />
+          <p className="font-quicksand text-xs text-gray-500">Cargando tu cuenta...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) return null;
 
-  const nombreUsuario = formNombre || user.user_metadata?.full_name || user.email?.split("@")[0] || "Usuario";
+  const nombreUsuario =
+    formNombre.trim() ||
+    user.user_metadata?.full_name ||
+    user.email?.split("@")[0] ||
+    "Cliente Entre Hilos";
   const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+  const showAvatarImg = Boolean(avatarUrl && !avatarError);
+  const isAdmin = profile?.rol === "admin" || profile?.rol === "super_admin";
+  const hasSavedPhone = Boolean((profile?.telefono || formTelefono).trim());
+  const hasSavedAddress = Boolean((profile?.direccion || formDireccion).trim());
+  const sectionInfo = TAB_DESCRIPTIONS[tab];
 
-  const sidebarContent = (
-    <div className="flex flex-col h-full bg-white">
-      {/* Información del usuario */}
-      <div className="p-6 border-b border-[#EFEAE6]">
-        <div className="flex items-center gap-3">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={nombreUsuario}
-              className="w-12 h-12 rounded-full object-cover border-2 border-[#EE6B8D]"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-[#C04267] flex items-center justify-center text-white font-fredoka font-bold text-lg">
-              {nombreUsuario.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="font-fredoka text-sm font-bold text-gray-800 truncate">{nombreUsuario}</p>
-            <p className="font-quicksand text-xs text-gray-400 truncate">{user.email}</p>
+  return (
+    <div className="min-h-dvh bg-[#FCF8FA] flex flex-col">
+      {/* Barra superior sticky de marca (Desktop + Mobile) */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#F2E2E8]">
+        <div className="max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D] rounded-xl pr-1"
+            >
+              <Image
+                src="/logo.png"
+                alt="Entre Hilos"
+                width={36}
+                height={36}
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-[#F2DCE4] shrink-0 group-hover:scale-105 transition-transform"
+              />
+              <span className="font-fredoka text-base sm:text-lg font-bold text-[#C04267] tracking-tight truncate">
+                Entre Hilos
+              </span>
+            </Link>
+            <span className="hidden sm:inline text-[#E6CFD7]" aria-hidden="true">
+              /
+            </span>
+            <span className="hidden sm:inline font-quicksand text-xs font-semibold text-gray-500">
+              Mi cuenta
+            </span>
           </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FDF2F5] hover:bg-[#FAE3EA] border border-[#F3CED9] font-quicksand text-xs font-bold text-[#C04267] transition-colors"
+              >
+                <ShieldCheck size={14} />
+                <span className="hidden sm:inline">Panel Admin</span>
+                <span className="sm:hidden">Admin</span>
+              </Link>
+            )}
+
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full border border-[#EFE1E6] bg-white hover:bg-[#FCF8FA] font-quicksand text-xs font-semibold text-gray-700 hover:text-[#C04267] transition-colors"
+            >
+              <ArrowLeft size={14} />
+              <span className="hidden sm:inline">Volver a la tienda</span>
+              <span className="sm:hidden">Tienda</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={signOut}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full border border-rose-200/80 bg-rose-50/70 hover:bg-rose-100/80 font-quicksand text-xs font-semibold text-rose-700 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            >
+              <LogOut size={14} />
+              <span className="hidden sm:inline">Salir</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Navegación móvil sticky por pestañas segmentadas (sin botón flotante ni drawer) */}
+      <div className="lg:hidden sticky top-14 sm:top-16 z-20 bg-[#FCF8FA]/95 backdrop-blur-md border-b border-[#F2E2E8] px-3 py-2.5">
+        <div
+          role="tablist"
+          aria-label="Secciones de mi cuenta"
+          className="grid grid-cols-3 gap-1 bg-white p-1 rounded-2xl border border-[#F0E2E7] shadow-2xs max-w-[1160px] mx-auto"
+        >
+          {MENU_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.id;
+            const badge =
+              item.id === "pedidos"
+                ? totalTodosPedidos
+                : item.id === "notificaciones"
+                ? noLeidasCount
+                : 0;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => selectTab(item.id)}
+                className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-quicksand text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D] ${
+                  active
+                    ? "bg-[#C04267] text-white shadow-xs"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-[#FCF6F8]"
+                }`}
+              >
+                <Icon size={15} className="shrink-0" />
+                <span className="truncate">{item.shortLabel}</span>
+                {badge > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold tabular-nums shrink-0 ${
+                      active ? "bg-white/20 text-white" : "bg-[#FDF0F4] text-[#C04267]"
+                    }`}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Navegación lateral */}
-      <nav className="flex-1 p-3 space-y-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const active = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => { setTab(item.id); setSidebarOpen(false); }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-quicksand text-sm font-semibold transition-all text-left cursor-pointer ${
-                active
-                  ? "bg-[#FDF2F4] text-[#C04267] shadow-xs"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Icon size={19} strokeWidth={active ? 2.5 : 1.75} />
-                {item.label}
-              </div>
-              {item.id === "notificaciones" && noLeidasCount > 0 && (
-                <span className="bg-[#EE6B8D] text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
-                  {noLeidasCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Acciones inferiores */}
-      <div className="p-3 border-t border-[#EFEAE6] space-y-1">
-        <Link
-          href="/"
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-quicksand text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
+      {/* Cuerpo principal */}
+      <main className="flex-1 w-full max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-6">
+        {/* Hero Card de Cuenta + Métricas rápidas */}
+        <section
+          aria-label="Resumen de cuenta"
+          className="rounded-2xl border border-[#F2DCE4] bg-gradient-to-r from-white via-[#FFF9FB] to-[#FDF1F5] p-4 sm:p-6 shadow-[0_4px_20px_rgba(192,66,103,0.05)]"
         >
-          <Home size={19} strokeWidth={1.75} />
-          Ir a tienda
-        </Link>
-        <button
-          onClick={signOut}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-quicksand text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-        >
-          <LogOut size={19} strokeWidth={1.75} />
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-[#FAF8F6] flex">
-      {/* Overlay móvil */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/30 sm:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Barra lateral */}
-      <aside
-        className={`fixed sm:sticky top-0 left-0 z-50 h-screen w-72 bg-white shadow-sm border-r border-[#EFEAE6] transform transition-transform duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
-        }`}
-      >
-        {sidebarContent}
-      </aside>
-
-      {/* Botón hamburguesa móvil */}
-      <button
-        onClick={() => setSidebarOpen(true)}
-        className="fixed top-4 left-4 z-30 sm:hidden w-10 h-10 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center relative cursor-pointer"
-        aria-label="Abrir menú"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A4A4A" strokeWidth="2" strokeLinecap="round">
-          <line x1="4" y1="6" x2="20" y2="6" />
-          <line x1="4" y1="12" x2="20" y2="12" />
-          <line x1="4" y1="18" x2="20" y2="18" />
-        </svg>
-        {noLeidasCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#EE6B8D] rounded-full border-2 border-white flex items-center justify-center text-[9px] font-bold text-white">
-            {noLeidasCount > 9 ? "!" : noLeidasCount}
-          </span>
-        )}
-      </button>
-
-      {/* Contenido principal con Layout de 2 Columnas para aprovechar el ancho */}
-      <main className="flex-1 min-w-0 p-5 sm:p-8 lg:p-10 pt-20 sm:pt-8 w-full max-w-[1400px] mx-auto">
-        <div className="w-full">
-          {/* TAB 1: MI PERFIL */}
-          {tab === "perfil" && (
-            <div className="space-y-6 w-full">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#EFEAE6]">
-                <div>
-                  <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-[#C04267]">Mi perfil</h2>
-                  <p className="font-quicksand text-xs sm:text-sm text-gray-500 mt-1">
-                    Administra tus datos personales y tu dirección habitual de entrega para futuras compras.
-                  </p>
-                </div>
-                {perfilGuardadoExito && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-quicksand text-xs font-semibold">
-                    <Check size={14} /> Datos guardados correctamente
-                  </span>
-                )}
-              </div>
-
-              {loadingProfile ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader2 size={28} className="animate-spin text-[#EE6B8D]" />
-                </div>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            {/* Identidad cliente */}
+            <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+              {showAvatarImg ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={avatarUrl}
+                  alt={nombreUsuario}
+                  onError={() => setAvatarError(true)}
+                  className="w-13 h-13 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#EE6B8D] shadow-xs shrink-0"
+                />
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
-                  {/* Columna Principal: Formularios */}
-                  <form onSubmit={guardarPerfil} className="lg:col-span-8 space-y-6">
-                    {/* Tarjeta 1: Datos Personales */}
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-5">
-                      <div className="flex items-center gap-2.5 pb-3 border-b border-[#F4EFEB]">
-                        <div className="w-8 h-8 rounded-lg bg-[#FDF2F4] text-[#C04267] flex items-center justify-center">
-                          <UserCircle size={18} />
-                        </div>
-                        <div>
-                          <h3 className="font-fredoka text-base font-bold text-gray-800">
-                            Datos personales
-                          </h3>
-                          <p className="font-quicksand text-xs text-gray-400">
-                            Información de contacto asociada a tu cuenta.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Nombre completo
-                          </label>
-                          <input
-                            type="text"
-                            value={formNombre}
-                            onChange={(e) => setFormNombre(e.target.value)}
-                            placeholder="Ej: María Pérez"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-quicksand text-sm text-gray-800 outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent transition-all"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Correo electrónico
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="email"
-                              value={user.email || ""}
-                              disabled
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 font-quicksand text-sm text-gray-500 outline-none cursor-not-allowed"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Check size={10} /> Verificado
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Teléfono de contacto / WhatsApp
-                          </label>
-                          <input
-                            type="tel"
-                            value={formTelefono}
-                            onChange={(e) => setFormTelefono(e.target.value)}
-                            placeholder="Ej: 999888777"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-quicksand text-sm text-gray-800 outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent transition-all"
-                          />
-                          <p className="font-quicksand text-[11px] text-gray-400 mt-1">
-                            Utilizaremos este número para coordinar la entrega de tus pedidos.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Tarjeta 2: Dirección y Localidad de Entrega */}
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-5">
-                      <div className="flex items-center gap-2.5 pb-3 border-b border-[#F4EFEB]">
-                        <div className="w-8 h-8 rounded-lg bg-[#FDF2F4] text-[#C04267] flex items-center justify-center">
-                          <MapPin size={18} />
-                        </div>
-                        <div>
-                          <h3 className="font-fredoka text-base font-bold text-gray-800">
-                            Dirección y localidad habitual de entrega
-                          </h3>
-                          <p className="font-quicksand text-xs text-gray-400">
-                            Se sugerirá automáticamente durante el proceso de compra.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Departamento */}
-                        <div>
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Departamento
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={formDepartamento}
-                              onChange={(e) => {
-                                setFormDepartamento(e.target.value);
-                                setFormProvincia("");
-                                setFormDistrito("");
-                              }}
-                              className="w-full appearance-none px-3.5 py-2.5 rounded-xl border border-gray-200 font-quicksand text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent pr-9 cursor-pointer"
-                            >
-                              <option value="">Seleccionar departamento</option>
-                              {departamentos.map((d) => (
-                                <option key={d} value={d}>{d}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                          </div>
-                        </div>
-
-                        {/* Provincia */}
-                        <div>
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Provincia
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={formProvincia}
-                              onChange={(e) => {
-                                setFormProvincia(e.target.value);
-                                setFormDistrito("");
-                              }}
-                              disabled={!formDepartamento}
-                              className="w-full appearance-none px-3.5 py-2.5 rounded-xl border border-gray-200 font-quicksand text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent pr-9 disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
-                            >
-                              <option value="">Seleccionar provincia</option>
-                              {provincias.map((p) => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                          </div>
-                        </div>
-
-                        {/* Distrito */}
-                        <div>
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Distrito / Localidad
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={formDistrito}
-                              onChange={(e) => setFormDistrito(e.target.value)}
-                              disabled={!formProvincia}
-                              className="w-full appearance-none px-3.5 py-2.5 rounded-xl border border-gray-200 font-quicksand text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent pr-9 disabled:bg-gray-100 disabled:text-gray-400 cursor-pointer"
-                            >
-                              <option value="">Seleccionar distrito</option>
-                              {distritos.map((dist) => (
-                                <option key={dist} value={dist}>{dist}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Dirección exacta (calle, avenida, número)
-                          </label>
-                          <input
-                            type="text"
-                            value={formDireccion}
-                            onChange={(e) => setFormDireccion(e.target.value)}
-                            placeholder="Ej: Av. Las Flores 123, Dpto 402"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-quicksand text-sm text-gray-800 outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent transition-all"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block font-quicksand text-xs font-semibold text-gray-700 mb-1.5">
-                            Referencia de llegada (opcional)
-                          </label>
-                          <input
-                            type="text"
-                            value={formReferencia}
-                            onChange={(e) => setFormReferencia(e.target.value)}
-                            placeholder="Ej: Frente al parque, rejas blancas"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 font-quicksand text-sm text-gray-800 outline-none focus:ring-2 focus:ring-[#EE6B8D] focus:border-transparent transition-all"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="pt-2 flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={guardandoPerfil}
-                          className="flex items-center gap-2 px-6 py-3 rounded-full font-quicksand text-sm font-semibold text-white bg-[#C04267] hover:bg-[#A33454] transition-all disabled:opacity-50 cursor-pointer shadow-xs"
-                        >
-                          {guardandoPerfil ? (
-                            <>
-                              <Loader2 size={16} className="animate-spin" />
-                              Guardando datos...
-                            </>
-                          ) : (
-                            <>
-                              <Save size={16} />
-                              Guardar datos de entrega
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-
-                  {/* Columna Lateral: Resumen de Cuenta y Soporte */}
-                  <div className="lg:col-span-4 space-y-6">
-                    {/* Widget 1: Resumen de Cuenta */}
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-4">
-                      <div className="flex items-center gap-3">
-                        {avatarUrl ? (
-                          <img
-                            src={avatarUrl}
-                            alt={nombreUsuario}
-                            className="w-14 h-14 rounded-full object-cover border-2 border-[#EE6B8D]"
-                          />
-                        ) : (
-                          <div className="w-14 h-14 rounded-full bg-[#C04267] text-white flex items-center justify-center font-fredoka text-xl font-bold">
-                            {nombreUsuario.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-fredoka text-base font-bold text-gray-800 truncate">{nombreUsuario}</p>
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-1">
-                            <ShieldCheck size={12} /> Cliente verificado
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[#F4EFEB]">
-                        <div className="p-3 bg-[#FAF8F6] rounded-xl text-center">
-                          <p className="font-fredoka text-lg font-bold text-gray-800">{totalTodosPedidos}</p>
-                          <p className="font-quicksand text-[11px] text-gray-500">Pedidos totales</p>
-                        </div>
-                        <div className="p-3 bg-[#FAF8F6] rounded-xl text-center">
-                          <p className="font-fredoka text-lg font-bold text-[#C04267]">{totalPedidosEnCurso}</p>
-                          <p className="font-quicksand text-[11px] text-gray-500">En proceso</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Widget 2: Beneficios de Entrega */}
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-3">
-                      <div className="flex items-center gap-2 text-gray-800">
-                        <Truck size={18} className="text-[#C04267]" />
-                        <h4 className="font-fredoka text-sm font-bold">Envíos y Embalaje Seguro</h4>
-                      </div>
-                      <p className="font-quicksand text-xs text-gray-600 leading-relaxed">
-                        Todos los ramos tejidos y amigurumis se envían en cajas rígidas con protección especial para preservar la forma exacta del hilado.
-                      </p>
-                    </div>
-
-                    {/* Widget 3: Canal de Ayuda Directa */}
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-3">
-                      <div className="flex items-center gap-2 text-gray-800">
-                        <MessageCircle size={18} className="text-[#C04267]" />
-                        <h4 className="font-fredoka text-sm font-bold">Atención al Cliente</h4>
-                      </div>
-                      <p className="font-quicksand text-xs text-gray-600 leading-relaxed">
-                        ¿Tienes dudas con un pedido o requieres una personalización especial? Nuestro taller atiende de lunes a sábado de 9:00 a 19:00 hrs.
-                      </p>
-                      <a
-                        href="https://wa.me/51902578295"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-4 rounded-xl font-quicksand text-xs font-semibold text-[#C04267] bg-[#FDF2F4] hover:bg-[#FBE4E9] transition-colors"
-                      >
-                        Consultar por WhatsApp
-                        <ArrowUpRight size={14} />
-                      </a>
-                    </div>
-                  </div>
+                <div
+                  aria-hidden="true"
+                  className="w-13 h-13 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center font-fredoka text-xl sm:text-2xl font-bold shadow-xs shrink-0"
+                >
+                  {nombreUsuario.charAt(0).toUpperCase()}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* TAB 2: MIS PEDIDOS */}
-          {tab === "pedidos" && (
-            <div className="space-y-6 w-full">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#EFEAE6]">
-                <div>
-                  <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-[#C04267]">Mis pedidos</h2>
-                  <p className="font-quicksand text-xs sm:text-sm text-gray-500 mt-1">
-                    Sigue en tiempo real el avance de confección y despacho de tus compras.
-                  </p>
+              <div className="min-w-0 space-y-1">
+                <h1 className="font-fredoka text-lg sm:text-2xl font-bold text-gray-900 truncate">
+                  {nombreUsuario}
+                </h1>
+                <p className="font-quicksand text-xs sm:text-sm text-gray-500 truncate">
+                  {user.email}
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-quicksand font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    <ShieldCheck size={12} />
+                    Cliente verificado
+                  </span>
+                  {!hasSavedPhone || !hasSavedAddress ? (
+                    <button
+                      type="button"
+                      onClick={() => selectTab("perfil")}
+                      className="inline-flex items-center gap-1 text-[11px] font-quicksand font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer"
+                    >
+                      Completa tu envío
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-quicksand font-semibold text-[#C04267] bg-[#FDF2F5] border border-[#F4CED9] px-2.5 py-0.5 rounded-full">
+                      <Truck size={11} />
+                      Envío rápido listo
+                    </span>
+                  )}
                 </div>
               </div>
+            </div>
 
-              {/* Filtros de estado */}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setFiltroPedidos("todos")}
-                  className={`px-4 py-2 rounded-full font-quicksand text-xs font-semibold transition-all cursor-pointer ${
-                    filtroPedidos === "todos"
-                      ? "bg-[#C04267] text-white shadow-xs"
-                      : "bg-white text-gray-600 hover:bg-gray-50 border border-[#EFEAE6]"
-                  }`}
-                >
-                  Todos ({totalTodosPedidos})
-                </button>
-                <button
-                  onClick={() => setFiltroPedidos("en_curso")}
-                  className={`px-4 py-2 rounded-full font-quicksand text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    filtroPedidos === "en_curso"
-                      ? "bg-[#C04267] text-white shadow-xs"
-                      : "bg-white text-gray-600 hover:bg-gray-50 border border-[#EFEAE6]"
-                  }`}
-                >
-                  <Clock size={13} />
-                  En proceso ({totalPedidosEnCurso})
-                </button>
-                <button
-                  onClick={() => setFiltroPedidos("entregados")}
-                  className={`px-4 py-2 rounded-full font-quicksand text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    filtroPedidos === "entregados"
-                      ? "bg-[#C04267] text-white shadow-xs"
-                      : "bg-white text-gray-600 hover:bg-gray-50 border border-[#EFEAE6]"
-                  }`}
-                >
-                  <CheckCircle2 size={13} />
-                  Ya entregados ({totalPedidosEntregados})
-                </button>
-                {totalPedidosCancelados > 0 && (
+            {/* KPI Strip */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3 w-full lg:w-auto lg:min-w-[400px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroPedidos("todos");
+                  selectTab("pedidos");
+                }}
+                className="p-2.5 sm:p-3 rounded-xl bg-white/90 hover:bg-white border border-[#F0DCE3] text-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]"
+              >
+                <p className="font-fredoka text-base sm:text-lg font-bold text-gray-900 tabular-nums">
+                  {totalTodosPedidos}
+                </p>
+                <p className="font-quicksand text-[11px] text-gray-500">Pedidos</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroPedidos("en_curso");
+                  selectTab("pedidos");
+                }}
+                className="p-2.5 sm:p-3 rounded-xl bg-white/90 hover:bg-white border border-[#F0DCE3] text-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]"
+              >
+                <p className="font-fredoka text-base sm:text-lg font-bold text-[#C04267] tabular-nums">
+                  {totalPedidosEnCurso}
+                </p>
+                <p className="font-quicksand text-[11px] text-gray-500">En curso</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroPedidos("entregados");
+                  selectTab("pedidos");
+                }}
+                className="p-2.5 sm:p-3 rounded-xl bg-white/90 hover:bg-white border border-[#F0DCE3] text-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]"
+              >
+                <p className="font-fredoka text-base sm:text-lg font-bold text-emerald-700 tabular-nums">
+                  {totalPedidosEntregados}
+                </p>
+                <p className="font-quicksand text-[11px] text-gray-500">Entregados</p>
+              </button>
+
+              <div className="hidden sm:flex flex-col justify-center p-2.5 sm:p-3 rounded-xl bg-white/90 border border-[#F0DCE3] text-center">
+                <p className="font-fredoka text-base sm:text-lg font-bold text-gray-900 tabular-nums truncate">
+                  {formatCurrency(totalInvertido)}
+                </p>
+                <p className="font-quicksand text-[11px] text-gray-500">Total compras</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Workspace Desktop de 2 Columnas + Área Principal */}
+        <div className="grid grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)] gap-6 lg:gap-7 items-start">
+          {/* Rail izquierdo sticky en desktop */}
+          <aside className="hidden lg:flex flex-col gap-4 sticky top-24">
+            <nav
+              role="tablist"
+              aria-label="Navegación de cuenta"
+              className="bg-white rounded-2xl border border-[#F0E2E7] p-2 shadow-[0_2px_12px_rgba(192,66,103,0.03)] space-y-1"
+            >
+              {MENU_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.id;
+                const badge =
+                  item.id === "pedidos"
+                    ? totalTodosPedidos
+                    : item.id === "notificaciones"
+                    ? noLeidasCount
+                    : 0;
+
+                return (
                   <button
-                    onClick={() => setFiltroPedidos("cancelados")}
-                    className={`px-4 py-2 rounded-full font-quicksand text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      filtroPedidos === "cancelados"
-                        ? "bg-[#C04267] text-white shadow-xs"
-                        : "bg-white text-gray-600 hover:bg-gray-50 border border-[#EFEAE6]"
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => selectTab(item.id)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold transition-all text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE6B8D]/60 ${
+                      active
+                        ? "bg-[#FDF1F5] text-[#C04267] ring-1 ring-[#F4CED9]"
+                        : "text-gray-600 hover:bg-[#FCF8FA] hover:text-gray-900"
                     }`}
                   >
-                    <XCircle size={13} />
-                    Cancelados ({totalPedidosCancelados})
-                  </button>
-                )}
-              </div>
-
-              {loadingPedidos ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader2 size={28} className="animate-spin text-[#EE6B8D]" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
-                  {/* Columna Principal: Lista de Pedidos */}
-                  <div className="lg:col-span-8 space-y-4">
-                    {pedidosAMostrar.length === 0 && persAMostrar.length === 0 ? (
-                      <div className="text-center py-16 bg-white rounded-2xl border border-[#EFEAE6] p-8">
-                        <ShoppingBag size={44} className="mx-auto text-gray-300 mb-3" />
-                        <p className="font-quicksand text-sm text-gray-700 font-semibold">
-                          {filtroPedidos === "en_curso"
-                            ? "No tienes pedidos en proceso actualmente"
-                            : filtroPedidos === "entregados"
-                            ? "No tienes pedidos entregados en tu historial"
-                            : filtroPedidos === "cancelados"
-                            ? "No tienes pedidos cancelados"
-                            : "No tienes compras registradas aún"}
-                        </p>
-                        <p className="font-quicksand text-xs text-gray-400 mt-1 mb-5">
-                          Explora nuestras colecciones para elegir tu siguiente detalle hecho a mano.
-                        </p>
-                        <Link
-                          href="/"
-                          className="inline-block font-quicksand text-xs font-semibold text-white bg-[#C04267] hover:bg-[#A33454] px-5 py-2.5 rounded-full transition-all"
-                        >
-                          Ver catálogo
-                        </Link>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Pedidos Estándar */}
-                        {pedidosAMostrar.map((p) => {
-                          const estadoConfig = estados[p.estado] || estados.pendiente;
-                          const EstadoIcon = estadoConfig.icon || Clock;
-                          const estaEntregado = (p.estado || "").toLowerCase() === "entregado";
-
-                          let itemsPedido: PedidoItem[] = [];
-                          if (Array.isArray(p.items)) {
-                            itemsPedido = p.items;
-                          } else if (typeof p.items === "string") {
-                            try { itemsPedido = JSON.parse(p.items); } catch { itemsPedido = []; }
-                          }
-
-                          return (
-                            <div
-                              key={`pd-${p.id}`}
-                              className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-4"
-                            >
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F4EFEB]">
-                                <div>
-                                  <div className="flex items-center gap-2.5">
-                                    <h3 className="font-fredoka text-lg font-bold text-gray-900">
-                                      Pedido #{p.id}
-                                    </h3>
-                                    <span className={`inline-flex items-center gap-1.5 font-quicksand text-xs font-semibold px-3 py-1 rounded-full border ${estadoConfig.color}`}>
-                                      <EstadoIcon size={13} />
-                                      {estadoConfig.label}
-                                    </span>
-                                  </div>
-                                  <p className="font-quicksand text-xs text-gray-400 mt-1">
-                                    Registrado el {new Date(p.created_at).toLocaleDateString("es-PE", {
-                                      day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
-                                    })}
-                                  </p>
-                                </div>
-                                <div className="sm:text-right">
-                                  <span className="font-quicksand text-xs text-gray-400 block">Total</span>
-                                  <span className="font-fredoka text-lg font-bold text-gray-900">
-                                    S/ {Number(p.total).toFixed(2)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <OrderStepper estado={p.estado} />
-
-                              {p.direccion_envio && (
-                                <div className="flex items-center gap-2 p-3 bg-[#FAF8F6] rounded-xl text-xs font-quicksand text-gray-600 border border-[#EFEAE6]">
-                                  <MapPin size={14} className="text-[#C04267] shrink-0" />
-                                  <span className="truncate">
-                                    <strong className="text-gray-800">Dirección de envío:</strong> {p.direccion_envio}
-                                  </span>
-                                </div>
-                              )}
-
-                              {itemsPedido.length > 0 && (
-                                <div className="space-y-3 pt-1">
-                                  <p className="font-quicksand text-xs font-bold uppercase tracking-wider text-gray-400">
-                                    Detalle del pedido ({itemsPedido.length} artículo{itemsPedido.length > 1 ? "s" : ""})
-                                  </p>
-                                  {itemsPedido.map((item, index) => (
-                                    <div
-                                      key={item.id || `${p.id}-${index}`}
-                                      className="p-4 rounded-xl bg-[#FAF8F6] border border-[#EFEAE6]"
-                                    >
-                                      <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                          <p className="font-fredoka text-sm font-bold text-gray-800">{item.nombre}</p>
-                                          <p className="font-quicksand text-xs text-gray-500 mt-0.5">
-                                            {item.cantidad || 1} unid. × S/ {Number(item.precio || 0).toFixed(2)}
-                                          </p>
-                                        </div>
-                                        <span className="font-fredoka text-sm font-bold text-gray-900">
-                                          S/ {((item.precio || 0) * (item.cantidad || 1)).toFixed(2)}
-                                        </span>
-                                      </div>
-
-                                      {estaEntregado ? (
-                                        <CalificarProducto item={item} nombreCliente={nombreUsuario} />
-                                      ) : (
-                                        <div className="mt-2.5 pt-2.5 border-t border-[#EFEAE6] flex items-center gap-1.5 text-[11px] text-gray-500 font-quicksand">
-                                          <Clock size={12} className="text-amber-600 shrink-0" />
-                                          <span>Podrás calificar este producto una vez que sea entregado.</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              <div className="pt-2 flex items-center justify-between border-t border-[#F4EFEB]">
-                                <a
-                                  href={`https://wa.me/51902578295?text=${encodeURIComponent(`Hola, quisiera consultar sobre mi Pedido #${p.id}`)}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs font-quicksand font-semibold text-[#C04267] hover:underline flex items-center gap-1"
-                                >
-                                  Consultar este pedido por WhatsApp
-                                  <ArrowUpRight size={13} />
-                                </a>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Pedidos Personalizados */}
-                        {persAMostrar.map((p) => {
-                          const estadoConfig = estados[p.estado] || estados.pendiente;
-                          const EstadoIcon = estadoConfig.icon || Sparkles;
-
-                          return (
-                            <div
-                              key={`pc-${p.id}`}
-                              className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-3"
-                            >
-                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-[#F4EFEB]">
-                                <div>
-                                  <div className="flex items-center gap-2.5">
-                                    <p className="font-fredoka text-lg font-bold text-gray-900">
-                                      {p.producto_nombre || "Detalle personalizado"}
-                                    </p>
-                                    <span className={`inline-flex items-center gap-1.5 font-quicksand text-xs font-semibold px-3 py-1 rounded-full border ${estadoConfig.color}`}>
-                                      <EstadoIcon size={13} />
-                                      {estadoConfig.label}
-                                    </span>
-                                  </div>
-                                  <p className="font-quicksand text-xs text-gray-400 mt-1">
-                                    Solicitado el {new Date(p.created_at).toLocaleDateString("es-PE", {
-                                      day: "numeric", month: "long", year: "numeric",
-                                    })}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {p.detalles && (
-                                <div className="p-3.5 bg-[#FAF8F6] rounded-xl border border-[#EFEAE6]">
-                                  <p className="font-quicksand text-xs text-gray-700 leading-relaxed">
-                                    <strong className="text-gray-900">Detalles:</strong> {p.detalles}
-                                  </p>
-                                </div>
-                              )}
-
-                              <div className="flex flex-wrap gap-2 pt-1">
-                                {p.tamano && (
-                                  <span className="font-quicksand text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full capitalize flex items-center gap-1.5">
-                                    <Ruler size={12} /> {p.tamano}
-                                  </span>
-                                )}
-                                {p.fecha_entrega && (
-                                  <span className="font-quicksand text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full flex items-center gap-1.5">
-                                    <Calendar size={12} /> Entrega estimada: {formatearFechaEntrega(p.fecha_entrega)}
-                                    {p.hora_entrega ? ` · ${p.hora_entrega}` : ""}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Columna Lateral: Resumen de Pedidos */}
-                  <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-4">
-                      <h4 className="font-fredoka text-base font-bold text-gray-800">
-                        Resumen de compras
-                      </h4>
-                      <div className="space-y-3 font-quicksand text-xs text-gray-600">
-                        <div className="flex items-center justify-between pb-2 border-b border-[#F4EFEB]">
-                          <span>Total invertido</span>
-                          <strong className="text-gray-900 font-fredoka text-sm">S/ {totalInvertido.toFixed(2)}</strong>
-                        </div>
-                        <div className="flex items-center justify-between pb-2 border-b border-[#F4EFEB]">
-                          <span>Pedidos en proceso</span>
-                          <strong className="text-[#C04267] font-semibold">{totalPedidosEnCurso}</strong>
-                        </div>
-                        <div className="flex items-center justify-between pb-2 border-b border-[#F4EFEB]">
-                          <span>Pedidos entregados</span>
-                          <strong className="text-emerald-700 font-semibold">{totalPedidosEntregados}</strong>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Total de órdenes</span>
-                          <strong className="text-gray-900 font-semibold">{totalTodosPedidos}</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-3">
-                      <div className="flex items-center gap-2 text-gray-800">
-                        <HelpCircle size={18} className="text-[#C04267]" />
-                        <h4 className="font-fredoka text-sm font-bold">¿Tienes dudas con tu entrega?</h4>
-                      </div>
-                      <p className="font-quicksand text-xs text-gray-600 leading-relaxed">
-                        Si necesitas modificar la dirección de entrega de un pedido en proceso o coordinar la fecha exacta, comunícate con nosotros.
-                      </p>
-                      <a
-                        href="https://wa.me/51902578295"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-4 rounded-xl font-quicksand text-xs font-semibold text-[#C04267] bg-[#FDF2F4] hover:bg-[#FBE4E9] transition-colors"
+                    <span className="flex items-center gap-2.5">
+                      <Icon size={18} strokeWidth={active ? 2.4 : 1.8} />
+                      {item.label}
+                    </span>
+                    {badge > 0 && (
+                      <span
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums ${
+                          active ? "bg-[#C04267] text-white" : "bg-[#FAF0F4] text-[#C04267]"
+                        }`}
                       >
-                        Contactar por WhatsApp
-                        <ArrowUpRight size={14} />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+                        {badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
 
-          {/* TAB 3: NOTIFICACIONES */}
-          {tab === "notificaciones" && (
-            <div className="space-y-6 w-full">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#EFEAE6]">
+              <div className="my-2 border-t border-[#F4E9ED]" />
+
+              <Link
+                href="/"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-gray-600 hover:bg-[#FCF8FA] hover:text-gray-900 transition-colors"
+              >
+                <Store size={17} strokeWidth={1.8} />
+                Explorar catálogo
+              </Link>
+              <Link
+                href="/personalizados"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-gray-600 hover:bg-[#FCF8FA] hover:text-[#C04267] transition-colors"
+              >
+                <Sparkles size={17} strokeWidth={1.8} />
+                Pedir personalizado
+              </Link>
+              <button
+                type="button"
+                onClick={signOut}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-quicksand text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+              >
+                <LogOut size={17} strokeWidth={1.8} />
+                Cerrar sesión
+              </button>
+            </nav>
+
+            {/* Tarjeta de atención del taller */}
+            <div className="bg-white rounded-2xl border border-[#F0E2E7] p-4 shadow-[0_2px_12px_rgba(192,66,103,0.03)] space-y-3">
+              <div className="flex items-center gap-2 text-gray-800">
+                <div className="w-8 h-8 rounded-lg bg-[#FDF2F5] text-[#C04267] flex items-center justify-center shrink-0">
+                  <MessageCircle size={16} />
+                </div>
                 <div>
-                  <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-[#C04267]">Notificaciones</h2>
-                  <p className="font-quicksand text-xs sm:text-sm text-gray-500 mt-1">
-                    Historial de avisos sobre actualizaciones y cambios de estado de tus pedidos.
+                  <h2 className="font-fredoka text-sm font-bold text-gray-800 leading-tight">
+                    Taller Entre Hilos
+                  </h2>
+                  <p className="font-quicksand text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
+                    <Clock size={11} /> Lun–Sáb · 9:00 a 19:00
                   </p>
                 </div>
-                {noLeidasCount > 0 && (
-                  <button
-                    onClick={marcarTodasComoLeidas}
-                    className="self-start sm:self-auto flex items-center gap-1.5 font-quicksand text-xs font-semibold text-[#C04267] hover:bg-[#FDF2F4] bg-white border border-[#EFEAE6] px-4 py-2 rounded-full transition-colors cursor-pointer shadow-xs"
-                  >
-                    <CheckCheck size={14} />
-                    Marcar todas como leídas
-                  </button>
-                )}
               </div>
 
-              {/* Filtros de Notificaciones */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setFiltroNotif("todos")}
-                  className={`px-4 py-1.5 rounded-full font-quicksand text-xs font-semibold transition-all cursor-pointer ${
-                    filtroNotif === "todos"
-                      ? "bg-[#C04267] text-white shadow-xs"
-                      : "bg-white text-gray-600 hover:bg-gray-50 border border-[#EFEAE6]"
-                  }`}
-                >
-                  Todas ({notificaciones.length})
-                </button>
-                <button
-                  onClick={() => setFiltroNotif("no_leidos")}
-                  className={`px-4 py-1.5 rounded-full font-quicksand text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    filtroNotif === "no_leidos"
-                      ? "bg-[#C04267] text-white shadow-xs"
-                      : "bg-white text-gray-600 hover:bg-gray-50 border border-[#EFEAE6]"
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-[#EE6B8D]" />
-                  No leídas ({notificacionesNoLeidas.length})
-                </button>
-                <button
-                  onClick={() => setFiltroNotif("leidos")}
-                  className={`px-4 py-1.5 rounded-full font-quicksand text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    filtroNotif === "leidos"
-                      ? "bg-[#C04267] text-white shadow-xs"
-                      : "bg-white text-gray-600 hover:bg-gray-50 border border-[#EFEAE6]"
-                  }`}
-                >
-                  <Check size={13} />
-                  Leídas ({notificacionesLeidas.length})
-                </button>
-              </div>
+              <p className="font-quicksand text-xs text-gray-600 leading-relaxed">
+                Empaque rígido seguro para ramos tejidos y amigurumis. ¿Necesitas coordinar fecha o cambios?
+              </p>
 
-              {loadingPedidos ? (
-                <div className="flex items-center justify-center py-20">
+              <a
+                href={WHATSAPP_BASE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl font-quicksand text-xs font-semibold text-[#C04267] bg-[#FDF2F5] hover:bg-[#FAE3EA] border border-[#F4CED9] transition-colors"
+              >
+                Consultar por WhatsApp
+                <ArrowUpRight size={13} />
+              </a>
+            </div>
+          </aside>
+
+          {/* Columna de contenido activo */}
+          <div className="min-w-0 space-y-5">
+            <div className="pb-2 border-b border-[#EFE1E6]">
+              <h2 className="font-fredoka text-xl sm:text-2xl font-bold text-[#C04267]">
+                {sectionInfo.title}
+              </h2>
+              <p className="font-quicksand text-xs sm:text-sm text-gray-500 mt-0.5">
+                {sectionInfo.subtitle}
+              </p>
+            </div>
+
+            {tab === "perfil" &&
+              (loadingProfile ? (
+                <div className="bg-white rounded-2xl border border-[#F0E2E7] p-14 flex flex-col items-center justify-center gap-3">
                   <Loader2 size={28} className="animate-spin text-[#EE6B8D]" />
+                  <p className="font-quicksand text-xs text-gray-500">Cargando tu perfil...</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
-                  {/* Columna Principal: Lista de Notificaciones */}
-                  <div className="lg:col-span-8 space-y-3">
-                    {notificacionesFiltradas.length === 0 ? (
-                      <div className="text-center py-16 bg-white rounded-2xl border border-[#EFEAE6] p-8">
-                        <Bell size={40} className="mx-auto text-gray-300 mb-3" />
-                        <p className="font-quicksand text-sm text-gray-700 font-semibold">
-                          {filtroNotif === "no_leidos"
-                            ? "No tienes notificaciones pendientes de leer"
-                            : filtroNotif === "leidos"
-                            ? "No hay notificaciones en tu historial de leídas"
-                            : "No tienes notificaciones registradas"}
-                        </p>
-                        <p className="font-quicksand text-xs text-gray-400 mt-1">
-                          Aquí te informaremos automáticamente cuando tus pedidos tengan novedades.
-                        </p>
-                      </div>
-                    ) : (
-                      notificacionesFiltradas.map((n) => {
-                        const esLeida = n.leido || leidasIds.includes(String(n.id));
-                        const tipo = (n.tipo || "").toLowerCase();
+                <ProfileTab
+                  userEmail={user.email || ""}
+                  formNombre={formNombre}
+                  formTelefono={formTelefono}
+                  formDepartamento={formDepartamento}
+                  formProvincia={formProvincia}
+                  formDistrito={formDistrito}
+                  formDireccion={formDireccion}
+                  formReferencia={formReferencia}
+                  departamentos={departamentos}
+                  provincias={provincias}
+                  distritos={distritos}
+                  isDirty={isProfileDirty}
+                  guardando={guardandoPerfil}
+                  guardadoExito={perfilGuardadoExito}
+                  onChangeNombre={setFormNombre}
+                  onChangeTelefono={setFormTelefono}
+                  onChangeDepartamento={setFormDepartamento}
+                  onChangeProvincia={setFormProvincia}
+                  onChangeDistrito={setFormDistrito}
+                  onChangeDireccion={setFormDireccion}
+                  onChangeReferencia={setFormReferencia}
+                  onReset={resetProfileForm}
+                  onSubmit={guardarPerfil}
+                />
+              ))}
 
-                        let IconComp = Bell;
-                        let badgeColor = "bg-[#FAF8F6] text-gray-700 border-gray-200";
-                        if (tipo === "entregado") {
-                          IconComp = CheckCircle2;
-                          badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
-                        } else if (tipo === "enviado") {
-                          IconComp = Truck;
-                          badgeColor = "bg-purple-50 text-purple-700 border-purple-200";
-                        } else if (tipo === "confirmado") {
-                          IconComp = CheckCircle2;
-                          badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
-                        } else if (tipo === "cancelado") {
-                          IconComp = XCircle;
-                          badgeColor = "bg-rose-50 text-rose-700 border-rose-200";
-                        } else if (tipo === "en_produccion" || tipo === "listo") {
-                          IconComp = Sparkles;
-                          badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
-                        }
+            {tab === "pedidos" && (
+              <OrdersTab
+                loading={loadingPedidos}
+                filtroPedidos={filtroPedidos}
+                onChangeFiltro={setFiltroPedidos}
+                pedidosAMostrar={pedidosAMostrar}
+                persAMostrar={persAMostrar}
+                totalTodosPedidos={totalTodosPedidos}
+                totalPedidosEnCurso={totalPedidosEnCurso}
+                totalPedidosEntregados={totalPedidosEntregados}
+                totalPedidosCancelados={totalPedidosCancelados}
+                nombreUsuario={nombreUsuario}
+                hasSavedPhone={hasSavedPhone}
+                onRefresh={() => cargarDatos(true)}
+                onGoToProfile={() => selectTab("perfil")}
+              />
+            )}
 
-                        return (
-                          <div
-                            key={n.id}
-                            onClick={() => marcarLeida(String(n.id))}
-                            className={`w-full bg-white rounded-2xl border transition-all p-5 flex items-start gap-4 cursor-pointer hover:border-[#DED5CE] shadow-xs ${
-                              !esLeida
-                                ? "border-[#EE6B8D]/50 bg-gradient-to-r from-white to-[#FDF2F4]/30"
-                                : "border-[#EFEAE6] opacity-85 hover:opacity-100"
-                            }`}
-                          >
-                            <div className={`p-3 rounded-xl shrink-0 border ${badgeColor}`}>
-                              <IconComp size={20} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <h3 className="font-fredoka text-base font-bold text-gray-800">
-                                  {n.titulo}
-                                </h3>
-                                {!esLeida ? (
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-full bg-[#EE6B8D] shrink-0 mt-1"
-                                    title="No leída"
-                                  />
-                                ) : (
-                                  <span className="text-gray-400 text-xs flex items-center gap-1 font-quicksand">
-                                    <Check size={12} /> Leída
-                                  </span>
-                                )}
-                              </div>
-                              <p className="font-quicksand text-sm text-gray-600 mt-1 leading-relaxed">
-                                {n.mensaje}
-                              </p>
-                              <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-gray-100">
-                                <span className="font-quicksand text-[11px] text-gray-400">
-                                  {n.created_at
-                                    ? new Date(n.created_at).toLocaleDateString("es-PE", {
-                                        day: "numeric",
-                                        month: "short",
-                                        year: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : ""}
-                                </span>
-                                {n.pedido_id && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      marcarLeida(String(n.id));
-                                      setTab("pedidos");
-                                    }}
-                                    className="font-quicksand text-xs font-semibold text-[#C04267] hover:underline flex items-center gap-1 transition-colors cursor-pointer"
-                                  >
-                                    Ver pedido #{n.pedido_id}
-                                    <ChevronRight size={14} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
+            {tab === "notificaciones" && (
+              <NotificationsTab
+                loading={loadingPedidos}
+                filtroNotif={filtroNotif}
+                onChangeFiltro={setFiltroNotif}
+                notificaciones={notificaciones}
+                notificacionesFiltradas={notificacionesFiltradas}
+                noLeidasCount={noLeidasCount}
+                leidasCount={notificacionesLeidas.length}
+                leidasIds={leidasIds}
+                onMarcarLeida={marcarLeida}
+                onMarcarTodasLeidas={marcarTodasComoLeidas}
+                onVerPedido={() => {
+                  setFiltroPedidos("todos");
+                  selectTab("pedidos");
+                }}
+              />
+            )}
 
-                  {/* Columna Lateral: Información de Notificaciones */}
-                  <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-4">
-                      <h4 className="font-fredoka text-base font-bold text-gray-800">
-                        Centro de avisos
-                      </h4>
-                      <div className="space-y-3 font-quicksand text-xs text-gray-600">
-                        <div className="flex items-center justify-between pb-2 border-b border-[#F4EFEB]">
-                          <span>Notificaciones totales</span>
-                          <strong className="text-gray-900 font-semibold">{notificaciones.length}</strong>
-                        </div>
-                        <div className="flex items-center justify-between pb-2 border-b border-[#F4EFEB]">
-                          <span>Pendientes de leer</span>
-                          <strong className="text-[#C04267] font-semibold">{notificacionesNoLeidas.length}</strong>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Leídas</span>
-                          <strong className="text-emerald-700 font-semibold">{notificacionesLeidas.length}</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl border border-[#EFEAE6] p-6 shadow-xs space-y-3">
-                      <div className="flex items-center gap-2 text-gray-800">
-                        <Bell size={18} className="text-[#C04267]" />
-                        <h4 className="font-fredoka text-sm font-bold">¿Cómo funcionan los avisos?</h4>
-                      </div>
-                      <p className="font-quicksand text-xs text-gray-600 leading-relaxed">
-                        Recibirás notificaciones instantáneas cada vez que un pedido sea confirmado por el taller, pase a la fase de tejido a mano o sea despachado a tu dirección.
-                      </p>
-                    </div>
-                  </div>
+            {/* Tarjeta de ayuda directa visible solo en móvil/tablet */}
+            <section className="lg:hidden bg-white rounded-2xl border border-[#F0E2E7] p-4 shadow-[0_2px_12px_rgba(192,66,103,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#FDF2F5] text-[#C04267] flex items-center justify-center shrink-0">
+                  <MessageCircle size={18} />
                 </div>
-              )}
-            </div>
-          )}
+                <div>
+                  <h3 className="font-fredoka text-sm font-bold text-gray-800">
+                    ¿Necesitas ayuda con un pedido?
+                  </h3>
+                  <p className="font-quicksand text-xs text-gray-500 mt-0.5">
+                    Atención Lun–Sáb de 9:00 a 19:00 hrs · Embalaje seguro en cajas rígidas.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={WHATSAPP_BASE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 flex-1 sm:flex-initial px-4 py-2 rounded-xl font-quicksand text-xs font-semibold text-[#C04267] bg-[#FDF2F5] hover:bg-[#FAE3EA] border border-[#F4CED9] transition-colors"
+                >
+                  WhatsApp
+                  <ArrowUpRight size={13} />
+                </a>
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-quicksand text-xs font-semibold text-gray-600 bg-[#FAF6F8] border border-[#E8D8DE]"
+                >
+                  <Home size={13} />
+                  Catálogo
+                </Link>
+              </div>
+            </section>
+          </div>
         </div>
       </main>
     </div>
