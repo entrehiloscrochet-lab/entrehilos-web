@@ -9,7 +9,11 @@ import {
   BellRing,
   BatteryCharging,
   ShieldCheck,
+  Clock,
 } from "lucide-react";
+import adminApkMeta from "@/lib/admin-apk-meta.json";
+
+const DEFAULT_APK_URL = `/downloads/entrehilos-admin.apk?v=${adminApkMeta.versionName}-${adminApkMeta.versionCode}`;
 
 interface AdminInstallAppModalProps {
   isOpen: boolean;
@@ -20,7 +24,7 @@ interface AdminInstallAppModalProps {
 export default function AdminInstallAppModal({
   isOpen,
   onClose,
-  apkUrl = "/downloads/entrehilos-admin.apk",
+  apkUrl = DEFAULT_APK_URL,
 }: AdminInstallAppModalProps) {
   if (!isOpen) return null;
 
@@ -70,8 +74,13 @@ export default function AdminInstallAppModal({
 
           {/* Descarga directa del APK */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-[#EE6B8D]/10 via-white to-pink-50 border-2 border-[#EE6B8D]/30 text-center space-y-2.5">
-            <div className="text-xs font-bold text-[#C04267]">
-              Archivo instalable Android firmado (Release)
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-[#C04267]">
+                Archivo instalable Android firmado (Release)
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-white border border-pink-200 text-[#C04267] font-mono text-[11px] font-bold">
+                v{adminApkMeta.versionName}
+              </span>
             </div>
             <a
               href={apkUrl}
@@ -81,7 +90,13 @@ export default function AdminInstallAppModal({
               <Download size={18} />
               <span>Descargar entrehilos-admin.apk</span>
             </a>
-            <p className="font-quicksand text-[11px] text-gray-500">
+            <p className="font-quicksand text-[11px] font-semibold text-gray-600 flex items-center justify-center gap-1.5 flex-wrap">
+              <Clock size={12} className="text-[#EE6B8D]" />
+              <span>
+                Última actualización: {adminApkMeta.updatedAtLabel} · {adminApkMeta.sizeLabel}
+              </span>
+            </p>
+            <p className="font-quicksand text-[10px] text-gray-500">
               Paquete <span className="font-mono text-gray-700">pe.entrehilos.admin</span> · Conectado directamente a Supabase
             </p>
           </div>
@@ -103,11 +118,12 @@ export default function AdminInstallAppModal({
                 Abre <strong>Entre Hilos Admin</strong> e inicia sesión con tu correo y contraseña de administrador.
               </li>
               <li>
-                Acepta el permiso de <strong>Notificaciones</strong> y, dentro de la pestaña <strong>Alertas</strong>, toca{" "}
+                Acepta el permiso de <strong>Notificaciones</strong> y, dentro de la pestaña <strong>Alertas</strong>, activa{" "}
+                <strong>Alarmas exactas</strong> y{" "}
                 <span className="inline-flex items-center gap-1 font-semibold text-amber-800">
-                  <BatteryCharging size={13} /> Sin restricción batería
+                  <BatteryCharging size={13} /> Sin restricción de batería
                 </span>{" "}
-                para que el aviso llegue aunque cierres la app o bloquees la pantalla.
+                (y <strong>Inicio automático</strong> en Xiaomi) para recibir avisos aunque cierres la app o bloquees la pantalla.
               </li>
             </ol>
 
@@ -115,7 +131,8 @@ export default function AdminInstallAppModal({
               <BellRing size={14} className="text-[#EE6B8D] shrink-0 mt-0.5" />
               <span>
                 Dispara alertas inmediatas para <strong>pedidos nuevos o agendados</strong>,{" "}
-                <strong>nuevas suscripciones</strong> y recordatorios automáticos <strong>24 h y 2 h</strong> antes de cada entrega.
+                <strong>nuevos usuarios o suscripciones</strong> y{" "}
+                <strong>recordatorios diarios a la hora de entrega (y 2 h antes)</strong>.
               </span>
             </div>
           </div>

@@ -28,7 +28,10 @@ import AgendarPersonalizadoModal from "@/components/admin/AgendarPersonalizadoMo
 import PedidosView from "@/components/admin/PedidosView";
 import ProduccionMainView from "@/components/admin/produccion/ProduccionMainView";
 import AdminInstallAppModal from "@/components/admin/AdminInstallAppModal";
+import adminApkMeta from "@/lib/admin-apk-meta.json";
 import type { Product } from "@/lib/ventify";
+
+const APK_DOWNLOAD_URL = `/downloads/entrehilos-admin.apk?v=${adminApkMeta.versionName}-${adminApkMeta.versionCode}`;
 
 type CampanaFoto = { url: string; titulo?: string; etiqueta?: string };
 
@@ -2088,15 +2091,15 @@ export default function AdminPage() {
         <div className="py-3 px-2 border-t border-[#FDE8EF] flex flex-col items-center gap-2">
           {/* Botón de Descargar APK Admin */}
           <a
-            href="/downloads/entrehilos-admin.apk"
+            href={APK_DOWNLOAD_URL}
             download="entrehilos-admin.apk"
             className="w-11 h-11 rounded-xl bg-pink-50 text-[#C04267] hover:bg-[#EE6B8D] hover:text-white border border-pink-200/70 flex items-center justify-center transition-all relative group cursor-pointer"
-            title="Descargar APK Admin (.apk)"
-            aria-label="Descargar APK Admin (.apk)"
+            title={`Descargar APK v${adminApkMeta.versionName} · Act. ${adminApkMeta.updatedAtLabel}`}
+            aria-label={`Descargar APK v${adminApkMeta.versionName}`}
           >
             <Download size={19} strokeWidth={2.2} />
             <span className="hidden group-hover:block absolute left-full ml-3 px-2.5 py-1 bg-gray-900 text-white text-xs font-quicksand font-semibold rounded-lg whitespace-nowrap shadow-lg z-50 pointer-events-none">
-              Descargar APK Admin (.apk)
+              Descargar APK v{adminApkMeta.versionName} · Act. {adminApkMeta.updatedAtLabel}
             </span>
           </a>
 
@@ -2140,16 +2143,24 @@ export default function AdminPage() {
         <div className="p-3 border-t border-[#FDE8EF] space-y-1.5">
           {/* Botón de Descargar APK Admin */}
           <a
-            href="/downloads/entrehilos-admin.apk"
+            href={APK_DOWNLOAD_URL}
             download="entrehilos-admin.apk"
+            title={`Última actualización: ${adminApkMeta.updatedAtLabel} · ${adminApkMeta.sizeLabel}`}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200 text-[#C04267] hover:border-[#EE6B8D] hover:shadow-xs transition-all text-left group cursor-pointer"
           >
             <div className="w-8 h-8 rounded-lg bg-white border border-pink-200/80 flex items-center justify-center text-[#EE6B8D] shrink-0 group-hover:bg-[#EE6B8D] group-hover:text-white transition-all">
               <Download size={15} strokeWidth={2.2} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-xs truncate leading-tight">Descargar APK Admin</div>
-              <div className="text-[10px] text-gray-500 truncate">App Android (.apk)</div>
+              <div className="flex items-center justify-between gap-1">
+                <span className="font-bold text-xs truncate leading-tight">Descargar APK</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-white border border-pink-200 text-[9px] font-mono font-bold text-[#C04267] shrink-0">
+                  v{adminApkMeta.versionName}
+                </span>
+              </div>
+              <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                Act. {adminApkMeta.updatedAtLabel}
+              </div>
             </div>
           </a>
 
@@ -2198,30 +2209,35 @@ export default function AdminPage() {
       </aside>
 
       {/* Header Compacto para Celular (< md) sin menú lateral */}
-      <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#FDE8EF] px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-2.5">
+      <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#FDE8EF] px-3 py-2 flex items-center justify-between gap-2 shadow-2xs">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center font-fredoka font-bold text-xs shadow-xs shrink-0">
             EH
           </div>
-          <div>
-            <h1 className="font-fredoka text-sm font-bold text-[#C04267] leading-tight">
+          <div className="min-w-0">
+            <h1 className="font-fredoka text-sm font-bold text-[#C04267] leading-tight truncate">
               Entre Hilos Admin
             </h1>
-            <p className="font-quicksand text-[10px] text-gray-500 font-semibold leading-none capitalize">
+            <p className="font-quicksand text-[10px] text-gray-500 font-semibold leading-none capitalize truncate">
               {menuGroups.find((m) => m.id === mainTab)?.label || "Panel"}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <a
-            href="/downloads/entrehilos-admin.apk"
+            href={APK_DOWNLOAD_URL}
             download="entrehilos-admin.apk"
-            className="text-xs font-quicksand font-bold text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
-            title="Descargar APK Android de Entre Hilos Admin"
+            className="font-quicksand text-[#C04267] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition-all shadow-2xs cursor-pointer"
+            title={`Descargar APK v${adminApkMeta.versionName} · Última actualización: ${adminApkMeta.updatedAtLabel}`}
           >
-            <Download size={13} strokeWidth={2.2} className="text-[#EE6B8D]" />
-            <span>Descargar APK</span>
+            <Download size={13} strokeWidth={2.2} className="text-[#EE6B8D] shrink-0" />
+            <span className="flex flex-col leading-none text-left">
+              <span className="text-[11px] font-bold">APK v{adminApkMeta.versionName}</span>
+              <span className="text-[9px] text-gray-500 font-semibold mt-0.5">
+                {adminApkMeta.updatedAtShort}
+              </span>
+            </span>
           </a>
 
           <button
@@ -2287,16 +2303,27 @@ export default function AdminPage() {
 
             {/* Banner de Descarga del APK Android */}
             <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border border-pink-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
+              <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#EE6B8D] to-[#C04267] text-white flex items-center justify-center shrink-0 shadow-xs">
                   <Download size={22} strokeWidth={2.2} />
                 </div>
-                <div>
-                  <h3 className="font-fredoka text-base font-bold text-[#C04267]">
-                    Descargar App Android Admin (.apk)
-                  </h3>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-fredoka text-base font-bold text-[#C04267]">
+                      Descargar App Android Admin (.apk)
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-white border border-pink-200 text-[#C04267] font-mono text-[11px] font-bold">
+                      v{adminApkMeta.versionName}
+                    </span>
+                  </div>
                   <p className="font-quicksand text-xs text-gray-600 mt-0.5">
                     App Android 100% nativa conectada directo a Supabase: gestiona pedidos, agenda entregas y recibe alertas con sonido aunque cierres la app o bloquees la pantalla.
+                  </p>
+                  <p className="font-quicksand text-[11px] font-semibold text-gray-700 mt-1.5 inline-flex items-center gap-1.5 flex-wrap">
+                    <Clock size={12} className="text-[#EE6B8D] shrink-0" />
+                    <span>
+                      Última actualización: <strong className="text-[#C04267]">{adminApkMeta.updatedAtLabel}</strong> · {adminApkMeta.sizeLabel}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -2310,12 +2337,12 @@ export default function AdminPage() {
                   <span>Cómo instalar</span>
                 </button>
                 <a
-                  href="/downloads/entrehilos-admin.apk"
+                  href={APK_DOWNLOAD_URL}
                   download="entrehilos-admin.apk"
                   className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#EE6B8D] hover:bg-[#C04267] text-white rounded-xl font-quicksand font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <Download size={15} strokeWidth={2.2} />
-                  <span>Descargar APK (.apk)</span>
+                  <span>Descargar APK (v{adminApkMeta.versionName})</span>
                 </a>
               </div>
             </div>
@@ -7877,6 +7904,7 @@ export default function AdminPage() {
       <AdminInstallAppModal
         isOpen={installModalOpen}
         onClose={() => setInstallModalOpen(false)}
+        apkUrl={APK_DOWNLOAD_URL}
       />
 
       <AgendarPersonalizadoModal
