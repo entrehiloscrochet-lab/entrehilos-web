@@ -12,6 +12,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import pe.entrehilos.admin.data.SessionStore
 import java.util.Calendar
 import java.util.TimeZone
 import java.util.concurrent.Executors
@@ -24,12 +25,16 @@ object AlertPollScheduler {
     private val limaTz: TimeZone = TimeZone.getTimeZone("America/Lima")
     private val executor = Executors.newSingleThreadExecutor()
 
+    private fun shouldRunScheduler(context: Context): Boolean {
+        return AlertPrefs.isEnabled(context) || SessionStore.getSession(context) != null
+    }
+
     @JvmStatic
     fun start(context: Context) {
         val appCtx = context.applicationContext
         NotificationHelper.clearLegacyServiceNotification(appCtx)
 
-        if (!AlertPrefs.isEnabled(appCtx)) {
+        if (!shouldRunScheduler(appCtx)) {
             stop(appCtx)
             return
         }
@@ -57,7 +62,7 @@ object AlertPollScheduler {
     fun pollNowAsync(context: Context) {
         val appCtx = context.applicationContext
         NotificationHelper.clearLegacyServiceNotification(appCtx)
-        if (!AlertPrefs.isEnabled(appCtx)) {
+        if (!shouldRunScheduler(appCtx)) {
             return
         }
         executor.execute {
@@ -77,7 +82,7 @@ object AlertPollScheduler {
 
     fun scheduleNext(context: Context, afterError: Boolean, immediateSeconds: Long? = null) {
         val appCtx = context.applicationContext
-        if (!AlertPrefs.isEnabled(appCtx)) {
+        if (!shouldRunScheduler(appCtx)) {
             return
         }
 

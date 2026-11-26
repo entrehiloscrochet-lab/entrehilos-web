@@ -44,6 +44,12 @@ object AlertPoller {
         val appCtx = context.applicationContext
         NotificationHelper.clearLegacyServiceNotification(appCtx)
 
+        // Recordatorios locales de entregas (funcionan 100% offline y para pedidos aún sin sincronizar)
+        try {
+            OfflineDeliveryReminderEngine.checkAndNotify(appCtx)
+        } catch (_: Exception) {
+        }
+
         if (!AlertPrefs.isEnabled(appCtx)) {
             return true
         }

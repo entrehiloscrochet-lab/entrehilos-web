@@ -4,6 +4,10 @@ import android.Manifest
 import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
@@ -26,6 +30,7 @@ import pe.entrehilos.admin.AlertPoller
 import pe.entrehilos.admin.AlertPrefs
 import pe.entrehilos.admin.MainActivity
 import pe.entrehilos.admin.NotificationHelper
+import pe.entrehilos.admin.OfflineDeliveryReminderEngine
 import pe.entrehilos.admin.data.AdminAlertRow
 import pe.entrehilos.admin.data.AdminFormatters
 import pe.entrehilos.admin.data.AdminSession
@@ -35,10 +40,15 @@ import pe.entrehilos.admin.data.DirectoryClient
 import pe.entrehilos.admin.data.ForegroundAlertEvent
 import pe.entrehilos.admin.data.MensajeContacto
 import pe.entrehilos.admin.data.NotificationTarget
+import pe.entrehilos.admin.data.OfflineCacheStore
 import pe.entrehilos.admin.data.OfflineException
+import pe.entrehilos.admin.data.OfflineOutboxStore
+import pe.entrehilos.admin.data.OfflineSnapshot
+import pe.entrehilos.admin.data.OfflineSyncManager
 import pe.entrehilos.admin.data.Pedido
 import pe.entrehilos.admin.data.PedidoItem
 import pe.entrehilos.admin.data.PedidoPersonalizado
+import pe.entrehilos.admin.data.PendingOp
 import pe.entrehilos.admin.data.Reclamacion
 import pe.entrehilos.admin.data.Resena
 import pe.entrehilos.admin.data.SessionExpiredException
@@ -46,6 +56,10 @@ import pe.entrehilos.admin.data.SessionStore
 import pe.entrehilos.admin.data.SupabaseRepository
 import pe.entrehilos.admin.data.Suscriptor
 import pe.entrehilos.admin.data.UsuarioPerfil
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 enum class MainTab(val label: String) {
     DASHBOARD("Inicio"),
@@ -77,6 +91,8 @@ data class AdminUiState(
     val isLoading: Boolean = false,
     val isMutating: Boolean = false,
     val isOffline: Boolean = false,
+    val isSyncing: Boolean = false,
+    val pendingSyncCount: Int = 0,
     val errorBanner: String? = null,
     val pedidos: List<Pedido> = emptyList(),
     val personalizados: List<PedidoPersonalizado> = emptyList(),
@@ -121,25 +137,35 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     private var foregroundPollJob: Job? = null
     private var productosLoadedAtMs: Long = 0L
     private var lastSilentLoadAtMs: Long = 0L
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     init {
         NotificationHelper.clearLegacyServiceNotification(appContext)
         refreshSystemStatus()
+        registerConnectivityMonitor()
 
         if (_uiState.value.session != null) {
-            if (AlertPrefs.isEnabled(appContext)) {
-                AlertPollScheduler.start(appContext)
+            hydrateFromLocalCache()
+            AlertPollScheduler.start(appContext)
+            if (AlertPoller.hasInternet(appContext)) {
                 AlertPollScheduler.pollNowAsync(appContext)
+                ensureDeviceRegistered()
+                syncAndReload(force = true)
+            } else {
+                _uiState.update { it.copy(isOffline = true) }
+                viewModelScope.launch(Dispatchers.IO) {
+                    OfflineDeliveryReminderEngine.checkAndNotify(appContext)
+                }
             }
-            ensureDeviceRegistered()
-            loadAllData(force = true)
         }
 
         viewModelScope.launch {
             MainActivity.foregroundAlerts.collect { alert ->
                 if (_uiState.value.session != null) {
                     _uiState.update { it.copy(foregroundBanner = alert) }
-                    loadAllData(silent = true, force = true)
+                    if (AlertPoller.hasInternet(appContext)) {
+                        loadAllData(silent = true, force = true)
+                    }
                     refreshSystemStatus()
                 }
             }
@@ -155,13 +181,154 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            networkCallback?.let { cm?.unregisterNetworkCallback(it) }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun registerConnectivityMonitor() {
+        try {
+            val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+            val cb = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    viewModelScope.launch {
+                        val wasOffline = _uiState.value.isOffline
+                        _uiState.update { it.copy(isOffline = false) }
+                        if (_uiState.value.session != null) {
+                            val pending = OfflineOutboxStore.count(appContext)
+                            if (pending > 0 || wasOffline) {
+                                ensureDeviceRegistered()
+                                syncAndReload(force = true)
+                            }
+                        }
+                    }
+                }
+
+                override fun onLost(network: Network) {
+                    viewModelScope.launch {
+                        if (!AlertPoller.hasInternet(appContext)) {
+                            _uiState.update { it.copy(isOffline = true) }
+                        }
+                    }
+                }
+            }
+            val req = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            cm.registerNetworkCallback(req, cb)
+            networkCallback = cb
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun hydrateFromLocalCache() {
+        val base = OfflineCacheStore.loadSnapshot(appContext)
+        val pendingCount = OfflineOutboxStore.count(appContext)
+        if (base == null) {
+            _uiState.update { it.copy(pendingSyncCount = pendingCount) }
+            return
+        }
+        val effective = OfflineOutboxStore.applyPendingOpsToSnapshot(appContext, base)
+        applySnapshotToUi(effective, isOffline = !AlertPoller.hasInternet(appContext), pendingCount = pendingCount)
+    }
+
+    private fun applySnapshotToUi(
+        snap: OfflineSnapshot,
+        isOffline: Boolean,
+        pendingCount: Int = OfflineOutboxStore.count(appContext),
+    ) {
+        val directory = buildClientesDirectory(snap.usuarios, snap.pedidos, snap.personalizados)
+        val accounts = buildClientAccounts(snap.usuarios, snap.pedidos, snap.personalizados)
+        _uiState.update { state ->
+            val updatedSelectedPedido = state.selectedPedido?.let { sel ->
+                snap.pedidos.find { it.id == sel.id } ?: sel
+            }
+            val updatedSelectedPers = state.selectedPersonalizado?.let { sel ->
+                snap.personalizados.find { it.id == sel.id } ?: sel
+            }
+            state.copy(
+                isLoading = false,
+                isOffline = isOffline,
+                pendingSyncCount = pendingCount,
+                errorBanner = null,
+                pedidos = snap.pedidos,
+                personalizados = snap.personalizados,
+                productos = snap.productos,
+                suscriptores = snap.suscriptores,
+                usuarios = snap.usuarios,
+                mensajes = snap.mensajes,
+                resenas = snap.resenas,
+                reclamaciones = snap.reclamaciones,
+                recentAlerts = snap.recentAlerts,
+                clientesDirectory = directory,
+                clientAccounts = accounts,
+                selectedPedido = updatedSelectedPedido,
+                selectedPersonalizado = updatedSelectedPers,
+            )
+        }
+    }
+
+    fun syncPendingNow() {
+        if (_uiState.value.session == null) return
+        if (!AlertPoller.hasInternet(appContext)) {
+            _uiState.update {
+                it.copy(
+                    isOffline = true,
+                    snackbarMessage = "Aún sin internet. Tus cambios siguen guardados en el celular."
+                )
+            }
+            return
+        }
+        syncAndReload(force = true, showFeedback = true)
+    }
+
+    private fun syncAndReload(force: Boolean = false, showFeedback: Boolean = false) {
+        if (_uiState.value.session == null) return
+        viewModelScope.launch {
+            val hadPending = OfflineOutboxStore.count(appContext)
+            if (hadPending > 0) {
+                _uiState.update { it.copy(isSyncing = true) }
+                try {
+                    val result = OfflineSyncManager.syncPendingOps(appContext)
+                    _uiState.update {
+                        it.copy(
+                            isSyncing = false,
+                            pendingSyncCount = result.pendingCount,
+                            isOffline = result.stoppedOffline,
+                            snackbarMessage = when {
+                                result.syncedCount > 0 && result.pendingCount == 0 ->
+                                    "${result.syncedCount} cambio(s) sincronizado(s) con Supabase."
+                                result.errorMessage != null ->
+                                    "Error al sincronizar: ${result.errorMessage}"
+                                showFeedback && result.stoppedOffline ->
+                                    "Sin conexión. Se sincronizará automáticamente al volver internet."
+                                else -> it.snackbarMessage
+                            }
+                        )
+                    }
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(isSyncing = false) }
+                    if (e is SessionExpiredException) {
+                        handleError(e)
+                        return@launch
+                    }
+                }
+            }
+            loadAllData(silent = !showFeedback && _uiState.value.pedidos.isNotEmpty(), force = force)
+        }
+    }
+
     fun setAppInForeground(inForeground: Boolean) {
         if (inForeground) {
             refreshSystemStatus()
             if (_uiState.value.session != null && foregroundPollJob?.isActive != true) {
                 foregroundPollJob = viewModelScope.launch {
                     while (isActive) {
-                        if (_uiState.value.session != null && AlertPrefs.isEnabled(appContext)) {
+                        if (_uiState.value.session != null) {
                             withContext(Dispatchers.IO) {
                                 AlertPoller.pollOnce(appContext)
                             }
@@ -315,6 +482,8 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
             productosLoadedAtMs = 0L
             lastSilentLoadAtMs = 0L
             SupabaseRepository.unregisterAndSignOut(appContext)
+            OfflineCacheStore.clear(appContext)
+            OfflineOutboxStore.clear(appContext)
             _uiState.value = AdminUiState()
             refreshSystemStatus()
         }
@@ -327,10 +496,25 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         viewModelScope.launch {
+            if (!AlertPoller.hasInternet(appContext)) {
+                hydrateFromLocalCache()
+                _uiState.update { it.copy(isLoading = false, isOffline = true) }
+                return@launch
+            }
             if (!silent) {
                 _uiState.update { it.copy(isLoading = true, errorBanner = null, isOffline = false) }
             }
             try {
+                if (OfflineOutboxStore.count(appContext) > 0) {
+                    val syncRes = OfflineSyncManager.syncPendingOps(appContext)
+                    _uiState.update { it.copy(pendingSyncCount = syncRes.pendingCount) }
+                    if (syncRes.stoppedOffline) {
+                        hydrateFromLocalCache()
+                        _uiState.update { it.copy(isLoading = false, isOffline = true) }
+                        return@launch
+                    }
+                }
+
                 val cachedProducts = _uiState.value.productos
                 val reuseProducts = !force && cachedProducts.isNotEmpty() && (nowMs - productosLoadedAtMs) < 600_000L
 
@@ -356,47 +540,31 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     val reclDef = async { runCatching { SupabaseRepository.fetchReclamaciones(appContext) }.getOrDefault(emptyList()) }
                     val alertsDef = async { runCatching { SupabaseRepository.fetchRecentAlerts(appContext) }.getOrDefault(emptyList()) }
 
-                    val pedidos = pedidosDef.await()
-                    val pers = persDef.await()
-                    val productos = productosDef.await()
-                    val susc = suscDef.await()
-                    val users = usersDef.await()
-                    val msgs = msgsDef.await()
-                    val res = resDef.await()
-                    val recl = reclDef.await()
-                    val alerts = alertsDef.await()
+                    val rawSnapshot = OfflineSnapshot(
+                        savedAtMs = System.currentTimeMillis(),
+                        pedidos = pedidosDef.await(),
+                        personalizados = persDef.await(),
+                        productos = productosDef.await(),
+                        suscriptores = suscDef.await(),
+                        usuarios = usersDef.await(),
+                        mensajes = msgsDef.await(),
+                        resenas = resDef.await(),
+                        reclamaciones = reclDef.await(),
+                        recentAlerts = alertsDef.await(),
+                    )
+                    OfflineCacheStore.saveSnapshot(appContext, rawSnapshot)
+                    val effectiveSnapshot = OfflineOutboxStore.applyPendingOpsToSnapshot(appContext, rawSnapshot)
 
                     lastSilentLoadAtMs = System.currentTimeMillis()
-                    val directory = buildClientesDirectory(users, pedidos, pers)
-                    val accounts = buildClientAccounts(users, pedidos, pers)
-
-                    _uiState.update { state ->
-                        val updatedSelectedPedido = state.selectedPedido?.let { sel ->
-                            pedidos.find { it.id == sel.id } ?: sel
-                        }
-                        val updatedSelectedPers = state.selectedPersonalizado?.let { sel ->
-                            pers.find { it.id == sel.id } ?: sel
-                        }
-                        state.copy(
-                            isLoading = false,
-                            isOffline = false,
-                            errorBanner = null,
-                            pedidos = pedidos,
-                            personalizados = pers,
-                            productos = productos,
-                            suscriptores = susc,
-                            usuarios = users,
-                            mensajes = msgs,
-                            resenas = res,
-                            reclamaciones = recl,
-                            recentAlerts = alerts,
-                            clientesDirectory = directory,
-                            clientAccounts = accounts,
-                            selectedPedido = updatedSelectedPedido,
-                            selectedPersonalizado = updatedSelectedPers,
-                        )
-                    }
+                    applySnapshotToUi(
+                        snap = effectiveSnapshot,
+                        isOffline = false,
+                        pendingCount = OfflineOutboxStore.count(appContext),
+                    )
                 }
+            } catch (e: OfflineException) {
+                hydrateFromLocalCache()
+                _uiState.update { it.copy(isLoading = false, isOffline = true) }
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -808,9 +976,66 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         openFromNotification(NotificationTarget(row.seccion, row.sub, row.url))
     }
 
+    private fun nowIsoLima(): String {
+        val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("America/Lima")
+        }
+        return fmt.format(Date())
+    }
+
+    private fun currentSnapshotFromUi(): OfflineSnapshot {
+        val s = _uiState.value
+        return OfflineSnapshot(
+            savedAtMs = System.currentTimeMillis(),
+            pedidos = s.pedidos,
+            personalizados = s.personalizados,
+            productos = s.productos,
+            suscriptores = s.suscriptores,
+            usuarios = s.usuarios,
+            mensajes = s.mensajes,
+            resenas = s.resenas,
+            reclamaciones = s.reclamaciones,
+            recentAlerts = s.recentAlerts,
+        )
+    }
+
+    private fun queueOfflineOp(
+        op: PendingOp,
+        snackbarText: String,
+        closeAgendarPedido: Boolean = false,
+        closeAgendarPersonalizado: Boolean = false,
+        clearSelectedPedidoId: Long? = null,
+        clearSelectedPersId: Long? = null,
+    ) {
+        val pendingCount = OfflineOutboxStore.enqueue(appContext, op)
+        OfflineSyncManager.scheduleBackgroundSync(appContext)
+        val base = OfflineCacheStore.loadSnapshot(appContext) ?: currentSnapshotFromUi()
+        val updated = OfflineOutboxStore.applyPendingOpsToSnapshot(appContext, base)
+        OfflineCacheStore.saveSnapshot(appContext, updated)
+        applySnapshotToUi(updated, isOffline = true, pendingCount = pendingCount)
+        _uiState.update { state ->
+            state.copy(
+                isMutating = false,
+                showAgendarPedido = if (closeAgendarPedido) false else state.showAgendarPedido,
+                showAgendarPersonalizado = if (closeAgendarPersonalizado) false else state.showAgendarPersonalizado,
+                prefilledClientForOrder = if (closeAgendarPedido) null else state.prefilledClientForOrder,
+                selectedPedido = if (clearSelectedPedidoId != null && state.selectedPedido?.id == clearSelectedPedidoId) null else state.selectedPedido,
+                selectedPersonalizado = if (clearSelectedPersId != null && state.selectedPersonalizado?.id == clearSelectedPersId) null else state.selectedPersonalizado,
+                snackbarMessage = snackbarText,
+            )
+        }
+    }
+
     fun updatePedidoEstado(pedidoId: Long, nuevoEstado: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
+            if (!AlertPoller.hasInternet(appContext) || pedidoId < 0L) {
+                queueOfflineOp(
+                    op = PendingOp.UpdatePedidoEstado(pedidoId = pedidoId, nuevoEstado = nuevoEstado),
+                    snackbarText = "Estado \"$nuevoEstado\" guardado en el celular. Se sincronizará al volver internet.",
+                )
+                return@launch
+            }
             try {
                 SupabaseRepository.updatePedidoEstado(appContext, pedidoId, nuevoEstado)
                 _uiState.update { state ->
@@ -829,6 +1054,11 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.UpdatePedidoEstado(pedidoId = pedidoId, nuevoEstado = nuevoEstado),
+                    snackbarText = "Estado \"$nuevoEstado\" guardado en el celular. Se sincronizará al volver internet.",
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -838,6 +1068,13 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     fun updatePersonalizadoEstado(pedidoId: Long, nuevoEstado: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
+            if (!AlertPoller.hasInternet(appContext) || pedidoId < 0L) {
+                queueOfflineOp(
+                    op = PendingOp.UpdatePersonalizadoEstado(pedidoId = pedidoId, nuevoEstado = nuevoEstado),
+                    snackbarText = "Estado \"$nuevoEstado\" guardado en el celular. Se sincronizará al volver internet.",
+                )
+                return@launch
+            }
             try {
                 SupabaseRepository.updatePersonalizadoEstado(appContext, pedidoId, nuevoEstado)
                 _uiState.update { state ->
@@ -856,6 +1093,11 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.UpdatePersonalizadoEstado(pedidoId = pedidoId, nuevoEstado = nuevoEstado),
+                    snackbarText = "Estado \"$nuevoEstado\" guardado en el celular. Se sincronizará al volver internet.",
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -865,6 +1107,14 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     fun deletePedido(pedidoId: Long) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
+            if (!AlertPoller.hasInternet(appContext) || pedidoId < 0L) {
+                queueOfflineOp(
+                    op = PendingOp.DeletePedido(pedidoId = pedidoId),
+                    snackbarText = if (pedidoId < 0L) "Pedido local eliminado." else "Eliminación guardada en el celular. Se sincronizará al volver internet.",
+                    clearSelectedPedidoId = pedidoId,
+                )
+                return@launch
+            }
             try {
                 SupabaseRepository.deletePedido(appContext, pedidoId)
                 _uiState.update { state ->
@@ -879,6 +1129,12 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.DeletePedido(pedidoId = pedidoId),
+                    snackbarText = "Eliminación guardada en el celular. Se sincronizará al volver internet.",
+                    clearSelectedPedidoId = pedidoId,
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -888,6 +1144,14 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     fun deletePersonalizado(pedidoId: Long) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
+            if (!AlertPoller.hasInternet(appContext) || pedidoId < 0L) {
+                queueOfflineOp(
+                    op = PendingOp.DeletePersonalizado(pedidoId = pedidoId),
+                    snackbarText = if (pedidoId < 0L) "Encargo local eliminado." else "Eliminación guardada en el celular. Se sincronizará al volver internet.",
+                    clearSelectedPersId = pedidoId,
+                )
+                return@launch
+            }
             try {
                 SupabaseRepository.deletePersonalizado(appContext, pedidoId)
                 _uiState.update { state ->
@@ -902,6 +1166,12 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.DeletePersonalizado(pedidoId = pedidoId),
+                    snackbarText = "Eliminación guardada en el celular. Se sincronizará al volver internet.",
+                    clearSelectedPersId = pedidoId,
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -923,8 +1193,30 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         notas: String?,
     ) {
         val existingTotal = _uiState.value.pedidos.find { it.id == pedidoId }?.total ?: 0.0
+        val offlineOp = PendingOp.ActualizarPedido(
+            pedidoId = pedidoId,
+            clienteNombre = clienteNombre,
+            clienteTelefono = clienteTelefono,
+            clienteEmail = clienteEmail,
+            usuarioId = usuarioId,
+            direccionEnvio = direccionEnvio,
+            estado = estado,
+            metodoPago = metodoPago,
+            adelanto = adelanto,
+            fechaEntregaYmd = fechaEntregaYmd,
+            horaEntrega = horaEntrega,
+            notas = notas,
+            total = existingTotal,
+        )
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
+            if (!AlertPoller.hasInternet(appContext) || pedidoId < 0L) {
+                queueOfflineOp(
+                    op = offlineOp,
+                    snackbarText = "Cobro y cambios guardados en el celular. Se sincronizarán al volver internet.",
+                )
+                return@launch
+            }
             try {
                 SupabaseRepository.actualizarPedido(
                     context = appContext,
@@ -950,6 +1242,11 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                         snackbarMessage = "Cambios del pedido #$pedidoId guardados."
                     )
                 }
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = offlineOp,
+                    snackbarText = "Cobro y cambios guardados en el celular. Se sincronizarán al volver internet.",
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -971,8 +1268,30 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         horaEntrega: String?,
         estado: String,
     ) {
+        val offlineOp = PendingOp.ActualizarPersonalizado(
+            pedidoId = pedidoId,
+            nombreCliente = nombreCliente,
+            telefono = telefono,
+            email = email,
+            productoNombre = productoNombre,
+            productoPrecio = productoPrecio,
+            detalles = detalles,
+            colores = colores,
+            tamano = tamano,
+            extras = extras,
+            fechaEntregaYmd = fechaEntregaYmd,
+            horaEntrega = horaEntrega,
+            estado = estado,
+        )
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true) }
+            if (!AlertPoller.hasInternet(appContext) || pedidoId < 0L) {
+                queueOfflineOp(
+                    op = offlineOp,
+                    snackbarText = "Cambios del personalizado guardados en el celular. Se sincronizarán al volver internet.",
+                )
+                return@launch
+            }
             try {
                 SupabaseRepository.actualizarPersonalizado(
                     context = appContext,
@@ -997,6 +1316,11 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                         snackbarMessage = "Personalizado #$pedidoId actualizado."
                     )
                 }
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = offlineOp,
+                    snackbarText = "Cambios del personalizado guardados en el celular. Se sincronizarán al volver internet.",
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -1021,6 +1345,32 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true) }
+            if (!AlertPoller.hasInternet(appContext)) {
+                val tempId = OfflineOutboxStore.nextTempId(appContext)
+                queueOfflineOp(
+                    op = PendingOp.AgendarPedido(
+                        tempId = tempId,
+                        createdAtIso = nowIsoLima(),
+                        origen = origen,
+                        usuarioId = usuarioId,
+                        clienteNombre = clienteNombre,
+                        clienteTelefono = clienteTelefono,
+                        clienteEmail = clienteEmail,
+                        direccionEnvio = direccionEnvio,
+                        items = items,
+                        total = total,
+                        adelanto = adelanto,
+                        fechaEntregaYmd = fechaEntregaYmd,
+                        horaEntrega = horaEntrega,
+                        metodoPago = metodoPago,
+                        estado = estado,
+                        notas = notas,
+                    ),
+                    snackbarText = "Pedido guardado en el celular (offline). Se subirá a Supabase al volver internet.",
+                    closeAgendarPedido = true,
+                )
+                return@launch
+            }
             try {
                 val newId = SupabaseRepository.agendarPedido(
                     context = appContext,
@@ -1048,6 +1398,30 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+            } catch (_: OfflineException) {
+                val tempId = OfflineOutboxStore.nextTempId(appContext)
+                queueOfflineOp(
+                    op = PendingOp.AgendarPedido(
+                        tempId = tempId,
+                        createdAtIso = nowIsoLima(),
+                        origen = origen,
+                        usuarioId = usuarioId,
+                        clienteNombre = clienteNombre,
+                        clienteTelefono = clienteTelefono,
+                        clienteEmail = clienteEmail,
+                        direccionEnvio = direccionEnvio,
+                        items = items,
+                        total = total,
+                        adelanto = adelanto,
+                        fechaEntregaYmd = fechaEntregaYmd,
+                        horaEntrega = horaEntrega,
+                        metodoPago = metodoPago,
+                        estado = estado,
+                        notas = notas,
+                    ),
+                    snackbarText = "Pedido guardado en el celular (offline). Se subirá a Supabase al volver internet.",
+                    closeAgendarPedido = true,
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -1070,6 +1444,30 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true) }
+            if (!AlertPoller.hasInternet(appContext)) {
+                val tempId = OfflineOutboxStore.nextTempId(appContext)
+                queueOfflineOp(
+                    op = PendingOp.AgendarPersonalizado(
+                        tempId = tempId,
+                        createdAtIso = nowIsoLima(),
+                        nombreCliente = nombreCliente,
+                        telefono = telefono,
+                        email = email,
+                        productoNombre = productoNombre,
+                        productoPrecio = productoPrecio,
+                        detalles = detalles,
+                        colores = colores,
+                        tamano = tamano,
+                        extras = extras,
+                        fechaEntregaYmd = fechaEntregaYmd,
+                        horaEntrega = horaEntrega,
+                        estado = estado,
+                    ),
+                    snackbarText = "Encargo guardado en el celular (offline). Se subirá a Supabase al volver internet.",
+                    closeAgendarPersonalizado = true,
+                )
+                return@launch
+            }
             try {
                 val newId = SupabaseRepository.agendarPersonalizado(
                     context = appContext,
@@ -1094,6 +1492,28 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+            } catch (_: OfflineException) {
+                val tempId = OfflineOutboxStore.nextTempId(appContext)
+                queueOfflineOp(
+                    op = PendingOp.AgendarPersonalizado(
+                        tempId = tempId,
+                        createdAtIso = nowIsoLima(),
+                        nombreCliente = nombreCliente,
+                        telefono = telefono,
+                        email = email,
+                        productoNombre = productoNombre,
+                        productoPrecio = productoPrecio,
+                        detalles = detalles,
+                        colores = colores,
+                        tamano = tamano,
+                        extras = extras,
+                        fechaEntregaYmd = fechaEntregaYmd,
+                        horaEntrega = horaEntrega,
+                        estado = estado,
+                    ),
+                    snackbarText = "Encargo guardado en el celular (offline). Se subirá a Supabase al volver internet.",
+                    closeAgendarPersonalizado = true,
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -1103,12 +1523,24 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     fun marcarMensajeLeido(mensajeId: Long) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true) }
+            if (!AlertPoller.hasInternet(appContext)) {
+                queueOfflineOp(
+                    op = PendingOp.MarcarMensajeLeido(mensajeId = mensajeId),
+                    snackbarText = "Mensaje marcado como leído en el celular. Se sincronizará al volver internet.",
+                )
+                return@launch
+            }
             try {
                 SupabaseRepository.marcarMensajeLeido(appContext, mensajeId)
                 loadAllData(silent = true, force = true)
                 _uiState.update {
                     it.copy(isMutating = false, snackbarMessage = "Mensaje marcado como leído.")
                 }
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.MarcarMensajeLeido(mensajeId = mensajeId),
+                    snackbarText = "Mensaje marcado como leído en el celular. Se sincronizará al volver internet.",
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -1116,10 +1548,17 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleAprobarResena(resena: Resena) {
+        val next = !resena.aprobado
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true) }
+            if (!AlertPoller.hasInternet(appContext)) {
+                queueOfflineOp(
+                    op = PendingOp.ToggleAprobarResena(resenaId = resena.id, nuevoAprobado = next),
+                    snackbarText = "Reseña actualizada en el celular. Se sincronizará al volver internet.",
+                )
+                return@launch
+            }
             try {
-                val next = !resena.aprobado
                 SupabaseRepository.toggleAprobarResena(appContext, resena.id, next)
                 loadAllData(silent = true, force = true)
                 _uiState.update {
@@ -1128,6 +1567,11 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                         snackbarMessage = if (next) "Reseña aprobada y visible en tienda." else "Reseña ocultada."
                     )
                 }
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.ToggleAprobarResena(resenaId = resena.id, nuevoAprobado = next),
+                    snackbarText = "Reseña actualizada en el celular. Se sincronizará al volver internet.",
+                )
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -1140,6 +1584,10 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         deleteOrders: Boolean,
         onResult: (String?) -> Unit,
     ) {
+        if (!AlertPoller.hasInternet(appContext)) {
+            onResult("Requiere conexión a internet para verificar tu contraseña y eliminar un usuario.")
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
             try {
@@ -1189,6 +1637,19 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
+            if (!AlertPoller.hasInternet(appContext)) {
+                queueOfflineOp(
+                    op = PendingOp.VincularPedidosUsuario(
+                        targetUserId = targetUserId,
+                        matchNombre = matchNombre,
+                        matchTelefono = matchTelefono,
+                        matchEmail = matchEmail,
+                    ),
+                    snackbarText = "Vinculación guardada en el celular. Se sincronizará al volver internet.",
+                )
+                onResult(null)
+                return@launch
+            }
             try {
                 val (pedCount, persCount) = SupabaseRepository.vincularPedidosAUsuario(
                     context = appContext,
@@ -1205,6 +1666,17 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+                onResult(null)
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.VincularPedidosUsuario(
+                        targetUserId = targetUserId,
+                        matchNombre = matchNombre,
+                        matchTelefono = matchTelefono,
+                        matchEmail = matchEmail,
+                    ),
+                    snackbarText = "Vinculación guardada en el celular. Se sincronizará al volver internet.",
+                )
                 onResult(null)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isMutating = false) }
@@ -1225,6 +1697,19 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isMutating = true, errorBanner = null) }
+            if (!AlertPoller.hasInternet(appContext)) {
+                queueOfflineOp(
+                    op = PendingOp.AsignarCorreoCliente(
+                        email = email,
+                        matchNombre = matchNombre,
+                        matchTelefono = matchTelefono,
+                        oldEmail = oldEmail,
+                    ),
+                    snackbarText = "Correo guardado en el celular. Se sincronizará al volver internet.",
+                )
+                onResult(null)
+                return@launch
+            }
             try {
                 val (pedCount, persCount, linkedNow) = SupabaseRepository.asignarCorreoCliente(
                     context = appContext,
@@ -1246,6 +1731,17 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 loadAllData(silent = true, force = true)
+                onResult(null)
+            } catch (_: OfflineException) {
+                queueOfflineOp(
+                    op = PendingOp.AsignarCorreoCliente(
+                        email = email,
+                        matchNombre = matchNombre,
+                        matchTelefono = matchTelefono,
+                        oldEmail = oldEmail,
+                    ),
+                    snackbarText = "Correo guardado en el celular. Se sincronizará al volver internet.",
+                )
                 onResult(null)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isMutating = false) }

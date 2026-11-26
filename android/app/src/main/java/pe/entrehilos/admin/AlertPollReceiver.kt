@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
+import pe.entrehilos.admin.data.SessionStore
 import java.util.concurrent.Executors
 
 class AlertPollReceiver : BroadcastReceiver() {
@@ -13,7 +14,7 @@ class AlertPollReceiver : BroadcastReceiver() {
         val appCtx = context.applicationContext
         NotificationHelper.clearLegacyServiceNotification(appCtx)
 
-        if (!AlertPrefs.isEnabled(appCtx)) {
+        if (!AlertPrefs.isEnabled(appCtx) && SessionStore.getSession(appCtx) == null) {
             return
         }
 

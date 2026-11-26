@@ -3,6 +3,7 @@ package pe.entrehilos.admin;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import pe.entrehilos.admin.data.SessionStore;
 
 public class BootReceiver extends BroadcastReceiver {
 
@@ -17,7 +18,7 @@ public class BootReceiver extends BroadcastReceiver {
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)
         ) {
             NotificationHelper.clearLegacyServiceNotification(context);
-            if (AlertPrefs.isEnabled(context)) {
+            if (AlertPrefs.isEnabled(context) || SessionStore.INSTANCE.getSession(context) != null) {
                 AlertPollScheduler.start(context);
             }
         }
