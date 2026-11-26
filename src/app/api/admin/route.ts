@@ -459,7 +459,14 @@ export async function PATCH(request: NextRequest) {
     }
     if (hora_entrega !== undefined) {
       const cleanHora = hora_entrega ? String(hora_entrega).trim() : null;
-      updatePayload.hora_entrega = cleanHora || null;
+      const effectiveFecha =
+        updatePayload.fecha_entrega !== undefined
+          ? updatePayload.fecha_entrega
+          : fecha_entrega;
+      updatePayload.hora_entrega =
+        cleanHora || (effectiveFecha ? "12:00" : null);
+    } else if (updatePayload.fecha_entrega) {
+      updatePayload.hora_entrega = "12:00";
     }
     if (notas !== undefined) {
       updatePayload.notas = notas ? String(notas).trim() : null;
@@ -1002,7 +1009,11 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanFecha = normalizarFechaEntrega(fecha_entrega);
-    const cleanHora = hora_entrega ? String(hora_entrega).trim() : null;
+    const cleanHora = hora_entrega
+      ? String(hora_entrega).trim()
+      : cleanFecha
+      ? "12:00"
+      : null;
     const cleanNotas = notas ? String(notas).trim() : null;
 
     const { data, error } = await supabaseAdmin

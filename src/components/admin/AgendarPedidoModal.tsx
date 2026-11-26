@@ -23,6 +23,15 @@ import {
 import type { Product } from "@/lib/ventify";
 import OrderPhotoUploader from "./OrderPhotoUploader";
 import { ChannelSelect, PaymentMethodSelect } from "./BrandControls";
+import { DEFAULT_DELIVERY_TIME, formatHora12h } from "@/lib/delivery-schedule";
+
+const HORA_PRESETS = [
+  { val: "08:00", label: "8:00 a.m." },
+  { val: "10:00", label: "10:00 a.m." },
+  { val: "12:00", label: "12:00 p.m." },
+  { val: "15:00", label: "3:00 p.m." },
+  { val: "18:00", label: "6:00 p.m." },
+];
 
 interface AgendarPedidoModalProps {
   isOpen: boolean;
@@ -68,7 +77,7 @@ export default function AgendarPedidoModal({
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [direccionEnvio, setDireccionEnvio] = useState("");
   const [fechaEntrega, setFechaEntrega] = useState("");
-  const [horaEntrega, setHoraEntrega] = useState("");
+  const [horaEntrega, setHoraEntrega] = useState(DEFAULT_DELIVERY_TIME);
   const [metodoPago, setMetodoPago] = useState("yape");
   const [adelanto, setAdelanto] = useState("");
   const [estado, setEstado] = useState("pendiente");
@@ -255,6 +264,9 @@ export default function AgendarPedidoModal({
     setErrorMsg(null);
 
     try {
+      const cleanFecha = fechaEntrega && fechaEntrega.trim() ? fechaEntrega.trim().split("T")[0] : null;
+      const cleanHora = cleanFecha ? horaEntrega.trim() || DEFAULT_DELIVERY_TIME : null;
+
       const payload = {
         action: "agendar-pedido",
         origen,
@@ -267,8 +279,8 @@ export default function AgendarPedidoModal({
         total: totalCalculado,
         adelanto: adelantoNum,
         saldo_pendiente: saldoPendiente,
-        fecha_entrega: fechaEntrega && fechaEntrega.trim() ? fechaEntrega.trim().split("T")[0] : null,
-        hora_entrega: horaEntrega && horaEntrega.trim() ? horaEntrega.trim() : null,
+        fecha_entrega: cleanFecha,
+        hora_entrega: cleanHora,
         metodo_pago: metodoPago,
         estado,
         notas: notas && notas.trim() ? notas.trim() : null,
@@ -304,8 +316,8 @@ export default function AgendarPedidoModal({
                   producto_nombre: cItem.nombre,
                   producto_precio: cItem.precio || null,
                   detalles: `Pedido #${resData?.data?.id || "Agendado"} (${origen}). Cantidad: ${cItem.cantidad}${notas ? ` | Notas: ${notas.trim()}` : ""}`,
-                  fecha_entrega: fechaEntrega && fechaEntrega.trim() ? fechaEntrega.trim().split("T")[0] : null,
-                  hora_entrega: horaEntrega && horaEntrega.trim() ? horaEntrega.trim() : null,
+                  fecha_entrega: cleanFecha,
+                  hora_entrega: cleanHora,
                   estado: estado || "pendiente",
                 },
               }),
@@ -544,7 +556,7 @@ export default function AgendarPedidoModal({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   <div>
                     <label className="block text-[10px] text-gray-500 font-quicksand font-semibold mb-0.5">
                       Fecha programada
@@ -552,23 +564,59 @@ export default function AgendarPedidoModal({
                     <input
                       type="date"
                       value={fechaEntrega}
-                      onChange={(e) => setFechaEntrega(e.target.value)}
+                      onChange={(e) => {
+                        setFechaEntrega(e.target.value);
+                        if (e.target.value && !horaEntrega) {
+                          setHoraEntrega(DEFAULT_DELIVERY_TIME);
+                        }
+                      }}
                       className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 font-quicksand font-semibold mb-0.5">
-                      Horario / Turno
+                      Hora exacta (por defecto 12:00 p.m.)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Ej. Mañana (10am)"
-                      value={horaEntrega}
-                      onChange={(e) => setHoraEntrega(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
-                    />
+                    <div className="relative">
+                      <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#C04267] pointer-events-none" />
+                      <input
+                        type="time"
+                        value={horaEntrega || DEFAULT_DELIVERY_TIME}
+                        onChange={(e) => setHoraEntrega(e.target.value)}
+                        className="w-full pl-7 pr-2.5 py-1.5 text-xs border border-gray-200 rounded-lg font-quicksand font-semibold text-gray-800 bg-white focus:outline-none focus:border-[#EE6B8D]"
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Atajos rápidos de hora + aviso de recordatorio diario */}
+                <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                  {HORA_PRESETS.map((hp) => {
+                    const active = (horaEntrega || DEFAULT_DELIVERY_TIME) === hp.val;
+                    return (
+                      <button
+                        key={hp.val}
+                        type="button"
+                        onClick={() => setHoraEntrega(hp.val)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-quicksand font-bold border transition-colors cursor-pointer ${
+                          active
+                            ? "bg-[#C04267] text-white border-[#C04267]"
+                            : "bg-white text-gray-600 border-pink-200 hover:bg-pink-100"
+                        }`}
+                      >
+                        {hp.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {fechaEntrega && (
+                  <p className="text-[11px] font-quicksand font-semibold text-[#C04267] flex items-center gap-1">
+                    <Clock size={11} className="shrink-0" />
+                    <span>
+                      Recordatorio diario a las {formatHora12h(horaEntrega || DEFAULT_DELIVERY_TIME)} hasta el día de entrega
+                    </span>
+                  </p>
+                )}
               </div>
 
               {/* Dedicatoria y Notas (colapsable para ahorrar espacio) */}
