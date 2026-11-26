@@ -53,6 +53,20 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def buildCal = Calendar.getInstance(TimeZone.getTimeZone("America/Lima"))
+def buildHour24 = buildCal.get(Calendar.HOUR_OF_DAY)
+def buildHour12 = buildHour24 % 12 == 0 ? 12 : buildHour24 % 12
+def buildAmPm = buildHour24 >= 12 ? "p.m." : "a.m."
+def apkBuildDate = String.format(
+    "%02d/%02d/%04d · %d:%02d %s",
+    buildCal.get(Calendar.DAY_OF_MONTH),
+    buildCal.get(Calendar.MONTH) + 1,
+    buildCal.get(Calendar.YEAR),
+    buildHour12,
+    buildCal.get(Calendar.MINUTE),
+    buildAmPm
+)
+
 android {
     namespace "pe.entrehilos.admin"
     compileSdk 34
@@ -72,6 +86,7 @@ android {
         buildConfigField "String", "SUPABASE_URL", "\"${escapeForBuildConfig(supabaseUrl)}\""
         buildConfigField "String", "SUPABASE_ANON_KEY", "\"${escapeForBuildConfig(supabaseAnonKey)}\""
         buildConfigField "String", "WEB_ADMIN_URL", "\"${escapeForBuildConfig(webAdminUrl)}\""
+        buildConfigField "String", "APK_BUILD_DATE", "\"${escapeForBuildConfig(apkBuildDate)}\""
     }
 
     signingConfigs {
