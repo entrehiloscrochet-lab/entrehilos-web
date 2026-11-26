@@ -210,6 +210,66 @@ data class EstadoStyle(
 
 object AdminFormatters {
     private val limaTz: TimeZone = TimeZone.getTimeZone("America/Lima")
+    const val DEFAULT_DELIVERY_TIME = "12:00"
+
+    fun parseClock24h(raw: String?): Pair<Int, Int> {
+        val text = raw?.trim().orEmpty()
+        if (text.isEmpty()) return 12 to 0
+
+        val normalized = Normalizer.normalize(text, Normalizer.Form.NFD)
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+            .lowercase(Locale.ROOT)
+            .trim()
+
+        val ampm = Regex("(\\d{1,2})(?::(\\d{2}))?\\s*(a\\.?m\\.?|p\\.?m\\.?)").find(normalized)
+        if (ampm != null) {
+            var h = ampm.groupValues[1].toIntOrNull() ?: 12
+            val m = ampm.groupValues[2].toIntOrNull() ?: 0
+            val isPm = ampm.groupValues[3].startsWith("p")
+            if (h in 1..12 && m in 0..59) {
+                if (isPm && h < 12) h += 12
+                if (!isPm && h == 12) h = 0
+                return h to m
+            }
+        }
+
+        val h24 = Regex("(\\d{1,2})\\s*:\\s*(\\d{2})").find(normalized)
+        if (h24 != null) {
+            val h = h24.groupValues[1].toIntOrNull() ?: 12
+            val m = h24.groupValues[2].toIntOrNull() ?: 0
+            if (h in 0..23 && m in 0..59) return h to m
+        }
+
+        val bareH = Regex("(?:^|\\b)(\\d{1,2})\\s*(?:h|hs|hrs)\\b").find(normalized)
+        if (bareH != null) {
+            val h = bareH.groupValues[1].toIntOrNull() ?: 12
+            if (h in 0..23) return h to 0
+        }
+
+        return when {
+            Regex("\\b(mediodia|medio\\s*dia)\\b").containsMatchIn(normalized) -> 12 to 0
+            Regex("\\b(manana|temprano|am)\\b").containsMatchIn(normalized) -> 9 to 0
+            Regex("\\b(tarde|pm)\\b").containsMatchIn(normalized) -> 14 to 0
+            Regex("\\bnoche\\b").containsMatchIn(normalized) -> 19 to 0
+            else -> 12 to 0
+        }
+    }
+
+    fun normalizeClock24h(raw: String?): String {
+        val (h, m) = parseClock24h(raw)
+        return String.format(Locale.US, "%02d:%02d", h, m)
+    }
+
+    fun formatHora12h(raw: String?): String {
+        val (h, m) = parseClock24h(raw)
+        val suffix = if (h < 12) "a.m." else "p.m."
+        val h12 = when {
+            h == 0 -> 12
+            h > 12 -> h - 12
+            else -> h
+        }
+        return String.format(Locale.US, "%d:%02d %s", h12, m, suffix)
+    }
 
     val PEDIDO_ESTADOS = listOf(
         "pendiente" to "Pendiente",

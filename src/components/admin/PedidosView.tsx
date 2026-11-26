@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import GestionarPedidoModal, { PedidoGestion } from "./GestionarPedidoModal";
 import { ChannelBadge, PaymentBadge, WhatsAppLogo } from "./BrandControls";
+import { formatHora12h } from "@/lib/delivery-schedule";
 import { parsearFotosEntrega, quitarMarcadorFotos } from "@/lib/fotos-pedido";
 import { useToast } from "@/components/Toast";
 
@@ -984,8 +985,10 @@ export default function PedidosView({
                         ) : (
                           <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
                         )}
-                        {horaEntrega && (
-                          <p className="font-quicksand text-[10px] text-gray-500">{horaEntrega}</p>
+                        {(fechaEntrega || horaEntrega) && (
+                          <p className="font-quicksand text-[10px] text-gray-500">
+                            {formatHora12h(horaEntrega)}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -1191,8 +1194,10 @@ export default function PedidosView({
                           ) : (
                             <span className="font-quicksand text-[11px] text-gray-400 italic">Inmediata</span>
                           )}
-                          {horaEntrega && (
-                            <p className="font-quicksand text-[10px] text-gray-500 mt-0.5">{horaEntrega}</p>
+                          {(fechaEntrega || horaEntrega) && (
+                            <p className="font-quicksand text-[10px] text-gray-500 mt-0.5">
+                              {formatHora12h(horaEntrega)}
+                            </p>
                           )}
                         </div>
                       </td>

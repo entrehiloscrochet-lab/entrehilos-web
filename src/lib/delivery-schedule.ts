@@ -1,5 +1,7 @@
 const LIMA_OFFSET_SUFFIX = "-05:00";
 
+export const DEFAULT_DELIVERY_TIME = "12:00";
+
 const LIMA_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Lima",
   year: "numeric",
@@ -38,10 +40,10 @@ export function extractLimaDateOnly(fechaEntrega: unknown): string | null {
 
 /**
  * Convierte texto libre de hora (24h, 12h AM/PM, rangos o palabras como "tarde")
- * a { hours, minutes }. Si es null/vacío o no reconocible, asume 09:00 hora Lima.
+ * a { hours, minutes }. Si es null/vacío o no reconocible, asume 12:00 p.m. hora Lima.
  */
 export function parseLimaClockTime(horaEntrega?: string | null): { hours: number; minutes: number } {
-  const defaultTime = { hours: 9, minutes: 0 };
+  const defaultTime = { hours: 12, minutes: 0 };
   if (!horaEntrega || !String(horaEntrega).trim()) {
     return defaultTime;
   }
@@ -52,7 +54,7 @@ export function parseLimaClockTime(horaEntrega?: string | null): { hours: number
     .toLowerCase()
     .trim();
 
-  // 1. Buscar formato con am/pm primero (ej. "3:30 pm", "10am", "12:00 pm", "2 pm - 4 pm")
+  // 1. Buscar formato con am/pm primero (ej. "8:00 a.m.", "3:30 pm", "10am", "12:00 pm")
   const ampmMatch = normalized.match(/(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/);
   if (ampmMatch) {
     let hours = Number(ampmMatch[1]);
@@ -66,7 +68,7 @@ export function parseLimaClockTime(horaEntrega?: string | null): { hours: number
     }
   }
 
-  // 2. Buscar formato 24h HH:MM (ej. "15:30", "09:00", "14:00 - 16:00" -> toma hora inicial)
+  // 2. Buscar formato 24h HH:MM (ej. "08:00", "15:30", "14:00 - 16:00" -> toma hora inicial)
   const h24Match = normalized.match(/(\d{1,2})\s*:\s*(\d{2})/);
   if (h24Match) {
     const hours = Number(h24Match[1]);
@@ -76,7 +78,7 @@ export function parseLimaClockTime(horaEntrega?: string | null): { hours: number
     }
   }
 
-  // 3. Buscar número suelto con contexto de "h"/"hrs" (ej. "14h", "a las 16")
+  // 3. Buscar número suelto con contexto de "h"/"hrs" (ej. "8h", "14h", "a las 16")
   const bareHourMatch = normalized.match(/(?:^|\b)(\d{1,2})\s*(?:h|hs|hrs)\b/);
   if (bareHourMatch) {
     const hours = Number(bareHourMatch[1]);
@@ -103,8 +105,30 @@ export function parseLimaClockTime(horaEntrega?: string | null): { hours: number
 }
 
 /**
+ * Normaliza un valor cualquiera de hora al formato "HH:MM" para <input type="time">,
+ * con predeterminado "12:00" (12:00 p.m.).
+ */
+export function toTimeInputValue(horaEntrega?: string | null): string {
+  if (!horaEntrega || !String(horaEntrega).trim()) {
+    return DEFAULT_DELIVERY_TIME;
+  }
+  const { hours, minutes } = parseLimaClockTime(horaEntrega);
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
+ * Formatea una hora en reloj de 12 horas legible en español (ej. "8:00 a.m.", "12:00 p.m.").
+ */
+export function formatHora12h(horaEntrega?: string | null): string {
+  const { hours, minutes } = parseLimaClockTime(horaEntrega);
+  const suffix = hours < 12 ? "a.m." : "p.m.";
+  const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  return `${h12}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+/**
  * Construye el instante Date exacto de la entrega en zona horaria America/Lima (UTC-5).
- * Cuando `hora_entrega` es null o vacía, asume 09:00 hora Lima.
+ * Cuando `hora_entrega` es null o vacía, asume 12:00 p.m. hora Lima.
  */
 export function parseDeliveryDateTimeLima(
   fechaEntrega: unknown,
@@ -132,7 +156,6 @@ export function formatDeliveryResumenLima(
   if (!dateOnly) return "Fecha por confirmar";
 
   const [yyyy, mm, dd] = dateOnly.split("-");
-  const cleanHora = horaEntrega ? String(horaEntrega).trim() : "";
-  const horaLabel = cleanHora || "09:00 (ref.)";
+  const horaLabel = formatHora12h(horaEntrega);
   return `${dd}/${mm}/${yyyy} · ${horaLabel}`;
 }

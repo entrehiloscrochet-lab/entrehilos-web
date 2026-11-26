@@ -1,6 +1,7 @@
 package pe.entrehilos.admin.ui
 
 import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -739,8 +740,12 @@ private fun PedidoCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         EhBadge(text = urgency.label, bgColor = urgency.bgColor, fgColor = urgency.fgColor)
-                        if (!pedido.horaEntrega.isNullOrBlank()) {
-                            Text(text = pedido.horaEntrega, fontSize = 11.sp, color = EhColors.TextSecondary)
+                        if (!pedido.fechaEntrega.isNullOrBlank() || !pedido.horaEntrega.isNullOrBlank()) {
+                            Text(
+                                text = AdminFormatters.formatHora12h(pedido.horaEntrega),
+                                fontSize = 11.sp,
+                                color = EhColors.TextSecondary
+                            )
                         }
                     }
 
@@ -886,8 +891,12 @@ private fun PersonalizadoCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         EhBadge(text = urgency.label, bgColor = urgency.bgColor, fgColor = urgency.fgColor)
-                        pers.horaEntrega?.let {
-                            Text(text = it, fontSize = 11.sp, color = EhColors.TextSecondary)
+                        if (!pers.fechaEntrega.isNullOrBlank() || !pers.horaEntrega.isNullOrBlank()) {
+                            Text(
+                                text = AdminFormatters.formatHora12h(pers.horaEntrega),
+                                fontSize = 11.sp,
+                                color = EhColors.TextSecondary
+                            )
                         }
                     }
                     pers.productoPrecio?.let {
@@ -951,7 +960,15 @@ fun PedidoDetailSheet(
     var editMetodoPago by remember(pedido.id) { mutableStateOf(pedido.metodoPago.ifBlank { "yape" }) }
     var editAdelanto by remember(pedido.id) { mutableStateOf(String.format(Locale.US, "%.2f", pedido.adelanto)) }
     var editFecha by remember(pedido.id) { mutableStateOf(AdminFormatters.extractLimaDateOnly(pedido.fechaEntrega).orEmpty()) }
-    var editHora by remember(pedido.id) { mutableStateOf(pedido.horaEntrega.orEmpty()) }
+    var editHora by remember(pedido.id) {
+        mutableStateOf(
+            if (!pedido.fechaEntrega.isNullOrBlank() || !pedido.horaEntrega.isNullOrBlank()) {
+                AdminFormatters.normalizeClock24h(pedido.horaEntrega)
+            } else {
+                ""
+            }
+        )
+    }
     var editNotas by remember(pedido.id) { mutableStateOf(pedido.notas.orEmpty()) }
 
     ModalBottomSheet(
@@ -1078,7 +1095,7 @@ fun PedidoDetailSheet(
                         ) {
                             CompactDetailCell(
                                 "Entrega",
-                                "${AdminFormatters.formatDateDisplay(pedido.fechaEntrega)} · ${pedido.horaEntrega ?: "09:00"}",
+                                "${AdminFormatters.formatDateDisplay(pedido.fechaEntrega)} · ${AdminFormatters.formatHora12h(pedido.horaEntrega)}",
                                 Modifier.weight(1f)
                             )
                             Column(
@@ -1297,16 +1314,27 @@ fun PedidoDetailSheet(
                 ) {
                     FilterChip(
                         selected = editFecha == AdminFormatters.dateOffsetYmd(0),
-                        onClick = { editFecha = AdminFormatters.dateOffsetYmd(0) },
+                        onClick = {
+                            editFecha = AdminFormatters.dateOffsetYmd(0)
+                            if (editHora.isBlank()) editHora = AdminFormatters.DEFAULT_DELIVERY_TIME
+                        },
                         label = { Text("Hoy", fontSize = 12.sp) }
                     )
                     FilterChip(
                         selected = editFecha == AdminFormatters.dateOffsetYmd(1),
-                        onClick = { editFecha = AdminFormatters.dateOffsetYmd(1) },
+                        onClick = {
+                            editFecha = AdminFormatters.dateOffsetYmd(1)
+                            if (editHora.isBlank()) editHora = AdminFormatters.DEFAULT_DELIVERY_TIME
+                        },
                         label = { Text("Mañana", fontSize = 12.sp) }
                     )
                     OutlinedButton(
-                        onClick = { showNativeDatePicker(context, editFecha) { editFecha = it } },
+                        onClick = {
+                            showNativeDatePicker(context, editFecha) {
+                                editFecha = it
+                                if (editHora.isBlank()) editHora = AdminFormatters.DEFAULT_DELIVERY_TIME
+                            }
+                        },
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(Icons.Outlined.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -1315,12 +1343,10 @@ fun PedidoDetailSheet(
                     }
                 }
 
-                OutlinedTextField(
-                    value = editHora,
-                    onValueChange = { editHora = it },
-                    label = { Text("Hora (ej. 15:30)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                DeliveryTimeSelectorSection(
+                    hora24 = editHora.ifBlank { AdminFormatters.DEFAULT_DELIVERY_TIME },
+                    hasDate = editFecha.isNotBlank(),
+                    onChangeHora = { editHora = it },
                 )
 
                 Row(
@@ -1408,7 +1434,7 @@ fun PedidoDetailSheet(
                                 editMetodoPago,
                                 editAdelNum,
                                 editFecha.ifBlank { null },
-                                editHora.ifBlank { null },
+                                if (editFecha.isNotBlank()) editHora.ifBlank { AdminFormatters.DEFAULT_DELIVERY_TIME } else null,
                                 editNotas.ifBlank { null },
                             )
                             editMode = false
@@ -1520,7 +1546,7 @@ fun PersonalizadoDetailSheet(
             AdminFormatters.extractLimaDateOnly(pers.fechaEntrega) ?: AdminFormatters.dateOffsetYmd(1)
         )
     }
-    var editHora by remember(pers.id) { mutableStateOf(pers.horaEntrega.orEmpty()) }
+    var editHora by remember(pers.id) { mutableStateOf(AdminFormatters.normalizeClock24h(pers.horaEntrega)) }
     var editEstado by remember(pers.id) { mutableStateOf(pers.estado) }
 
     ModalBottomSheet(
@@ -1657,7 +1683,7 @@ fun PersonalizadoDetailSheet(
                         ) {
                             CompactDetailCell(
                                 "Entrega",
-                                "${AdminFormatters.formatDateDisplay(pers.fechaEntrega)} · ${pers.horaEntrega ?: "09:00"}",
+                                "${AdminFormatters.formatDateDisplay(pers.fechaEntrega)} · ${AdminFormatters.formatHora12h(pers.horaEntrega)}",
                                 Modifier.weight(1f)
                             )
                             CompactDetailCell(
@@ -1854,23 +1880,21 @@ fun PersonalizadoDetailSheet(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(
-                        onClick = { showNativeDatePicker(context, editFecha) { editFecha = it } },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Outlined.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(AdminFormatters.formatDateDisplay(editFecha), fontSize = 12.sp)
-                    }
-                    OutlinedTextField(
-                        value = editHora,
-                        onValueChange = { editHora = it },
-                        label = { Text("Hora") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
+                OutlinedButton(
+                    onClick = { showNativeDatePicker(context, editFecha) { editFecha = it } },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Outlined.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Fecha: ${AdminFormatters.formatDateDisplay(editFecha)}", fontSize = 12.sp)
                 }
+
+                DeliveryTimeSelectorSection(
+                    hora24 = editHora.ifBlank { AdminFormatters.DEFAULT_DELIVERY_TIME },
+                    hasDate = editFecha.isNotBlank(),
+                    onChangeHora = { editHora = it },
+                )
 
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1913,7 +1937,7 @@ fun PersonalizadoDetailSheet(
                                 editTamano.ifBlank { null },
                                 editExtras.ifBlank { null },
                                 editFecha,
-                                editHora.ifBlank { null },
+                                editHora.ifBlank { AdminFormatters.DEFAULT_DELIVERY_TIME },
                                 editEstado,
                             )
                             editMode = false
@@ -2037,7 +2061,7 @@ fun AgendarPedidoDialog(
     var clienteEmail by rememberSaveable(prefilledClient?.key) { mutableStateOf(prefilledClient?.email.orEmpty()) }
     var direccion by rememberSaveable(prefilledClient?.key) { mutableStateOf(prefilledClient?.direccion.orEmpty()) }
     var fechaEntrega by rememberSaveable { mutableStateOf("") }
-    var horaEntrega by rememberSaveable { mutableStateOf("") }
+    var horaEntrega by rememberSaveable { mutableStateOf(AdminFormatters.DEFAULT_DELIVERY_TIME) }
     var metodoPago by rememberSaveable { mutableStateOf("yape") }
     var adelantoText by rememberSaveable { mutableStateOf("") }
     var estado by rememberSaveable { mutableStateOf("pendiente") }
@@ -2258,26 +2282,10 @@ fun AgendarPedidoDialog(
                         }
                     }
 
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        listOf("09:00", "12:00", "15:00", "18:00").forEach { presetHora ->
-                            FilterChip(
-                                selected = horaEntrega == presetHora,
-                                onClick = { horaEntrega = presetHora },
-                                label = { Text(presetHora, fontSize = 11.sp) }
-                            )
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = horaEntrega,
-                        onValueChange = { horaEntrega = it },
-                        label = { Text("Hora de entrega (ej. 15:30)") },
-                        leadingIcon = { Icon(Icons.Outlined.Schedule, contentDescription = null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    DeliveryTimeSelectorSection(
+                        hora24 = horaEntrega,
+                        hasDate = fechaEntrega.isNotBlank(),
+                        onChangeHora = { horaEntrega = it },
                     )
 
                     // Productos del pedido + buscador de catálogo
@@ -2513,7 +2521,7 @@ fun AgendarPedidoDialog(
                                     total,
                                     adelanto,
                                     fechaEntrega.ifBlank { null },
-                                    horaEntrega.ifBlank { null },
+                                    if (fechaEntrega.isNotBlank()) horaEntrega.ifBlank { AdminFormatters.DEFAULT_DELIVERY_TIME } else null,
                                     metodoPago,
                                     estado,
                                     notas.ifBlank { null },
@@ -2621,7 +2629,7 @@ fun AgendarPersonalizadoDialog(
     var tamano by rememberSaveable { mutableStateOf("") }
     var extras by rememberSaveable { mutableStateOf("") }
     var fechaEntrega by rememberSaveable { mutableStateOf(AdminFormatters.dateOffsetYmd(2)) }
-    var horaEntrega by rememberSaveable { mutableStateOf("") }
+    var horaEntrega by rememberSaveable { mutableStateOf(AdminFormatters.DEFAULT_DELIVERY_TIME) }
     var estado by rememberSaveable { mutableStateOf("pendiente") }
     var formError by rememberSaveable { mutableStateOf<String?>(null) }
     var showClientPicker by remember { mutableStateOf(false) }
@@ -2823,13 +2831,10 @@ fun AgendarPersonalizadoDialog(
                         }
                     }
 
-                    OutlinedTextField(
-                        value = horaEntrega,
-                        onValueChange = { horaEntrega = it },
-                        label = { Text("Hora de entrega (ej. 16:00)") },
-                        leadingIcon = { Icon(Icons.Outlined.Schedule, contentDescription = null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    DeliveryTimeSelectorSection(
+                        hora24 = horaEntrega,
+                        hasDate = fechaEntrega.isNotBlank(),
+                        onChangeHora = { horaEntrega = it },
                     )
 
                     Text("Estado inicial", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = EhColors.PrimaryDark)
@@ -2890,7 +2895,7 @@ fun AgendarPersonalizadoDialog(
                                     tamano.ifBlank { null },
                                     extras.ifBlank { null },
                                     fechaEntrega,
-                                    horaEntrega.ifBlank { null },
+                                    horaEntrega.ifBlank { AdminFormatters.DEFAULT_DELIVERY_TIME },
                                     estado,
                                 )
                             },
@@ -2937,6 +2942,89 @@ fun AgendarPersonalizadoDialog(
             )
         }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DeliveryTimeSelectorSection(
+    hora24: String,
+    hasDate: Boolean,
+    onChangeHora: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val effectiveHora = hora24.ifBlank { AdminFormatters.DEFAULT_DELIVERY_TIME }
+    val presets = listOf(
+        "08:00" to "8:00 a.m.",
+        "10:00" to "10:00 a.m.",
+        "12:00" to "12:00 p.m.",
+        "15:00" to "3:00 p.m.",
+        "18:00" to "6:00 p.m.",
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "Hora exacta (por defecto 12:00 p.m.)",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = EhColors.PrimaryDark
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            presets.forEach { (val24, label) ->
+                FilterChip(
+                    selected = effectiveHora == val24,
+                    onClick = { onChangeHora(val24) },
+                    label = { Text(label, fontSize = 11.sp) }
+                )
+            }
+            OutlinedButton(
+                onClick = { showNativeTimePicker(context, effectiveHora, onChangeHora) },
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Outlined.Schedule, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Elegir hora: ${AdminFormatters.formatHora12h(effectiveHora)}", fontSize = 11.sp)
+            }
+        }
+        if (hasDate) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = EhColors.PrimaryDark,
+                    modifier = Modifier.size(13.dp)
+                )
+                Text(
+                    text = "Recordatorio diario a las ${AdminFormatters.formatHora12h(effectiveHora)} hasta la entrega",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = EhColors.PrimaryDark
+                )
+            }
+        }
+    }
+}
+
+private fun showNativeTimePicker(
+    context: android.content.Context,
+    currentHora: String,
+    onPicked: (String) -> Unit,
+) {
+    val (initH, initM) = AdminFormatters.parseClock24h(currentHora)
+    TimePickerDialog(
+        context,
+        { _, hourOfDay, minute ->
+            onPicked(String.format(Locale.US, "%02d:%02d", hourOfDay, minute))
+        },
+        initH,
+        initM,
+        false
+    ).show()
 }
 
 private fun showNativeDatePicker(

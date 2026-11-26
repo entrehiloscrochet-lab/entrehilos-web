@@ -42,8 +42,13 @@ export async function POST(request: NextRequest) {
     if (data.fecha_entrega !== undefined) {
       data.fecha_entrega = normalizarFechaEntrega(data.fecha_entrega);
     }
-    if (data.hora_entrega !== undefined) {
-      data.hora_entrega = data.hora_entrega ? String(data.hora_entrega).trim() : null;
+    const rawHora = data.hora_entrega ? String(data.hora_entrega).trim() : "";
+    if (rawHora) {
+      data.hora_entrega = rawHora;
+    } else if (data.fecha_entrega) {
+      data.hora_entrega = "12:00";
+    } else if (data.hora_entrega !== undefined) {
+      data.hora_entrega = null;
     }
   }
 
@@ -51,8 +56,13 @@ export async function POST(request: NextRequest) {
     if (data.fecha_entrega !== undefined) {
       data.fecha_entrega = data.fecha_entrega ? String(data.fecha_entrega).split("T")[0].trim() : null;
     }
-    if (data.hora_entrega !== undefined) {
-      data.hora_entrega = data.hora_entrega ? String(data.hora_entrega).trim() : null;
+    const rawHora = data.hora_entrega ? String(data.hora_entrega).trim() : "";
+    if (rawHora) {
+      data.hora_entrega = rawHora;
+    } else if (data.fecha_entrega) {
+      data.hora_entrega = "12:00";
+    } else if (data.hora_entrega !== undefined) {
+      data.hora_entrega = null;
     }
   }
 
