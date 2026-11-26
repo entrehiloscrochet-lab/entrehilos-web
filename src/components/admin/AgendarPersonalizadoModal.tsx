@@ -17,15 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import OrderPhotoUploader from "./OrderPhotoUploader";
-import { DEFAULT_DELIVERY_TIME, formatHora12h } from "@/lib/delivery-schedule";
-
-const HORA_PRESETS = [
-  { val: "08:00", label: "8am" },
-  { val: "10:00", label: "10am" },
-  { val: "12:00", label: "12pm" },
-  { val: "15:00", label: "3pm" },
-  { val: "18:00", label: "6pm" },
-];
+import { DEFAULT_DELIVERY_TIME } from "@/lib/delivery-schedule";
 
 interface AgendarPersonalizadoModalProps {
   isOpen: boolean;
@@ -376,7 +368,7 @@ export default function AgendarPersonalizadoModal({
               </div>
               <div>
                 <label className="block text-[10px] text-gray-500 font-quicksand font-semibold mb-0.5">
-                  Hora exacta (default 12:00 p.m.)
+                  Hora (default 12:00 p.m.)
                 </label>
                 <div className="relative">
                   <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#C04267] pointer-events-none" />
@@ -404,34 +396,6 @@ export default function AgendarPersonalizadoModal({
                   ))}
                 </select>
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-              <div className="flex flex-wrap items-center gap-1">
-                {HORA_PRESETS.map((hp) => {
-                  const active = (horaEntrega || DEFAULT_DELIVERY_TIME) === hp.val;
-                  return (
-                    <button
-                      key={hp.val}
-                      type="button"
-                      onClick={() => setHoraEntrega(hp.val)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-quicksand font-bold border transition-colors cursor-pointer ${
-                        active
-                          ? "bg-[#C04267] text-white border-[#C04267]"
-                          : "bg-white text-gray-600 border-pink-200 hover:bg-pink-100"
-                      }`}
-                    >
-                      {hp.label}
-                    </button>
-                  );
-                })}
-              </div>
-              {fechaEntrega && (
-                <span className="text-[11px] font-quicksand font-semibold text-[#C04267] flex items-center gap-1">
-                  <Clock size={11} />
-                  Aviso diario a las {formatHora12h(horaEntrega || DEFAULT_DELIVERY_TIME)}
-                </span>
-              )}
             </div>
           </div>
 
