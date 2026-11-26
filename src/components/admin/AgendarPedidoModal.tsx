@@ -23,15 +23,7 @@ import {
 import type { Product } from "@/lib/ventify";
 import OrderPhotoUploader from "./OrderPhotoUploader";
 import { ChannelSelect, PaymentMethodSelect } from "./BrandControls";
-import { DEFAULT_DELIVERY_TIME, formatHora12h } from "@/lib/delivery-schedule";
-
-const HORA_PRESETS = [
-  { val: "08:00", label: "8:00 a.m." },
-  { val: "10:00", label: "10:00 a.m." },
-  { val: "12:00", label: "12:00 p.m." },
-  { val: "15:00", label: "3:00 p.m." },
-  { val: "18:00", label: "6:00 p.m." },
-];
+import { DEFAULT_DELIVERY_TIME } from "@/lib/delivery-schedule";
 
 interface AgendarPedidoModalProps {
   isOpen: boolean;
@@ -575,7 +567,7 @@ export default function AgendarPedidoModal({
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 font-quicksand font-semibold mb-0.5">
-                      Hora exacta (por defecto 12:00 p.m.)
+                      Hora (default 12:00 p.m.)
                     </label>
                     <div className="relative">
                       <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#C04267] pointer-events-none" />
@@ -588,35 +580,6 @@ export default function AgendarPedidoModal({
                     </div>
                   </div>
                 </div>
-
-                {/* Atajos rápidos de hora + aviso de recordatorio diario */}
-                <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                  {HORA_PRESETS.map((hp) => {
-                    const active = (horaEntrega || DEFAULT_DELIVERY_TIME) === hp.val;
-                    return (
-                      <button
-                        key={hp.val}
-                        type="button"
-                        onClick={() => setHoraEntrega(hp.val)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-quicksand font-bold border transition-colors cursor-pointer ${
-                          active
-                            ? "bg-[#C04267] text-white border-[#C04267]"
-                            : "bg-white text-gray-600 border-pink-200 hover:bg-pink-100"
-                        }`}
-                      >
-                        {hp.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                {fechaEntrega && (
-                  <p className="text-[11px] font-quicksand font-semibold text-[#C04267] flex items-center gap-1">
-                    <Clock size={11} className="shrink-0" />
-                    <span>
-                      Recordatorio diario a las {formatHora12h(horaEntrega || DEFAULT_DELIVERY_TIME)} hasta el día de entrega
-                    </span>
-                  </p>
-                )}
               </div>
 
               {/* Dedicatoria y Notas (colapsable para ahorrar espacio) */}
