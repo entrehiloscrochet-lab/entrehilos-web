@@ -297,6 +297,11 @@ fun AlertasScreen(
                                 fontSize = 12.sp,
                                 color = EhColors.TextSecondary
                             )
+                            Text(
+                                text = "Actualizado ${BuildConfig.APK_BUILD_DATE}",
+                                fontSize = 11.sp,
+                                color = EhColors.TextSecondary
+                            )
                         }
                         EhBadge(
                             text = "${state.session?.rol ?: "admin"} · v${BuildConfig.VERSION_NAME}",
