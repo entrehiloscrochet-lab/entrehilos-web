@@ -43,5 +43,67 @@ PUBLIC_APK="${ROOT_DIR}/public/downloads/entrehilos-admin.apk"
 cp "$SOURCE_APK" "$DEST_APK"
 cp "$SOURCE_APK" "$PUBLIC_APK"
 
+NODE_BIN="$(command -v node || ls -1 "${HOME}/.nvm/versions/node/"*/bin/node 2>/dev/null | tail -n 1 || true)"
+if [[ -n "$NODE_BIN" ]]; then
+  ROOT_DIR="$ROOT_DIR" PUBLIC_APK="$PUBLIC_APK" "$NODE_BIN" - <<'EOF'
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+
+const rootDir = process.env.ROOT_DIR;
+const apkPath = process.env.PUBLIC_APK;
+const gradlePath = path.join(rootDir, "android", "app", "build.gradle");
+const metaOutPath = path.join(rootDir, "src", "lib", "admin-apk-meta.json");
+
+const gradleTxt = fs.readFileSync(gradlePath, "utf8");
+const verCodeMatch = gradleTxt.match(/versionCode\s+(\d+)/);
+const verNameMatch = gradleTxt.match(/versionName\s+"([^"]+)"/);
+
+const buf = fs.readFileSync(apkPath);
+const stat = fs.statSync(apkPath);
+const sha256 = crypto.createHash("sha256").update(buf).digest("hex");
+const sizeBytes = stat.size;
+const sizeLabel = `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+
+const now = new Date();
+const parts = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Lima",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+}).formatToParts(now);
+
+const getPart = (t) => parts.find((p) => p.type === t)?.value || "00";
+const yyyy = getPart("year");
+const mm = getPart("month");
+const dd = getPart("day");
+const hh24 = Number(getPart("hour")) % 24;
+const min = getPart("minute");
+const sec = getPart("second");
+
+const suffix = hh24 < 12 ? "a.m." : "p.m.";
+const h12 = hh24 === 0 ? 12 : hh24 > 12 ? hh24 - 12 : hh24;
+const hhStr = String(hh24).padStart(2, "0");
+
+const meta = {
+  versionName: verNameMatch ? verNameMatch[1] : "1.0.0",
+  versionCode: verCodeMatch ? Number(verCodeMatch[1]) : 1,
+  updatedAtIso: `${yyyy}-${mm}-${dd}T${hhStr}:${min}:${sec}-05:00`,
+  updatedAtLabel: `${dd}/${mm}/${yyyy} · ${h12}:${min} ${suffix}`,
+  updatedAtShort: `${dd}/${mm} · ${h12}:${min} ${suffix}`,
+  sizeBytes,
+  sizeLabel,
+  sha256,
+};
+
+fs.writeFileSync(metaOutPath, JSON.stringify(meta, null, 2) + "\n", "utf8");
+console.log("[build-admin-apk] Metadata actualizada:", metaOutPath, meta.versionName, meta.updatedAtLabel);
+EOF
+fi
+
 echo "[build-admin-apk] APK compilado correctamente:"
 ls -lh "$DEST_APK" "$PUBLIC_APK"
