@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import pe.entrehilos.admin.data.ForegroundAlertEvent
 import pe.entrehilos.admin.data.NotificationTarget
+import pe.entrehilos.admin.data.SessionStore
 import pe.entrehilos.admin.theme.EntreHilosAdminTheme
 import pe.entrehilos.admin.ui.EntreHilosAdminApp
 import pe.entrehilos.admin.viewmodel.AdminViewModel
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
         NotificationHelper.clearLegacyServiceNotification(this)
         NotificationHelper.ensureChannels(this)
 
-        if (AlertPrefs.isEnabled(this)) {
+        if (AlertPrefs.isEnabled(this) || SessionStore.getSession(this) != null) {
             AlertPollScheduler.start(this)
         }
 
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
                     state = state,
                     onSignIn = viewModel::signIn,
                     onRefresh = { viewModel.loadAllData(force = true) },
+                    onSyncPending = viewModel::syncPendingNow,
                     onSelectMainTab = viewModel::selectMainTab,
                     onSelectPedidosSub = viewModel::selectPedidosSubTab,
                     onSelectClientesSub = viewModel::selectClientesSubTab,
@@ -113,7 +115,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         viewModel.setAppInForeground(false)
-        if (AlertPrefs.isEnabled(this)) {
+        if (AlertPrefs.isEnabled(this) || SessionStore.getSession(this) != null) {
             AlertPollScheduler.scheduleNext(this, afterError = false, immediateSeconds = 15L)
         }
         super.onPause()

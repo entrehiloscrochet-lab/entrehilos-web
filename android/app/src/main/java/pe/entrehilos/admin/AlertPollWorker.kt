@@ -3,6 +3,7 @@ package pe.entrehilos.admin
 import android.content.Context
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import pe.entrehilos.admin.data.SessionStore
 
 class AlertPollWorker(
     appContext: Context,
@@ -12,7 +13,7 @@ class AlertPollWorker(
     override fun doWork(): Result {
         val ctx = applicationContext
         NotificationHelper.clearLegacyServiceNotification(ctx)
-        if (!AlertPrefs.isEnabled(ctx)) {
+        if (!AlertPrefs.isEnabled(ctx) && SessionStore.getSession(ctx) == null) {
             return Result.success()
         }
         val ok = AlertPoller.pollOnce(ctx)

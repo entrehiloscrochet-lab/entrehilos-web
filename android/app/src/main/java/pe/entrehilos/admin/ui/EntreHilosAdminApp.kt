@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -72,6 +73,7 @@ fun EntreHilosAdminApp(
     state: AdminUiState,
     onSignIn: (String, String) -> Unit,
     onRefresh: () -> Unit,
+    onSyncPending: () -> Unit,
     onSelectMainTab: (MainTab) -> Unit,
     onSelectPedidosSub: (PedidosSubTab) -> Unit,
     onSelectClientesSub: (ClientesSubTab) -> Unit,
@@ -280,7 +282,7 @@ fun EntreHilosAdminApp(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (state.isLoading || state.isMutating) {
+            if (state.isLoading || state.isMutating || state.isSyncing) {
                 LinearProgressIndicator(
                     color = EhColors.Primary,
                     trackColor = EhColors.PrimarySoft,
@@ -288,16 +290,62 @@ fun EntreHilosAdminApp(
                 )
             }
 
-            if (!state.errorBanner.isNullOrBlank()) {
+            if (state.isOffline || state.pendingSyncCount > 0 || state.isSyncing) {
+                val isInfoSync = !state.isOffline
+                val bg = if (isInfoSync) EhColors.InfoBg else EhColors.WarningBg
+                val fg = if (isInfoSync) EhColors.InfoFg else EhColors.WarningFg
+                val border = if (isInfoSync) Color(0xFFBFDBFE) else Color(0xFFFDE68A)
+                val msg = when {
+                    state.isOffline && state.pendingSyncCount > 0 ->
+                        "Sin internet · Modo offline (${state.pendingSyncCount} cambio(s) guardado(s) en el celular)"
+                    state.isOffline ->
+                        "Sin internet · Modo offline activo (los cambios se guardarán en el celular)"
+                    state.isSyncing ->
+                        "Sincronizando ${state.pendingSyncCount} cambio(s) con Supabase..."
+                    else ->
+                        "${state.pendingSyncCount} cambio(s) pendiente(s) de sincronizar"
+                }
                 Card(
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (state.isOffline) EhColors.WarningBg else EhColors.ErrorBg
-                    ),
-                    border = BorderStroke(
-                        1.dp,
-                        if (state.isOffline) Color(0xFFFDE68A) else Color(0xFFFECACA)
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = bg),
+                    border = BorderStroke(1.dp, border),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (state.isOffline) Icons.Outlined.WifiOff else Icons.Outlined.Sync,
+                            contentDescription = null,
+                            tint = fg,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = msg,
+                            fontSize = 12.sp,
+                            color = fg,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (!state.isOffline && !state.isSyncing && state.pendingSyncCount > 0) {
+                            TextButton(onClick = onSyncPending) {
+                                Text("Sincronizar", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = fg)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!state.errorBanner.isNullOrBlank() && !state.isOffline) {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = EhColors.ErrorBg),
+                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 14.dp, vertical = 6.dp)
@@ -312,13 +360,13 @@ fun EntreHilosAdminApp(
                         Icon(
                             imageVector = Icons.Outlined.WifiOff,
                             contentDescription = null,
-                            tint = if (state.isOffline) EhColors.WarningFg else EhColors.ErrorFg,
+                            tint = EhColors.ErrorFg,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
                             text = state.errorBanner,
                             fontSize = 12.sp,
-                            color = if (state.isOffline) EhColors.WarningFg else EhColors.ErrorFg,
+                            color = EhColors.ErrorFg,
                             modifier = Modifier.weight(1f)
                         )
                         TextButton(onClick = onRefresh) {

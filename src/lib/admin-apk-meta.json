@@ -1,10 +1,10 @@
 {
-  "versionName": "2.4.3",
-  "versionCode": 9,
-  "updatedAtIso": "2026-11-25T21:23:32-05:00",
-  "updatedAtLabel": "25/11/2026 · 9:23 p.m.",
-  "updatedAtShort": "25/11 · 9:23 p.m.",
-  "sizeBytes": 11772107,
-  "sizeLabel": "11.2 MB",
-  "sha256": "122a660058f0955a05cd3a575f2e7f5a1c7419e65935474fac6d48201df3757b"
+  "versionName": "2.5.0",
+  "versionCode": 10,
+  "updatedAtIso": "2026-11-26T13:00:44-05:00",
+  "updatedAtLabel": "26/11/2026 · 1:00 p.m.",
+  "updatedAtShort": "26/11 · 1:00 p.m.",
+  "sizeBytes": 11814571,
+  "sizeLabel": "11.3 MB",
+  "sha256": "352b547815e237c28da878757fa5edacf8d24795f4facd8a2d1292bc1e32f998"
 }
